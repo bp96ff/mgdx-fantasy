@@ -1,0 +1,6 @@
+# Original artwork and draft board photos. The site only uses the web-sized copies in assets/.
+Media/
+.claude/
+Thumbs.db
+desktop.ini
+.DS_Store

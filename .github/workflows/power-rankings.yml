@@ -1,0 +1,37 @@
+# Keeps the site's locked weekly files up to date. It checks every 2 hours Tuesday through Friday (UTC).
+# - Power Rankings: calculated once, when ESPN has moved to a new week and finalized the last one.
+# - Standings: saved at the same time, then updated later in the week only if a stat correction changes
+#   a past score.
+# Most checks change nothing, and then nothing is committed.
+name: Weekly locked data
+
+on:
+  schedule:
+    - cron: '0 */2 * * 2,3,4,5'
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tools/run-standings.js
+      - run: node tools/run-power-rankings.js
+      - run: node tools/run-transactions.js
+      - name: Save new results
+        run: |
+          git add data/standings.json data/power-rankings.json data/transactions.json
+          if git diff --cached --quiet; then
+            echo "No new results."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Update weekly locked data"
+            git push
+          fi
