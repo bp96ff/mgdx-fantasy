@@ -21,7 +21,7 @@ window.MGDX = {
       id: 1014280149,
       logo: 'assets/img/lab-rats.png',
       art: 'assets/img/lab-rats-alt-crop.jpg',
-      badge: 'assets/img/champs/lab-rats.png',
+      badge: 'assets/img/champs/lab-rats.png?v=2',
       theme: 'lr',
       ownerNames: { 2: 'Trace' }, // Cooking em
       // Override the logo ESPN reports, by teamId. Needed for custom uploads, which ESPN only serves to logged-in users.
@@ -42,7 +42,7 @@ window.MGDX = {
       id: 424269265,
       logo: 'assets/img/molecular-mice.png',
       art: 'assets/img/molecular-mice-alt.jpg',
-      badge: 'assets/img/champs/molecular-mice.png',
+      badge: 'assets/img/champs/molecular-mice.png?v=2',
       theme: 'mm',
       // Override the owner name ESPN reports, by teamId.
       ownerNames: { 7: 'Kayla' }, // Say CHEESE!
@@ -58,7 +58,7 @@ window.MGDX = {
       id: 198075491,
       logo: 'assets/img/genomic-gerbils.jpg',
       art: 'assets/img/genomic-gerbils-alt.jpg',
-      badge: 'assets/img/champs/genomic-gerbils.png',
+      badge: 'assets/img/champs/genomic-gerbils.png?v=2',
       theme: 'gg',
       ownerNames: { 9: 'Sloan' }, // the End of YoRHa
       champions: {
@@ -72,7 +72,7 @@ window.MGDX = {
       id: 459077645,
       logo: 'assets/img/research-rodents.png',
       art: 'assets/img/research-rodents-alt-crop.jpg',
-      badge: 'assets/img/champs/research-rodents.png',
+      badge: 'assets/img/champs/research-rodents.png?v=2',
       theme: 'rr',
       ownerNames: { 5: 'Dago' }, // Taylor Gang
       champions: {

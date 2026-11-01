@@ -118,9 +118,10 @@ main { flex: 1; padding-top: 28px; padding-bottom: 48px; outline: none; }
 .avatar.xl { width: 84px; height: 84px; border-width: 3px; border-color: var(--accent); }
 /* Former-champion league logos beside an owner's name */
 .champs { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: -4px; font-style: normal; }
-/* Transparent artwork is mostly black, so a thin white outline keeps it visible on navy */
-.champ { width: 17px; height: 17px; object-fit: contain; filter: drop-shadow(0 0 .6px #fff) drop-shadow(0 0 .6px #fff); }
-.champ.goat { filter: none; } /* gold already stands out on navy */
+/* Transparent artwork is mostly black, so the images have a thin white outline to stay visible on navy.
+   It's part of the image because phones can skip a filter this fine. */
+.champ { width: 18px; height: 18px; object-fit: contain; }
+.champ.goat { width: 17px; height: 17px; } /* gold already stands out on navy */
 .team-cell small:has(.champs) { white-space: normal; overflow: visible; } /* logos drop to a new line rather than get cut off */
 .nfl { width: 18px; height: 18px; object-fit: contain; vertical-align: -4px; margin: 0 3px 0 4px; }
 
@@ -684,18 +685,13 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .nav-list .dot { display: none; }
   .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .nav-list a[data-route="home"]::before { background-image: url("../assets/img/mgdx-logo.png"); border-radius: 50%; }
-  .nav-list a[data-route="lab-rats"]::before { background-image: url("../assets/img/champs/lab-rats.png"); }
-  .nav-list a[data-route="molecular-mice"]::before { background-image: url("../assets/img/champs/molecular-mice.png"); }
-  .nav-list a[data-route="genomic-gerbils"]::before { background-image: url("../assets/img/champs/genomic-gerbils.png"); }
-  .nav-list a[data-route="research-rodents"]::before { background-image: url("../assets/img/champs/research-rodents.png"); }
+  .nav-list a[data-route="lab-rats"]::before { background-image: url("../assets/img/champs/lab-rats.png?v=2"); width: 37px; }
+  .nav-list a[data-route="molecular-mice"]::before { background-image: url("../assets/img/champs/molecular-mice.png?v=2"); width: 37px; }
+  .nav-list a[data-route="genomic-gerbils"]::before { background-image: url("../assets/img/champs/genomic-gerbils.png?v=2"); width: 37px; }
+  .nav-list a[data-route="research-rodents"]::before { background-image: url("../assets/img/champs/research-rodents.png?v=2"); width: 37px; }
   .nav-list a[data-route="cross-league"]::before { background-image: url("../assets/img/nav/cross-league.png"); }
   .nav-list a[data-route="blog"]::before { background-image: url("../assets/img/nav/blog.png"); }
   .nav-list a[data-route="archives"]::before { background-image: url("../assets/img/nav/archives.png"); width: 28px; }
-  /* Same white edge as the champion logos, so the dark silhouettes show on navy */
-  .nav-list a[data-route="lab-rats"]::before,
-  .nav-list a[data-route="molecular-mice"]::before,
-  .nav-list a[data-route="genomic-gerbils"]::before,
-  .nav-list a[data-route="research-rodents"]::before { filter: drop-shadow(0 0 .6px #fff) drop-shadow(0 0 .6px #fff); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; }
