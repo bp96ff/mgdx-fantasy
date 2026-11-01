@@ -225,6 +225,7 @@ th.sortable button {
   font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit;
 }
 th.sortable button:hover, th.sorted button { color: var(--text); }
+th.c-rank.sortable button { justify-content: center; gap: 2px; padding-left: 0; padding-right: 0; letter-spacing: 0; }
 th.sortable .arrow { width: 0; height: 0; border: 5px solid transparent; border-top-color: currentColor; opacity: .35; margin-top: 5px; }
 th.sorted .arrow { opacity: 1; color: var(--accent); }
 th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: currentColor; margin-top: -5px; }
@@ -302,6 +303,7 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
 .power th.c-num { white-space: normal; vertical-align: bottom; line-height: 1.2; }
 .power .pw-title { color: var(--accent); font-size: 18px; }
 .pw-hint { display: none; }
+.pw-sort { margin: 0; padding: 8px 12px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
 @media (max-width: 520px) {
   /* Four tabs have to fit a phone: labels wrap */
   .subtabs { gap: 2px; }
@@ -310,6 +312,7 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
 @media (max-width: 600px) {
   /* Phones: the table swipes sideways with rank and team fixed in view */
   .pw-hint { display: block; margin: 0; padding: 8px 12px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
+  .pw-sort + .pw-hint, .st-expanded .pw-sort + .st-hint { padding-top: 0; }
   .power { width: max-content; min-width: 100%; }
   .power th.c-num { white-space: nowrap; }
   .power .c-rank, .power tr > :nth-child(2) { position: sticky; z-index: 1; background: var(--surface); }

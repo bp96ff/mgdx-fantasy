@@ -44,6 +44,7 @@ Change `SEASON` in `js/config.js` (and the league IDs if ESPN gives you new ones
 - Once the site is on GitHub, `.github/workflows/power-rankings.yml` runs it on a schedule. The script does nothing until ESPN has moved to a new week and finalized the last one, then locks that week's results.
 - `tools/projections.js` plays out the rest of the season 10,000 times. A team's expected weekly score is 65% roster projection (best legal lineup from ESPN's rest-of-season player averages, skipping NFL byes and expected missed games) and 35% its actual average so far. Weekly randomness is measured from this season's scores.
 - It uses the real remaining in-league and cross-league games, the standings rules (overall win %, then PF), and the playoff format: top 5 make it, top 2 skip round 1 (week 15), seeds 3–5 play a 3-way with the top score advancing, and round 2 (week 16) is a 3-way for the title.
+- It also plays the Champions Cup (week 17, highest score of the four league champions is Grand Champion). The Title Odds tab on Home reads those results from the same file.
 - The settings (`ROSTER_WEIGHT`, `SKILL_SD`, `SIMS`) are at the top of that file. The odds are estimates; the model hasn't been tested against past seasons.
 
 ## Transactions

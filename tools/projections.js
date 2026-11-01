@@ -9,6 +9,7 @@
   const LAST_REGULAR_WEEK = 14;
   const ROUND_1_WEEK = 15; // seeds 3, 4, 5: highest score advances
   const ROUND_2_WEEK = 16; // seeds 1, 2 and the round 1 winner: highest score wins the league
+  const CHAMPIONS_CUP_WEEK = 17; // the four league champions: highest score is Grand Champion
   const LAST_NFL_WEEK = 18; // ESPN's rest-of-season totals run through here
   const ROSTER_WEIGHT = 0.65; // share of a team's expected score from projections; the rest is actual scoring
   const SKILL_SD = 6; // how far a team's true level could be from our estimate, points per week
@@ -52,7 +53,7 @@
     const index = new Map(teams.map((t, i) => [t.key, i]));
     const firstWeek = current.week;
     const weeks = [];
-    for (let w = firstWeek; w <= ROUND_2_WEEK; w++) weeks.push(w);
+    for (let w = firstWeek; w <= CHAMPIONS_CUP_WEEK; w++) weeks.push(w);
 
     // Weekly spread: how much teams swing around their own average, across all completed weeks.
     let sumSq = 0;
@@ -81,7 +82,7 @@
       byLeague.get(t.league).push(i);
     });
 
-    const counts = teams.map(() => ({ playoffs: 0, bye: 0, title: 0 }));
+    const counts = teams.map(() => ({ playoffs: 0, bye: 0, title: 0, grand: 0 }));
     const random = mulberry32(seed);
     const normal = () => Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random());
 
@@ -90,6 +91,12 @@
     const pf = new Float64Array(n);
     const skill = new Float64Array(n);
     const scores = weeks.map(() => new Float64Array(n));
+    const scoreIn = (week, t) => {
+      const final = teams[t].scores[week];
+      if (week < firstWeek && final != null) return final;
+      return week >= firstWeek ? scores[week - firstWeek][t] : 0;
+    };
+    const best = (week, field) => field.reduce((x, y) => (scoreIn(week, y) > scoreIn(week, x) ? y : x));
 
     for (let s = 0; s < sims; s++) {
       for (let t = 0; t < n; t++) {
@@ -124,20 +131,18 @@
           else { wins[a] += 0.5; wins[b] += 0.5; }
         }
       }
+      const champions = [];
       for (const members of byLeague.values()) {
         const order = members.slice().sort((a, b) =>
           (wins[b] / (played[b] || 1)) - (wins[a] / (played[a] || 1)) || pf[b] - pf[a]);
         order.slice(0, 5).forEach((t) => { counts[t].playoffs++; });
         order.slice(0, 2).forEach((t) => { counts[t].bye++; });
-        const scoreIn = (week, t) => {
-          const final = teams[t].scores[week];
-          if (week < firstWeek && final != null) return final;
-          return week >= firstWeek ? scores[week - firstWeek][t] : 0;
-        };
-        const best = (week, field) => field.reduce((x, y) => (scoreIn(week, y) > scoreIn(week, x) ? y : x));
         const round1Winner = best(ROUND_1_WEEK, order.slice(2, 5));
-        counts[best(ROUND_2_WEEK, [order[0], order[1], round1Winner])].title++;
+        const champion = best(ROUND_2_WEEK, [order[0], order[1], round1Winner]);
+        counts[champion].title++;
+        champions.push(champion);
       }
+      counts[best(CHAMPIONS_CUP_WEEK, champions)].grand++;
     }
 
     return {
@@ -147,6 +152,7 @@
         playoffs: counts[i].playoffs / sims,
         bye: counts[i].bye / sims,
         title: counts[i].title / sims,
+        grand: counts[i].grand / sims,
         expected: means[Math.min(1, means.length - 1)][i],
       }])),
     };

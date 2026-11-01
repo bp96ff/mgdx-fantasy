@@ -464,7 +464,7 @@
   // entries: [{ team, league, results }] already in rank order.
   // opts.showLeague tints each row with its league color (all-league table on Home).
   function standingsTable(entries, opts) {
-    // opts.sort: { key: 'rank'|'pf'|'pa', dir: 'desc'|'asc' } makes Overall/PF/PA headers clickable.
+    // opts.sort: { key: 'rank'|'pct'|'pf'|'pa', dir: 'desc'|'asc' } makes Rank/Overall/PF/PA headers clickable.
     const { overall, currentWeek, playoffTeams = 0, showLeague = false, sort = null } = opts;
     const sortTh = (key, label, cls, title = '') => {
       if (!sort) return `<th class="${cls}" ${title ? `title="${title}"` : ''}>${label}</th>`;
@@ -513,11 +513,12 @@
     return `
       <div class="panel st-panel ${standingsExpanded ? 'st-expanded' : ''}">
         <button class="toggle st-expand" type="button" aria-expanded="${standingsExpanded}">${standingsExpanded ? 'Show fewer columns' : 'Show all columns'}</button>
+        ${sort ? '<p class="pw-sort">Table sortable by Rank, Overall Record, PF, and PA</p>' : ''}
         <p class="st-hint">Swipe the table sideways to see every column</p>
         <div class="table-wrap">
           <table class="standings">
             <thead><tr>
-              <th class="c-rank">Rank</th><th>Team</th>${sortTh('rank', overall ? 'Overall' : 'Record', 'c-num', 'Sort by standings (record, then PF)')}
+              ${sortTh('rank', 'Rank', 'c-rank', 'Sort by standings (record, then PF)')}<th>Team</th>${sortTh('pct', overall ? 'Overall' : 'Record', 'c-num', 'Sort by record')}
               ${overall ? '<th class="c-num hide-sm" title="In-league record">League</th><th class="c-num hide-sm" title="Cross-league record">Cross</th>' : ''}
               <th class="c-num hide-sm ${showLeague ? 'hide-md' : ''}">Pct</th>
               <th class="c-last hide-xs" title="In-league and cross-league games from the last 3 completed weeks">${overall ? 'Last 6' : 'Last 3'}</th>${sortTh('pf', 'PF', 'c-num')}${sortTh('pa', 'PA', 'c-num hide-sm')}
@@ -748,6 +749,20 @@
     return p;
   }
 
+  const BLANK_ODDS = { playoffs: 0, bye: 0, title: 0, grand: 0 };
+  function oddsPct(v) {
+    const n = v * 100;
+    if (n >= 99.5) return '>99%';
+    if (n < 0.5) return '<1%';
+    return `${Math.round(n)}%`;
+  }
+  function lockedStatus({ week, calculatedAt }, currentWeek) {
+    const asOf = new Date(calculatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+    return week < currentWeek
+      ? `From Week ${week}, calculated ${asOf}. This week's update is on its way.`
+      : `Locked for Week ${week}. Calculated ${asOf}; next update after this week's games are final.`;
+  }
+
   async function renderPowerRankings(league, body, token) {
     const locked = await lockedRankings();
     if (token !== renderToken) return;
@@ -755,19 +770,10 @@
       body().innerHTML = '<div class="state"><strong>Power Rankings aren\'t available yet.</strong><span>They\'re calculated once a week, after ESPN finalizes the previous week.</span></div>';
       return;
     }
-    const { odds, sims, week, calculatedAt } = locked;
-    const blank = { playoffs: 0, bye: 0, title: 0 };
-    const asOf = new Date(calculatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' });
-    const status = week < league.currentWeek
-      ? `From Week ${week}, calculated ${asOf}. This week's update is on its way.`
-      : `Locked for Week ${week}. Calculated ${asOf}; next update after this week's games are final.`;
-    const pct = (v) => {
-      const n = v * 100;
-      if (n >= 99.5) return '>99%';
-      if (n < 0.5) return '<1%';
-      return `${Math.round(n)}%`;
-    };
-    const rows = league.teams.map((team, standing) => ({ team, standing, o: odds[`${league.slug}:${team.id}`] || blank }))
+    const { odds, sims } = locked;
+    const status = lockedStatus(locked, league.currentWeek);
+    const pct = oddsPct;
+    const rows = league.teams.map((team, standing) => ({ team, standing, o: odds[`${league.slug}:${team.id}`] || BLANK_ODDS }))
       .sort((a, b) => b.o.title - a.o.title || b.o.playoffs - a.o.playoffs || b.o.bye - a.o.bye || a.standing - b.standing);
     body().innerHTML = `
       <p class="pw-status">${esc(status)}</p>
@@ -801,7 +807,71 @@
   }
 
   // ---------- home ----------
-  const HOME_TABS = ['standings'];
+  const HOME_TABS = ['standings', 'title-odds'];
+  const HOME_TAB_NAMES = { standings: 'Standings', 'title-odds': 'Title Odds' };
+
+  // Every team's playoff, league title and Grand Champion odds, from the same weekly run as the Power Rankings.
+  async function renderTitleOdds(entries, week, body, token) {
+    const locked = await lockedRankings();
+    if (token !== renderToken) return;
+    if (!locked) {
+      body().innerHTML = '<div class="state"><strong>Title Odds aren\'t available yet.</strong><span>They\'re calculated once a week, after ESPN finalizes the previous week.</span></div>';
+      return;
+    }
+    const all = entries.map((e) => ({ ...e, o: locked.odds[`${e.league.slug}:${e.team.id}`] || BLANK_ODDS }));
+    // Click Rank / Grand Champion to sort; click the active one again to flip direction.
+    let sort = { key: 'grand', dir: 'desc' };
+    const sortTh = (key, label, cls, title) => {
+      const on = sort.key === key;
+      const aria = on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+      return `<th class="${cls} sortable ${on ? 'sorted' : ''}" aria-sort="${aria}">
+        <button type="button" data-sort="${key}" title="${title}">${label}<i class="arrow ${on ? sort.dir : ''}" aria-hidden="true"></i></button></th>`;
+    };
+    const draw = () => {
+      const val = (e) => (sort.key === 'rank' ? -e.rank : e.o.grand);
+      const rows = all.slice().sort((a, b) => (sort.dir === 'desc' ? val(b) - val(a) : val(a) - val(b))
+        || b.o.title - a.o.title || b.o.playoffs - a.o.playoffs || a.rank - b.rank);
+      const scrolled = body().querySelector('.table-wrap')?.scrollLeft || 0;
+      body().innerHTML = `
+      <p class="pw-status">${esc(lockedStatus(locked, week))}</p>
+      <div class="panel">
+        <p class="pw-sort">Table sortable by Rank or Grand Champion Odds</p>
+        <p class="pw-hint">Swipe the table sideways to see every column</p>
+        <div class="table-wrap">
+          <table class="standings power">
+            <thead><tr>
+              ${sortTh('rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th><th class="c-num">Overall</th>
+              <th class="c-num">Playoffs</th><th class="c-num">Win league</th>${sortTh('grand', 'Grand<br>Champion', 'c-num', 'Sort by Grand Champion odds')}
+            </tr></thead>
+            <tbody>${rows.map(({ team: t, league, o, rank }) => `
+              <tr class="lg-row" style="--lc:var(--${league.theme})">
+                <td class="c-rank"><span class="rank">${rank}</span></td>
+                <td class="c-team">
+                  <a class="team-cell" href="#/${league.slug}/rosters?team=${t.id}">
+                    ${teamLogo(t, league)}
+                    <span><strong>${esc(t.name)}</strong><small>${esc(t.owner)}${champBadges(t)}</small><small class="lg-name">${esc(league.displayName)}</small></span>
+                  </a>
+                </td>
+                <td class="c-num c-rec">${record(t)}</td>
+                <td class="c-num">${oddsPct(o.playoffs)}</td>
+                <td class="c-num">${oddsPct(o.title)}</td>
+                <td class="c-num pw-title">${oddsPct(o.grand)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="fineprint">Rank is each team's place in the overall standings. Each league's champion goes to the Champions Cup in Week 17, where the highest score of the four wins. Estimates from ${locked.sims.toLocaleString('en-US')} simulations of the rest of the season, the same run as the Power Rankings tabs.</p>`;
+      body().querySelector('.table-wrap').scrollLeft = scrolled;
+      body().querySelectorAll('th button[data-sort]').forEach((btn) => btn.addEventListener('click', () => {
+        const key = btn.dataset.sort;
+        sort = key === sort.key ? { key, dir: sort.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' };
+        draw();
+        body().querySelector(`th button[data-sort="${key}"]`).focus();
+      }));
+    };
+    draw();
+  }
 
   async function renderHome(sub) {
     const token = ++renderToken;
@@ -817,7 +887,7 @@
         </div>
       </section>
       <nav class="subtabs" aria-label="Home sections">
-        ${HOME_TABS.map((s) => `<a href="#/home/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${s[0].toUpperCase() + s.slice(1)}</a>`).join('')}
+        ${HOME_TABS.map((s) => `<a href="#/home/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${HOME_TAB_NAMES[s]}</a>`).join('')}
       </nav>
       <div id="league-body">${loading()}</div>`;
     const body = () => document.getElementById('league-body');
@@ -844,8 +914,12 @@
         entries.forEach((e) => { e.results = results[o.leagues.findIndex((l) => l.slug === e.league.slug)].get(e.team.id); });
       }
       document.getElementById('home-eyebrow').textContent = `${SEASON} · Week ${week}`;
+      if (sub === 'title-odds') {
+        await renderTitleOdds(entries, week, body, token);
+        return;
+      }
 
-      // Click Overall / PF / PA to sort; click the active one again to flip direction.
+      // Click Rank / Overall / PF / PA to sort; click the active one again to flip direction.
       let sort = { key: 'rank', dir: 'desc' };
       const draw = () => {
         const val = (e) => (sort.key === 'rank' ? -e.rank : e.team[sort.key]);

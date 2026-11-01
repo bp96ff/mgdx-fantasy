@@ -100,7 +100,7 @@ async function main() {
     weeklySD: Math.round(weeklySD * 10) / 10,
     odds: Object.fromEntries(teams.map((t) => t.key).sort().map((key) => {
       const v = odds.get(key);
-      return [key, { playoffs: round(v.playoffs), bye: round(v.bye), title: round(v.title) }];
+      return [key, { playoffs: round(v.playoffs), bye: round(v.bye), title: round(v.title), grand: round(v.grand) }];
     })),
   };
   fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });

@@ -1,189 +1,225 @@
 {
  "season": 2026,
  "week": 8,
- "calculatedAt": "2026-11-01T19:00:24.493Z",
+ "calculatedAt": "2026-11-01T23:41:34.514Z",
  "sims": 10000,
  "weeklySD": 23.4,
  "odds": {
   "genomic-gerbils:1": {
-   "playoffs": 0.9503,
-   "bye": 0.3964,
-   "title": 0.2235
+   "playoffs": 0.9416,
+   "bye": 0.355,
+   "title": 0.2185,
+   "grand": 0.0574
   },
   "genomic-gerbils:2": {
-   "playoffs": 0.247,
-   "bye": 0.0077,
-   "title": 0.0098
+   "playoffs": 0.1973,
+   "bye": 0.0039,
+   "title": 0.0073,
+   "grand": 0.0003
   },
   "genomic-gerbils:3": {
-   "playoffs": 0.0559,
-   "bye": 0.0002,
-   "title": 0.0017
+   "playoffs": 0.0762,
+   "bye": 0.0009,
+   "title": 0.0036,
+   "grand": 0.0003
   },
   "genomic-gerbils:4": {
    "playoffs": 0.0001,
    "bye": 0,
-   "title": 0
+   "title": 0,
+   "grand": 0
   },
   "genomic-gerbils:5": {
-   "playoffs": 0.2735,
-   "bye": 0.0109,
-   "title": 0.0104
+   "playoffs": 0.298,
+   "bye": 0.0137,
+   "title": 0.0121,
+   "grand": 0.0013
   },
   "genomic-gerbils:6": {
-   "playoffs": 0.9554,
-   "bye": 0.3877,
-   "title": 0.134
+   "playoffs": 0.9546,
+   "bye": 0.4376,
+   "title": 0.1431,
+   "grand": 0.0252
   },
   "genomic-gerbils:7": {
-   "playoffs": 0.6544,
-   "bye": 0.0514,
-   "title": 0.0469
+   "playoffs": 0.6956,
+   "bye": 0.0698,
+   "title": 0.0547,
+   "grand": 0.0084
   },
   "genomic-gerbils:8": {
-   "playoffs": 0.9999,
-   "bye": 0.9765,
-   "title": 0.4923
+   "playoffs": 0.9997,
+   "bye": 0.9711,
+   "title": 0.4793,
+   "grand": 0.1562
   },
   "genomic-gerbils:9": {
-   "playoffs": 0.8635,
-   "bye": 0.1692,
-   "title": 0.0814
+   "playoffs": 0.8369,
+   "bye": 0.148,
+   "title": 0.0814,
+   "grand": 0.0123
   },
   "lab-rats:1": {
-   "playoffs": 0.9814,
-   "bye": 0.703,
-   "title": 0.2419
+   "playoffs": 0.9961,
+   "bye": 0.8441,
+   "title": 0.2742,
+   "grand": 0.0427
   },
   "lab-rats:11": {
-   "playoffs": 0.0107,
+   "playoffs": 0.0047,
    "bye": 0.0001,
-   "title": 0
+   "title": 0.0003,
+   "grand": 0
   },
   "lab-rats:12": {
-   "playoffs": 0.9954,
-   "bye": 0.8582,
-   "title": 0.2948
+   "playoffs": 0.9977,
+   "bye": 0.8882,
+   "title": 0.3061,
+   "grand": 0.0555
   },
   "lab-rats:2": {
-   "playoffs": 0.0619,
-   "bye": 0.0005,
-   "title": 0.008
+   "playoffs": 0.0381,
+   "bye": 0.0002,
+   "title": 0.0043,
+   "grand": 0.0009
   },
   "lab-rats:3": {
-   "playoffs": 0.6936,
-   "bye": 0.0858,
-   "title": 0.1004
+   "playoffs": 0.6947,
+   "bye": 0.0497,
+   "title": 0.0955,
+   "grand": 0.015
   },
   "lab-rats:4": {
-   "playoffs": 0.5363,
-   "bye": 0.0454,
-   "title": 0.0508
+   "playoffs": 0.6262,
+   "bye": 0.0499,
+   "title": 0.0534,
+   "grand": 0.0075
   },
   "lab-rats:5": {
-   "playoffs": 0.6889,
-   "bye": 0.0817,
-   "title": 0.09
+   "playoffs": 0.6141,
+   "bye": 0.0317,
+   "title": 0.07,
+   "grand": 0.0115
   },
   "lab-rats:6": {
-   "playoffs": 0.1389,
-   "bye": 0.0037,
-   "title": 0.0097
+   "playoffs": 0.1748,
+   "bye": 0.0033,
+   "title": 0.0085,
+   "grand": 0.0007
   },
   "lab-rats:7": {
-   "playoffs": 0.8929,
-   "bye": 0.2216,
-   "title": 0.2044
+   "playoffs": 0.8536,
+   "bye": 0.1328,
+   "title": 0.1877,
+   "grand": 0.041
   },
   "molecular-mice:1": {
-   "playoffs": 0.116,
-   "bye": 0.0005,
-   "title": 0.0064
+   "playoffs": 0.1631,
+   "bye": 0.0001,
+   "title": 0.0102,
+   "grand": 0.0012
   },
   "molecular-mice:10": {
-   "playoffs": 0.98,
-   "bye": 0.2391,
-   "title": 0.1594
+   "playoffs": 0.9816,
+   "bye": 0.2072,
+   "title": 0.1553,
+   "grand": 0.0371
   },
   "molecular-mice:2": {
-   "playoffs": 0.9115,
-   "bye": 0.1006,
-   "title": 0.0493
+   "playoffs": 0.9133,
+   "bye": 0.0656,
+   "title": 0.0436,
+   "grand": 0.0068
   },
   "molecular-mice:3": {
    "playoffs": 1,
-   "bye": 0.9632,
-   "title": 0.5969
+   "bye": 0.9733,
+   "title": 0.5939,
+   "grand": 0.2511
   },
   "molecular-mice:4": {
-   "playoffs": 0.9945,
-   "bye": 0.6275,
-   "title": 0.1209
+   "playoffs": 0.9978,
+   "bye": 0.7249,
+   "title": 0.1361,
+   "grand": 0.0219
   },
   "molecular-mice:5": {
-   "playoffs": 0.0781,
-   "bye": 0.0004,
-   "title": 0.0029
+   "playoffs": 0.06,
+   "bye": 0.0001,
+   "title": 0.002,
+   "grand": 0
   },
   "molecular-mice:7": {
-   "playoffs": 0.0215,
+   "playoffs": 0.0314,
    "bye": 0,
-   "title": 0.0007
+   "title": 0.0018,
+   "grand": 0.0004
   },
   "molecular-mice:8": {
-   "playoffs": 0.8871,
-   "bye": 0.0687,
-   "title": 0.0631
+   "playoffs": 0.8391,
+   "bye": 0.0288,
+   "title": 0.0567,
+   "grand": 0.0103
   },
   "molecular-mice:9": {
-   "playoffs": 0.0113,
+   "playoffs": 0.0137,
    "bye": 0,
-   "title": 0.0004
+   "title": 0.0004,
+   "grand": 0
   },
   "research-rodents:1": {
    "playoffs": 1,
-   "bye": 0.8666,
-   "title": 0.3553
+   "bye": 0.8687,
+   "title": 0.3622,
+   "grand": 0.0928
   },
   "research-rodents:2": {
-   "playoffs": 0.4679,
-   "bye": 0.0003,
-   "title": 0.0208
+   "playoffs": 0.524,
+   "bye": 0.0001,
+   "title": 0.024,
+   "grand": 0.0021
   },
   "research-rodents:3": {
-   "playoffs": 0.9987,
-   "bye": 0.332,
-   "title": 0.1698
+   "playoffs": 1,
+   "bye": 0.3732,
+   "title": 0.1671,
+   "grand": 0.0344
   },
   "research-rodents:4": {
-   "playoffs": 0.9962,
-   "bye": 0.2062,
-   "title": 0.1281
+   "playoffs": 0.9952,
+   "bye": 0.0712,
+   "title": 0.1088,
+   "grand": 0.0206
   },
   "research-rodents:5": {
-   "playoffs": 0.1532,
+   "playoffs": 0.091,
    "bye": 0,
-   "title": 0.0055
+   "title": 0.0041,
+   "grand": 0.0003
   },
   "research-rodents:6": {
-   "playoffs": 0.1284,
+   "playoffs": 0.2008,
    "bye": 0,
-   "title": 0.003
+   "title": 0.0045,
+   "grand": 0.0002
   },
   "research-rodents:7": {
-   "playoffs": 0.2288,
-   "bye": 0.0001,
-   "title": 0.0121
+   "playoffs": 0.1693,
+   "bye": 0,
+   "title": 0.0084,
+   "grand": 0.0009
   },
   "research-rodents:8": {
-   "playoffs": 0.9999,
-   "bye": 0.5948,
-   "title": 0.305
+   "playoffs": 1,
+   "bye": 0.6868,
+   "title": 0.3206,
+   "grand": 0.0837
   },
   "research-rodents:9": {
-   "playoffs": 0.0269,
+   "playoffs": 0.0197,
    "bye": 0,
-   "title": 0.0004
+   "title": 0.0003,
+   "grand": 0
   }
  }
 }
