@@ -19,10 +19,9 @@ python -m http.server 8080
 Then open http://localhost:8080. (Opening `index.html` directly also works in most browsers.)
 
 ## Publish
-- **GitHub Pages:** push this folder to a repo, then Settings → Pages → deploy from the `main` branch, root folder.
-- **Netlify:** drag this folder onto app.netlify.com/drop.
+The site is live at https://mgdxfantasy.com on GitHub Pages, deployed from the `main` branch, root folder. Anything pushed to `main` goes live within a few minutes. The domain is registered at Porkbun, and the `CNAME` file holds it for GitHub, so leave that file in place.
 
-The `Media/` folder doesn't need to be published; the site only uses `assets/`.
+`Media/` and `.claude/` are left out by `.gitignore`; the site only uses `assets/`. The weekly schedule also commits to `main`, so pull before making changes.
 
 ## New season
 Change `SEASON` in `js/config.js` (and the league IDs if ESPN gives you new ones). After editing CSS/JS, bump the `?v=` numbers in `index.html` so visitors get the new files.
