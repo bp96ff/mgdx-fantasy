@@ -40,7 +40,7 @@ window.MGDX = {
       slug: 'molecular-mice',
       name: 'Molecular Mice',
       id: 424269265,
-      logo: 'assets/img/molecular-mice.png',
+      logo: 'assets/img/molecular-mice.png?v=2',
       art: 'assets/img/molecular-mice-alt.jpg',
       badge: 'assets/img/champs/molecular-mice.png?v=2',
       theme: 'mm',
