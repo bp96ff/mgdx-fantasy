@@ -841,7 +841,7 @@
           <table class="standings power">
             <thead><tr>
               ${sortTh('rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th><th class="c-num">Overall</th>
-              <th class="c-num">Playoffs</th><th class="c-num">Win league</th>${sortTh('grand', 'Grand<br>Champion', 'c-num', 'Sort by Grand Champion odds')}
+              <th class="c-num">Playoffs</th><th class="c-num">Win league</th>${sortTh('grand', 'Grand<br>Champion', 'c-num pw-grand', 'Sort by Grand Champion odds')}
             </tr></thead>
             <tbody>${rows.map(({ team: t, league, o, rank }) => `
               <tr class="lg-row" style="--lc:var(--${league.theme})">
@@ -855,7 +855,7 @@
                 <td class="c-num c-rec">${record(t)}</td>
                 <td class="c-num">${oddsPct(o.playoffs)}</td>
                 <td class="c-num">${oddsPct(o.title)}</td>
-                <td class="c-num pw-title">${oddsPct(o.grand)}</td>
+                <td class="c-num pw-title pw-grand">${oddsPct(o.grand)}</td>
               </tr>`).join('')}
             </tbody>
           </table>

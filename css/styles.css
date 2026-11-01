@@ -302,6 +302,11 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
 .pw-status { margin: 0 2px 12px; color: var(--muted); font-size: 14px; font-weight: 600; }
 .power th.c-num { white-space: normal; vertical-align: bottom; line-height: 1.2; }
 .power .pw-title { color: var(--accent); font-size: 18px; }
+/* Heading and odds share a center line; the arrow sits beside the heading without pushing it off center */
+.power th.pw-grand, .power td.pw-grand { text-align: center; }
+.power th.pw-grand button { position: relative; justify-content: center; text-align: center; }
+.power th.pw-grand .arrow { position: absolute; right: 1px; top: 50%; margin-top: -3px; }
+.power th.pw-grand .arrow.asc { margin-top: -8px; }
 .pw-hint { display: none; }
 .pw-sort { margin: 0; padding: 8px 12px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
 @media (max-width: 520px) {
