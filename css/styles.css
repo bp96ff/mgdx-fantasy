@@ -689,8 +689,8 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .nav-list a[data-route="molecular-mice"]::before { background-image: url("../assets/img/champs/molecular-mice.png?v=2"); width: 37px; }
   .nav-list a[data-route="genomic-gerbils"]::before { background-image: url("../assets/img/champs/genomic-gerbils.png?v=2"); width: 37px; }
   .nav-list a[data-route="research-rodents"]::before { background-image: url("../assets/img/champs/research-rodents.png?v=2"); width: 37px; }
-  .nav-list a[data-route="cross-league"]::before { background-image: url("../assets/img/nav/cross-league.png"); }
-  .nav-list a[data-route="blog"]::before { background-image: url("../assets/img/nav/blog.png"); }
+  .nav-list a[data-route="cross-league"]::before { background-image: url("../assets/img/nav/cross-league.svg?v=5"); width: 40px; height: 38px; max-width: 100%; margin: -2px 0; }
+  .nav-list a[data-route="blog"]::before { background-image: url("../assets/img/nav/blog.png?v=2"); }
   .nav-list a[data-route="archives"]::before { background-image: url("../assets/img/nav/archives.png"); width: 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
