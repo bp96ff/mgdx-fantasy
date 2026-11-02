@@ -95,6 +95,21 @@ main { flex: 1; padding-top: 28px; padding-bottom: 48px; outline: none; }
 .nav-list a:hover { color: #fff; background: var(--surface-2); }
 .nav-list a.active { color: #fff; background: var(--surface-2); border-bottom-color: var(--accent); }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; box-shadow: 0 0 0 2px rgba(255,255,255,.08); }
+.nav-list a[data-route="lab-rats"] { --nav-c: var(--lr); }
+.nav-list a[data-route="molecular-mice"] { --nav-c: var(--mm); }
+.nav-list a[data-route="genomic-gerbils"] { --nav-c: var(--gg); }
+.nav-list a[data-route="research-rodents"] { --nav-c: var(--rr); }
+/* Wider screens: pill outlines, tinted with each league's color. Phones get the same theme on their icons below. */
+@media (min-width: 681px) {
+  .nav-list { gap: 6px; padding: 7px 0; }
+  .nav-list a {
+    padding: 7px 14px; border: 1px solid color-mix(in srgb, var(--nav-c, #fff) 28%, transparent); border-radius: 999px;
+  }
+  .nav-list a:hover { background: color-mix(in srgb, var(--nav-c, #fff) 12%, transparent); border-color: color-mix(in srgb, var(--nav-c, #fff) 55%, transparent); }
+  .nav-list a.active { background: color-mix(in srgb, var(--nav-c, var(--accent)) 20%, transparent); border-color: var(--nav-c, var(--accent)); }
+}
+/* Home: all four leagues, in the same positions as on the seal */
+.dot-all { width: 12px; height: 12px; background: conic-gradient(var(--rr) 0 25%, var(--mm) 0 50%, var(--gg) 0 75%, var(--lr) 0); }
 
 /* ===== Footer ===== */
 .site-footer { border-top: 1px solid var(--line); background: #04142a; color: var(--muted); font-size: 13px; }
@@ -705,10 +720,14 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .subtabs a { background: var(--surface-2); border-color: var(--line); }
   .subtabs a.active { background: var(--accent); border-color: var(--accent); }
   .home-title { font-size: 30px; }
-  .nav-list { gap: 0; overflow: visible; }
+  .nav-list { gap: 3px; padding: 5px 0; overflow: visible; }
   .nav-list li { flex: 1 1 0; min-width: 0; }
-  .nav-list a { position: relative; padding: 7px 0 6px; }
-  .nav-list a::before { content: ""; width: 34px; height: 34px; background: center / contain no-repeat; }
+  .nav-list a {
+    position: relative; padding: 3px 0; border: 1px solid color-mix(in srgb, var(--nav-c, #fff) 28%, transparent); border-radius: 12px;
+  }
+  .nav-list a:hover { background: color-mix(in srgb, var(--nav-c, #fff) 12%, transparent); border-color: color-mix(in srgb, var(--nav-c, #fff) 55%, transparent); }
+  .nav-list a.active { background: color-mix(in srgb, var(--nav-c, var(--accent)) 20%, transparent); border-color: var(--nav-c, var(--accent)); }
+  .nav-list a::before { content: ""; width: 34px; height: 34px; max-width: 100%; background: center / contain no-repeat; }
   .nav-list .dot { display: none; }
   .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .nav-list a[data-route="home"]::before { background-image: url("../assets/img/mgdx-logo.png"); border-radius: 50%; }
