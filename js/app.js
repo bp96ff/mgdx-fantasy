@@ -807,6 +807,143 @@
       <p class="fineprint">Ranked by chance to win the league. Estimates from ${sims.toLocaleString('en-US')} simulations of the rest of the season, using ESPN's rest-of-season roster projections, each team's scoring so far, the remaining in-league and cross-league schedule, and the playoff format: top 5 make it, top 2 get a round 1 bye.</p>`;
   }
 
+  // ---------- playoff bracket ----------
+  const LAST_REGULAR_WEEK = 14;
+  const PLAYOFF_ROUNDS = { round1: 15, round2: 16, cup: 17 };
+
+  // Each league's order by overall record, then PF, counting regular-season weeks only.
+  function playoffSeeds(entries) {
+    const final = (r) => r.week <= LAST_REGULAR_WEEK && (r.bye || r.result);
+    return LEAGUES.map((cfg) => {
+      const teams = entries.filter((e) => e.league.slug === cfg.slug).map((e) => {
+        const own = (e.results || []).filter(final);
+        const games = own.filter((r) => r.result).concat((e.team.crossGames || []).filter(final));
+        const wins = games.filter((g) => g.result === 'W').length + games.filter((g) => g.result === 'T').length / 2;
+        return { ...e, pct: games.length ? wins / games.length : 0, seasonPf: own.reduce((sum, r) => sum + r.pf, 0), games: games.length };
+      }).sort((a, b) => b.pct - a.pct || b.seasonPf - a.seasonPf);
+      teams.forEach((t, i) => { t.seed = i + 1; });
+      return { cfg, teams };
+    });
+  }
+
+  // ESPN schedules no playoff games, so a team's score comes from its roster for that week.
+  async function playoffScores(leagues, week) {
+    const rosters = await Promise.all(leagues.map((l) => ESPN.getRosters(l, week)));
+    const scores = new Map();
+    leagues.forEach((l, i) => {
+      for (const [id, { starters, bench }] of rosters[i].byTeam) {
+        const points = (list) => list.reduce((sum, p) => sum + (p.id ? p.points : 0), 0);
+        const open = starters.some((p) => p.id && (p.game.state === 'pre' || p.game.state === 'live'));
+        scores.set(`${l.slug}:${id}`, { score: points(starters), bench: points(bench.filter((p) => p.slotId === 20)), open, started: starters.some((p) => p.points) });
+      }
+    });
+    return scores;
+  }
+
+  // Top score wins. An exact tie goes to bench points, then the higher seed.
+  function pickWinner(group, scoreOf) {
+    const row = group.map((t) => ({ t, s: scoreOf(t) }));
+    if (row.some(({ s }) => !s || s.open)) return null;
+    return row.sort((a, b) => b.s.score - a.s.score || b.s.bench - a.s.bench || a.t.seed - b.t.seed
+      || b.t.pct - a.t.pct || b.t.seasonPf - a.t.seasonPf)[0].t;
+  }
+
+  function bracketTeam(t, { odds, score, won, lost }) {
+    return `
+      <a class="team-cell pb-team ${won ? 'won' : ''} ${lost ? 'lost' : ''}" href="#/${t.league.slug}/rosters?team=${t.team.id}" style="--lc:var(--${t.league.theme})">
+        <i class="pb-seed">${t.seed}</i>
+        ${teamLogo(t.team, t.league)}
+        <span><strong>${esc(t.team.name)}</strong><small>${esc(t.team.owner)} · ${record(t.team)}</small></span>
+        ${score != null ? `<b class="pb-num">${f2(score)}</b>` : odds != null ? `<b class="pb-num pb-odds" title="Chance to win the league">${oddsPct(odds)}</b>` : ''}
+      </a>`;
+  }
+
+  function bracketGroup(title, week, note, inner) {
+    return `
+      <div class="pb-round">
+        <h4>${esc(title)} <small>Week ${week}</small></h4>
+        <div class="pb-group">${inner}</div>
+        <p class="pb-note">${esc(note)}</p>
+      </div>`;
+  }
+
+  async function renderPlayoffBracket(entries, week, body, token) {
+    const seeded = playoffSeeds(entries);
+    if (!seeded.some(({ teams }) => teams.some((t) => t.games))) {
+      body().innerHTML = '<div class="state"><strong>The bracket isn\'t available yet.</strong><span>It fills in once the first week is final.</span></div>';
+      return;
+    }
+    const [locked, liveLeagues] = await Promise.all([
+      lockedRankings(),
+      week >= PLAYOFF_ROUNDS.round1 ? loadAllLeagues() : null,
+    ]);
+    if (token !== renderToken) return;
+    const roundWeeks = Object.values(PLAYOFF_ROUNDS).filter((w) => w <= week);
+    const scoresByWeek = new Map(await Promise.all(roundWeeks.map(async (w) => [w, await playoffScores(liveLeagues, w)])));
+    if (token !== renderToken) return;
+    const scoreIn = (w) => (t) => {
+      const scores = scoresByWeek.get(w);
+      return scores ? scores.get(`${t.league.slug}:${t.team.id}`) : null;
+    };
+    const oddsOf = (t) => (locked ? (locked.odds[`${t.league.slug}:${t.team.id}`] || BLANK_ODDS).title : null);
+    const shown = (t, w, winner) => {
+      const s = scoreIn(w)(t);
+      return {
+        odds: week < PLAYOFF_ROUNDS.round1 ? oddsOf(t) : null,
+        score: s && (s.started || !s.open) ? s.score : null,
+        won: winner === t,
+        lost: !!winner && winner !== t,
+      };
+    };
+    const champions = [];
+    const cards = seeded.map(({ cfg, teams }) => {
+      const top = teams.slice(0, 5);
+      const round1 = top.slice(2, 5);
+      const r1Winner = pickWinner(round1, scoreIn(PLAYOFF_ROUNDS.round1));
+      const round2 = r1Winner ? [top[0], top[1], r1Winner] : top.slice(0, 2);
+      const champion = r1Winner ? pickWinner(round2, scoreIn(PLAYOFF_ROUNDS.round2)) : null;
+      champions.push({ cfg, champion });
+      const out = teams[5];
+      return `
+        <article class="panel pb-card" style="--lc:var(--${cfg.theme})">
+          <h3 class="pb-league"><i class="dot" style="--c:var(--${cfg.theme})"></i>${esc(cfg.name)}</h3>
+          <div class="pb-rounds">
+            ${bracketGroup('Round 1', PLAYOFF_ROUNDS.round1, 'Top score advances', round1.map((t) => bracketTeam(t, shown(t, PLAYOFF_ROUNDS.round1, r1Winner))).join(''))}
+            <i class="pb-arrow" aria-hidden="true"></i>
+            ${bracketGroup('Round 2', PLAYOFF_ROUNDS.round2, 'Top score is League Champion', `${round2.map((t) => bracketTeam(t, shown(t, PLAYOFF_ROUNDS.round2, champion))).join('')}${r1Winner ? '' : '<p class="pb-slot">Round 1 winner</p>'}`)}
+          </div>
+          ${out && week <= LAST_REGULAR_WEEK ? `<p class="pb-out">First team out: <b>${esc(out.team.name)}</b> (${esc(out.team.owner)}, ${record(out.team)})</p>` : ''}
+        </article>`;
+    }).join('');
+    const decided = champions.map((c) => c.champion);
+    const grand = decided.every(Boolean) ? pickWinner(decided, scoreIn(PLAYOFF_ROUNDS.cup)) : null;
+    const cup = bracketGroup('Champions Cup', PLAYOFF_ROUNDS.cup, 'Top score of the four is Grand Champion', champions.map(({ cfg, champion }) => (champion
+      ? bracketTeam(champion, { ...shown(champion, PLAYOFF_ROUNDS.cup, grand), odds: null })
+      : `<p class="pb-slot" style="--lc:var(--${cfg.theme})"><i class="dot" style="--c:var(--${cfg.theme})"></i>${esc(cfg.name)} champion</p>`)).join(''));
+    const inProgress = [...scoresByWeek.values()].some((scores) => [...scores.values()].some((s) => s.open && s.started));
+    body().innerHTML = `
+      <p class="pw-status">${week <= LAST_REGULAR_WEEK
+        ? `If the season ended today, using standings through ${week > 1 ? `Week ${week - 1}` : 'this week'}.`
+        : grand ? 'Final playoff results.' : 'Playoffs are underway.'}</p>
+      ${week <= LAST_REGULAR_WEEK && locked ? '<p class="pw-status">Percentages are each team\'s chance to win their league, from the Power Rankings.</p>' : ''}
+      <div class="pb-grid">${cards}</div>
+      <article class="panel pb-card pb-cup">${cup}</article>
+      <p class="fineprint">The top 5 teams in each league make the playoffs, seeded by overall record, then points for. Seeds 1 and 2 skip Round 1. In any round, an exact tie goes to bench points, then the higher seed.</p>`;
+    if (inProgress && LIVE_REFRESH_MS) {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(async function tick() {
+        if (token !== renderToken) return;
+        if (document.hidden) { refreshTimer = setTimeout(tick, LIVE_REFRESH_MS); return; }
+        try {
+          await renderPlayoffBracket(entries, week, body, token);
+        } catch (err) {
+          console.error(err);
+          refreshTimer = setTimeout(tick, LIVE_REFRESH_MS);
+        }
+      }, LIVE_REFRESH_MS);
+    }
+  }
+
   // Each team's score against all 35 others, every finished week, compared with its actual record.
   // Strength of schedule is the average all-play win rate of the opponents a team has faced.
   function luckIndex(entries, currentWeek) {
@@ -1083,8 +1220,8 @@
   }
 
   // ---------- home ----------
-  const HOME_TABS = ['standings', 'this-week', 'title-odds', 'luck-index'];
-  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds', 'luck-index': 'Luck Index' };
+  const HOME_TABS = ['standings', 'this-week', 'title-odds', 'playoff-bracket', 'luck-index'];
+  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds', 'playoff-bracket': 'Playoff Bracket', 'luck-index': 'Luck Index' };
 
   function sortHeader(sort, key, label, cls, title) {
     const on = sort.key === key;
@@ -1197,6 +1334,10 @@
       document.getElementById('home-eyebrow').textContent = `${SEASON} · Week ${week}`;
       if (sub === 'title-odds') {
         await renderTitleOdds(entries, week, body, token);
+        return;
+      }
+      if (sub === 'playoff-bracket') {
+        await renderPlayoffBracket(entries, week, body, token);
         return;
       }
       if (sub === 'luck-index') {
