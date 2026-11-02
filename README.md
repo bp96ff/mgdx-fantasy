@@ -9,6 +9,7 @@ Static site (HTML/CSS/JS, no build step) that pulls live data from ESPN Fantasy 
 - `js/espn.js` – ESPN API calls and data shaping
 - `js/sheet.js` – reads the cross-league schedule from the Google Sheet
 - `js/season.js` – league and cross-league data shared by the site and the Power Rankings script
+- `js/this-week.js` – This Week card math shared by the site and its weekly script
 - `js/app.js` – pages: placeholders, Standings, Rosters, Matchups, Cross-League
 - `assets/img/` – web-sized copies of the logos in `Media/`
 
@@ -50,6 +51,9 @@ Change `SEASON` in `js/config.js` (and the league IDs if ESPN gives you new ones
 ## Transactions
 - The tab reads `data/transactions.json`, saved by `node tools/run-transactions.js`, and adds anything newer from ESPN with one small request. Without the file it pulls the whole season live.
 - ESPN doesn't publish which players moved in a trade. The script rebuilds trades from rosters around the approval time, so a brand-new trade shows its teams on the site but its players only after the next run. Rebuilt players are a best match, not ESPN's record, and two trades close together between the same teams can't always be separated.
+
+## This Week
+- The current week comes live from ESPN. Finished weeks read `data/this-week.json`, saved by `node tools/run-this-week.js`, and a week that isn't in the file comes live instead. The card math is in `js/this-week.js`, shared by the site and the script.
 
 ## Draft Boards
 - `tools/build-draft-boards.js` saves `data/draft-boards.json` from ESPN's draft results. Column order and corrections from the physical boards are listed at the top of that script. Rerun it once after each draft, after updating those lists.

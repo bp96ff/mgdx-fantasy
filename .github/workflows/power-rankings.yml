@@ -24,9 +24,10 @@ jobs:
       - run: node tools/run-standings.js
       - run: node tools/run-power-rankings.js
       - run: node tools/run-transactions.js
+      - run: node tools/run-this-week.js
       - name: Save new results
         run: |
-          git add data/standings.json data/power-rankings.json data/transactions.json
+          git add data/standings.json data/power-rankings.json data/transactions.json data/this-week.json
           if git diff --cached --quiet; then
             echo "No new results."
           else

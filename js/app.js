@@ -2,6 +2,7 @@
 (function () {
   const { LEAGUES, LIVE_REFRESH_MS, SEASON } = window.MGDX;
   const { loadAllLeagues, resolveWeek, overallRecords, crossSchedules, applyOverall } = window.SEASON_DATA;
+  const { thisWeekGames, thisWeekAwards, stillPlaying } = window.THIS_WEEK;
   const main = document.getElementById('main');
   const PLACEHOLDERS = {
     blog: { title: 'Blog', kicker: 'Takes, recaps and trash talk', art: 'assets/img/mgdx-shield.png?v=3' },
@@ -806,9 +807,156 @@
       <p class="fineprint">Ranked by chance to win the league. Estimates from ${sims.toLocaleString('en-US')} simulations of the rest of the season, using ESPN's rest-of-season roster projections, each team's scoring so far, the remaining in-league and cross-league schedule, and the playoff format: top 5 make it, top 2 get a round 1 bye.</p>`;
   }
 
+  // ---------- this week ----------
+  function twTeam(side, week, live) {
+    return `
+      <a class="team-cell tw-team" href="#/${side.league.slug}/rosters?team=${side.team.id}&week=${week}" style="--lc:var(--${side.league.theme})">
+        ${teamLogo(side.team, side.league)}
+        <span><strong>${esc(side.team.name)}</strong><small>${esc(side.team.owner)}</small><small class="lg-name">${esc(side.league.displayName)}</small></span>
+        <span class="tw-nums"><b class="tw-score">${f2(side.score)}</b><small>${live ? `proj. ${f1(side.proj)}` : 'Final'}</small></span>
+      </a>`;
+  }
+
+  function twCard(label, inner, note, link) {
+    return `
+      <article class="panel tw-card">
+        <h3 class="tw-label">${link ? `<a href="${esc(link)}" title="View this matchup">${esc(label)}<i class="tw-go" aria-hidden="true"></i></a>` : esc(label)}</h3>
+        ${inner}
+        ${note ? `<p class="tw-note">${esc(note)}</p>` : ''}
+      </article>`;
+  }
+
+  function twGameCard(label, g, note, week, live) {
+    if (!g) return '';
+    return twCard(label, `<div class="tw-game">${twTeam(g.high, week, live)}${twTeam(g.low, week, live)}</div>`, note, g.link);
+  }
+
+  // Finished weeks are saved by tools/run-this-week.js. A week that isn't in the file comes live from ESPN instead.
+  let thisWeekCache = null;
+  function thisWeekFile() {
+    if (!thisWeekCache || Date.now() - thisWeekCache.t > 300000) {
+      thisWeekCache = {
+        t: Date.now(),
+        p: fetch('data/this-week.json', { cache: 'no-cache' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => (d && d.season === SEASON ? d : null))
+          .catch(() => null),
+      };
+    }
+    return thisWeekCache.p;
+  }
+
+  // Turns a saved week back into the shape the cards draw from.
+  function savedAwards(file, week) {
+    const saved = file && file.weeks[week];
+    if (!saved) return null;
+    const side = ([key, score]) => {
+      const [slug] = key.split(':');
+      const cfg = LEAGUES.find((l) => l.slug === slug);
+      const id = Number(key.split(':')[1]);
+      return {
+        team: { id, ...file.teams[key] },
+        league: { slug, theme: cfg.theme, displayName: cfg.name, logo: cfg.logo },
+        score,
+        proj: score,
+      };
+    };
+    const game = (g) => (g ? { high: side(g.high), low: side(g.low), link: g.link, margin: g.margin, gap: g.gap } : null);
+    return {
+      scores: saved.scores.map(side),
+      closest: game(saved.closest),
+      blowout: game(saved.blowout),
+      upset: game(saved.upset),
+      badBeat: game(saved.badBeat),
+      luckyWin: game(saved.luckyWin),
+    };
+  }
+
+  async function renderThisWeek(body, token, params) {
+    const [currentWeek, file] = await Promise.all([ESPN.getCurrentWeek(LEAGUES[0].id), thisWeekFile()]);
+    if (token !== renderToken) return;
+    const asked = Number(params.get('week'));
+    const picked = Number.isInteger(asked) && asked >= 1 && asked <= currentWeek;
+    let week = picked ? asked : currentWeek;
+    let a = week < currentWeek ? savedAwards(file, week) : null;
+    let crossOk = true;
+    let live = false;
+    let notStarted = false;
+    if (!a) {
+      const leagues = await loadAllLeagues();
+      if (token !== renderToken) return;
+      let data = await thisWeekGames(leagues, week);
+      if (token !== renderToken) return;
+      // Opening the tab before a new week has any scores shows last week instead.
+      notStarted = !picked && week === currentWeek && !data.sides.some((s) => s.score > 0);
+      if (notStarted && week > 1) {
+        week -= 1;
+        a = savedAwards(file, week);
+        if (!a) {
+          data = await thisWeekGames(leagues, week);
+          if (token !== renderToken) return;
+        }
+      }
+      if (!a) {
+        live = week === currentWeek && data.sides.some(stillPlaying);
+        a = data.sides.some((s) => s.score > 0) ? thisWeekAwards(data, live) : { scores: [] };
+        crossOk = data.crossOk;
+      }
+    }
+    const weekSelect = () => {
+      const options = Array.from({ length: currentWeek }, (_, i) => i + 1).map((w) =>
+        `<option value="${w}" ${w === week ? 'selected' : ''}>Week ${w}${w === currentWeek ? ' · current' : ''}</option>`).join('');
+      return `<label class="select"><span class="sr-only">Choose week</span><select id="week-select">${options}</select></label>`;
+    };
+    const bindWeekSelect = () => body().querySelector('#week-select').addEventListener('change', (e) => {
+      location.hash = `#/home/this-week?week=${e.target.value}`;
+    });
+    document.getElementById('home-eyebrow').textContent = `${SEASON} · Week ${week}`;
+    if (!a.scores.length) {
+      body().innerHTML = `<div class="matchups-bar"><span></span>${weekSelect()}</div><div class="state"><strong>Week ${week} hasn't started yet.</strong><span>The snapshot fills in once games kick off.</span></div>`;
+      bindWeekSelect();
+      return;
+    }
+    const status = notStarted
+      ? `Final scores from Week ${week}. Week ${currentWeek} appears here once its games kick off.`
+      : live
+        ? `Week ${week} is in progress, so cards are based on projected final scores. Refreshes every minute.`
+        : `Week ${week} results.`;
+    const pts = (n) => (live ? f1(n) : f2(n));
+    const u = a.upset;
+    body().innerHTML = `
+      <div class="matchups-bar">
+        <p class="pw-status tw-status">${esc(status)}</p>
+        ${weekSelect()}
+      </div>
+      <div class="tw-grid">
+        ${twCard('Top Scores', `<ol class="tw-list">${a.scores.map((t) => `<li>${twTeam(t, week, live)}</li>`).join('')}</ol>`)}
+        ${twGameCard('Closest Game', a.closest, a.closest && `${live ? 'Projected margin' : 'Decided by'} ${pts(a.closest.margin)}`, week, live)}
+        ${twGameCard('Biggest Blowout', a.blowout, a.blowout && `${live ? 'Projected to win by' : 'Won by'} ${pts(a.blowout.margin)}`, week, live)}
+        ${twGameCard('Biggest Upset', u, u && `Projected to lose by ${f1(u.gap)} before kickoff, ${live ? 'now projected to win by' : 'won by'} ${pts(u.margin)}`, week, live)}
+        ${twGameCard('Best Losing Score', a.badBeat, a.badBeat && `${live ? 'Projected to lose despite' : 'Lost despite scoring'} ${pts(live ? a.badBeat.low.proj : a.badBeat.low.score)}`, week, live)}
+        ${twGameCard('Lowest Winning Score', a.luckyWin, a.luckyWin && `${live ? 'Projected to win with' : 'Won with'} ${pts(live ? a.luckyWin.high.proj : a.luckyWin.high.score)}`, week, live)}
+      </div>
+      <p class="fineprint">Covers in-league and cross-league games across all four leagues${crossOk ? '' : ' (cross-league games are unavailable right now, so only in-league games are shown)'}. While games are in progress, teams are ranked by ESPN's live projected final score, which counts points already scored plus projections for players yet to finish. The biggest upset compares that with what each team's starters were projected to score before the week began.</p>`;
+    bindWeekSelect();
+    if (live && LIVE_REFRESH_MS) {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(async function tick() {
+        if (token !== renderToken) return;
+        if (document.hidden) { refreshTimer = setTimeout(tick, LIVE_REFRESH_MS); return; }
+        try {
+          await renderThisWeek(body, token, params);
+        } catch (err) {
+          console.error(err);
+          refreshTimer = setTimeout(tick, LIVE_REFRESH_MS);
+        }
+      }, LIVE_REFRESH_MS);
+    }
+  }
+
   // ---------- home ----------
-  const HOME_TABS = ['standings', 'title-odds'];
-  const HOME_TAB_NAMES = { standings: 'Standings', 'title-odds': 'Title Odds' };
+  const HOME_TABS = ['standings', 'this-week', 'title-odds'];
+  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds' };
 
   // Every team's playoff, league title and Grand Champion odds, from the same weekly run as the Power Rankings.
   async function renderTitleOdds(entries, week, body, token) {
@@ -873,7 +1021,7 @@
     draw();
   }
 
-  async function renderHome(sub) {
+  async function renderHome(sub, params) {
     const token = ++renderToken;
     document.body.dataset.theme = 'home';
     document.title = 'Home · Microgen Fantasy Football';
@@ -892,6 +1040,10 @@
       <div id="league-body">${loading()}</div>`;
     const body = () => document.getElementById('league-body');
     try {
+      if (sub === 'this-week') {
+        await renderThisWeek(body, token, params);
+        return;
+      }
       const file = await lockedStandings();
       if (token !== renderToken) return;
       let week;
@@ -1256,6 +1408,16 @@
       <div class="lineups ${cls}" id="lu-${g.id}" ${open ? '' : 'hidden'}>${inner}</div>`;
   }
 
+  // Links from This Week name a game: bring it into view below the sticky header and outline it.
+  function focusGame(id) {
+    if (!id) return;
+    const card = document.querySelector(`.matchup[data-id="${CSS.escape(id)}"]`);
+    if (!card) return;
+    const header = document.querySelector('.site-header');
+    window.scrollTo(0, card.getBoundingClientRect().top + window.scrollY - header.offsetHeight - 12);
+    card.classList.add('linked');
+  }
+
   function bindToggles(root) {
     root.querySelectorAll('.toggle').forEach((btn) => btn.addEventListener('click', () => {
       const panel = btn.closest('.matchup').querySelector('.lineups');
@@ -1306,6 +1468,7 @@
       location.hash = `#/${league.slug}/matchups?week=${e.target.value}`;
     });
     bindToggles(body());
+    if (!keepOpen) focusGame(params.get('game'));
 
     if (data.isCurrent && LIVE_REFRESH_MS) {
       clearTimeout(refreshTimer);
@@ -1479,6 +1642,7 @@
         location.hash = `#/cross-league?week=${e.target.value}`;
       });
       bindToggles(body());
+      if (!keepOpen) focusGame(params.get('game'));
 
       if (!decided && !upcoming && LIVE_REFRESH_MS) {
         clearTimeout(refreshTimer);
@@ -1518,7 +1682,7 @@
       renderPlaceholder(key);
     } else {
       setActiveNav('home');
-      renderHome(HOME_TABS.includes(parts[1]) ? parts[1] : 'standings');
+      renderHome(HOME_TABS.includes(parts[1]) ? parts[1] : 'standings', params);
     }
   }
 
