@@ -840,6 +840,34 @@
     return scores;
   }
 
+  // Scores for each playoff round that has reached its week.
+  async function bracketScores(week) {
+    const leagues = week >= PLAYOFF_ROUNDS.round1 ? await loadAllLeagues() : null;
+    const roundWeeks = Object.values(PLAYOFF_ROUNDS).filter((w) => w <= week);
+    const scoresByWeek = new Map(await Promise.all(roundWeeks.map(async (w) => [w, await playoffScores(leagues, w)])));
+    const scoreIn = (w) => (t) => {
+      const scores = scoresByWeek.get(w);
+      return scores ? scores.get(`${t.league.slug}:${t.team.id}`) : null;
+    };
+    return { scoresByWeek, scoreIn };
+  }
+
+  function refreshWhileLive(scoresByWeek, token, redraw) {
+    const inProgress = [...scoresByWeek.values()].some((scores) => [...scores.values()].some((s) => s.open && s.started));
+    if (!inProgress || !LIVE_REFRESH_MS) return;
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(async function tick() {
+      if (token !== renderToken) return;
+      if (document.hidden) { refreshTimer = setTimeout(tick, LIVE_REFRESH_MS); return; }
+      try {
+        await redraw();
+      } catch (err) {
+        console.error(err);
+        refreshTimer = setTimeout(tick, LIVE_REFRESH_MS);
+      }
+    }, LIVE_REFRESH_MS);
+  }
+
   // Top score wins. An exact tie goes to bench points, then the higher seed.
   function pickWinner(group, scoreOf) {
     const row = group.map((t) => ({ t, s: scoreOf(t) }));
@@ -873,18 +901,8 @@
       body().innerHTML = '<div class="state"><strong>The bracket isn\'t available yet.</strong><span>It fills in once the first week is final.</span></div>';
       return;
     }
-    const [locked, liveLeagues] = await Promise.all([
-      lockedRankings(),
-      week >= PLAYOFF_ROUNDS.round1 ? loadAllLeagues() : null,
-    ]);
+    const [locked, { scoresByWeek, scoreIn }] = await Promise.all([lockedRankings(), bracketScores(week)]);
     if (token !== renderToken) return;
-    const roundWeeks = Object.values(PLAYOFF_ROUNDS).filter((w) => w <= week);
-    const scoresByWeek = new Map(await Promise.all(roundWeeks.map(async (w) => [w, await playoffScores(liveLeagues, w)])));
-    if (token !== renderToken) return;
-    const scoreIn = (w) => (t) => {
-      const scores = scoresByWeek.get(w);
-      return scores ? scores.get(`${t.league.slug}:${t.team.id}`) : null;
-    };
     const oddsOf = (t) => (locked ? (locked.odds[`${t.league.slug}:${t.team.id}`] || BLANK_ODDS).title : null);
     const shown = (t, w, winner) => {
       const s = scoreIn(w)(t);
@@ -920,7 +938,6 @@
     const cup = bracketGroup('Champions Cup', PLAYOFF_ROUNDS.cup, 'Top score of the four is Grand Champion', champions.map(({ cfg, champion }) => (champion
       ? bracketTeam(champion, { ...shown(champion, PLAYOFF_ROUNDS.cup, grand), odds: null })
       : `<p class="pb-slot" style="--lc:var(--${cfg.theme})"><i class="dot" style="--c:var(--${cfg.theme})"></i>${esc(cfg.name)} champion</p>`)).join(''));
-    const inProgress = [...scoresByWeek.values()].some((scores) => [...scores.values()].some((s) => s.open && s.started));
     body().innerHTML = `
       <p class="pw-status">${week <= LAST_REGULAR_WEEK
         ? `If the season ended today, using standings through ${week > 1 ? `Week ${week - 1}` : 'this week'}.`
@@ -929,19 +946,67 @@
       <div class="pb-grid">${cards}</div>
       <article class="panel pb-card pb-cup">${cup}</article>
       <p class="fineprint">The top 5 teams in each league make the playoffs, seeded by overall record, then points for. Seeds 1 and 2 skip Round 1. In any round, an exact tie goes to bench points, then the higher seed.</p>`;
-    if (inProgress && LIVE_REFRESH_MS) {
-      clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(async function tick() {
-        if (token !== renderToken) return;
-        if (document.hidden) { refreshTimer = setTimeout(tick, LIVE_REFRESH_MS); return; }
-        try {
-          await renderPlayoffBracket(entries, week, body, token);
-        } catch (err) {
-          console.error(err);
-          refreshTimer = setTimeout(tick, LIVE_REFRESH_MS);
-        }
-      }, LIVE_REFRESH_MS);
+    refreshWhileLive(scoresByWeek, token, () => renderPlayoffBracket(entries, week, body, token));
+  }
+
+  // ---------- toilet bowl ----------
+  // Lowest score advances. An exact tie sends on the team with fewer bench points, then the lower seed.
+  function pickLoser(group, scoreOf) {
+    const row = group.map((t) => ({ t, s: scoreOf(t) }));
+    if (row.some(({ s }) => !s || s.open)) return null;
+    return row.sort((a, b) => a.s.score - b.s.score || a.s.bench - b.s.bench || b.t.seed - a.t.seed
+      || a.t.pct - b.t.pct || a.t.seasonPf - b.t.seasonPf)[0].t;
+  }
+
+  async function renderToiletBowl(entries, week, body, token) {
+    const seeded = playoffSeeds(entries);
+    if (!seeded.some(({ teams }) => teams.some((t) => t.games))) {
+      body().innerHTML = '<div class="state"><strong>The bracket isn\'t available yet.</strong><span>It fills in once the first week is final.</span></div>';
+      return;
     }
+    const { scoresByWeek, scoreIn } = await bracketScores(week);
+    if (token !== renderToken) return;
+    const { round1, round2, cup } = PLAYOFF_ROUNDS;
+    const shown = (t, w, loser) => {
+      const s = scoreIn(w)(t);
+      return { score: s && (s.started || !s.open) ? s.score : null, won: loser === t, lost: !!loser && loser !== t };
+    };
+    const matchup = (pair, w, loser) => `<div class="tb-match">${pair.map((t) => bracketTeam(t, shown(t, w, loser))).join('<span class="tb-vs">vs</span>')}</div>`;
+    const leagueLosers = [];
+    const cards = seeded.map(({ cfg, teams }) => {
+      const [six, seven, eight, nine] = teams.slice(5, 9);
+      const first = [six, nine];
+      const second = [seven, eight];
+      const firstLoser = pickLoser(first, scoreIn(round1));
+      const secondLoser = pickLoser(second, scoreIn(round1));
+      const leagueLoser = firstLoser && secondLoser ? pickLoser([firstLoser, secondLoser], scoreIn(round2)) : null;
+      leagueLosers.push({ cfg, loser: leagueLoser });
+      const slot = (t, label) => (t ? bracketTeam(t, shown(t, round2, leagueLoser)) : `<p class="pb-slot">${label}</p>`);
+      return `
+        <article class="panel pb-card" style="--lc:var(--${cfg.theme})">
+          <h3 class="pb-league"><i class="dot" style="--c:var(--${cfg.theme})"></i>${esc(cfg.name)}</h3>
+          <div class="pb-rounds">
+            ${bracketGroup('Round 1', round1, 'Loser of each matchup advances', matchup(first, round1, firstLoser) + matchup(second, round1, secondLoser))}
+            <i class="pb-arrow" aria-hidden="true"></i>
+            ${bracketGroup('Round 2', round2, 'Loser goes to the final', `<div class="tb-match">${slot(firstLoser, 'Loser of 6 vs. 9')}<span class="tb-vs">vs</span>${slot(secondLoser, 'Loser of 7 vs. 8')}</div>`)}
+          </div>
+        </article>`;
+    }).join('');
+    const finalists = leagueLosers.map((l) => l.loser);
+    const ultimate = finalists.every(Boolean) ? pickLoser(finalists, scoreIn(cup)) : null;
+    const final = bracketGroup('Toilet Bowl Final', cup, 'Lowest score of the four is the Ultimate Loser', leagueLosers.map(({ cfg, loser }) => (loser
+      ? bracketTeam(loser, shown(loser, cup, ultimate))
+      : `<p class="pb-slot"><i class="dot" style="--c:var(--${cfg.theme})"></i>${esc(cfg.name)} loser</p>`)).join(''));
+    body().innerHTML = `
+      <p class="pw-status">${week <= LAST_REGULAR_WEEK
+        ? `If the season ended today, using standings through ${week > 1 ? `Week ${week - 1}` : 'this week'}.`
+        : ultimate ? `Final results. The Ultimate Loser is ${esc(ultimate.team.name)} (${esc(ultimate.team.owner)}).` : 'The Toilet Bowl is underway.'}</p>
+      <div class="tb">
+        <div class="pb-grid">${cards}</div>
+        <article class="panel pb-card pb-cup">${final}</article>
+      </div>
+      <p class="fineprint">Seeds 6 to 9 in each league play for last, seeded by overall record, then points for. The lower score advances in each round. In an exact tie, the team with fewer bench points advances, then the lower seed.</p>`;
+    refreshWhileLive(scoresByWeek, token, () => renderToiletBowl(entries, week, body, token));
   }
 
   // Each team's score against all 35 others, every finished week, compared with its actual record.
@@ -1220,8 +1285,8 @@
   }
 
   // ---------- home ----------
-  const HOME_TABS = ['standings', 'this-week', 'title-odds', 'playoff-bracket', 'luck-index'];
-  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds', 'playoff-bracket': 'Playoff Bracket', 'luck-index': 'Luck Index' };
+  const HOME_TABS = ['standings', 'this-week', 'title-odds', 'playoff-bracket', 'toilet-bowl', 'luck-index'];
+  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds', 'playoff-bracket': 'Playoff Bracket', 'toilet-bowl': 'Toilet Bowl', 'luck-index': 'Luck Index' };
 
   function sortHeader(sort, key, label, cls, title) {
     const on = sort.key === key;
@@ -1338,6 +1403,10 @@
       }
       if (sub === 'playoff-bracket') {
         await renderPlayoffBracket(entries, week, body, token);
+        return;
+      }
+      if (sub === 'toilet-bowl') {
+        await renderToiletBowl(entries, week, body, token);
         return;
       }
       if (sub === 'luck-index') {

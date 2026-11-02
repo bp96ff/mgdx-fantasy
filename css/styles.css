@@ -773,6 +773,11 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .pb-arrow { transform: rotate(135deg); margin: 2px 0 4px; }
   .pb-cup .pb-group { grid-template-columns: minmax(0, 1fr); }
 }
+/* ===== Home: Toilet Bowl (shares the bracket styles; advancing here means losing) ===== */
+.tb .pb-team.won { border-color: var(--loss); box-shadow: inset 3px 0 0 var(--loss); }
+.tb-match { display: flex; flex-direction: column; gap: 4px; }
+.tb-match + .tb-match { margin-top: 8px; }
+.tb-vs { align-self: center; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; }
 }

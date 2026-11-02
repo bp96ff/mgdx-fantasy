@@ -58,6 +58,9 @@ Change `SEASON` in `js/config.js` (and the league IDs if ESPN gives you new ones
 ## Playoff Bracket
 - Seeds come from `data/standings.json`, counting regular-season weeks only, and odds come from `data/power-rankings.json`. ESPN schedules no games after Week 14, so scores for Weeks 15 to 17 are read live from each team's roster. An exact tie goes to bench points, then the higher seed.
 
+## Toilet Bowl
+- Uses the same seeds and roster-based scores as the Playoff Bracket for seeds 6 to 9. The lower score advances in each round, and the lowest of the four league losers in Week 17 is the Ultimate Loser. An exact tie sends on the team with fewer bench points, then the lower seed.
+
 ## Luck Index
 - Luck and schedule strength come from `data/standings.json`. Report card grades use season lineup totals from `data/this-week.json`: each team's started points as a share of its best legal lineup, with the 36 teams split evenly into A to D.
 
