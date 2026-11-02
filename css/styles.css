@@ -66,7 +66,7 @@ button, select { font: inherit; color: inherit; }
 .skip-link { position: absolute; left: -999px; top: 8px; background: var(--accent); color: var(--accent-ink); padding: 8px 12px; border-radius: 6px; z-index: 10; }
 .skip-link:focus { left: 8px; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-main { flex: 1; padding-top: 28px; padding-bottom: 48px; outline: none; }
+main.wrap { flex: 1; padding-top: 18px; padding-bottom: 36px; outline: none; }
 
 /* ===== Header ===== */
 .site-header { background: linear-gradient(180deg, #04142a, var(--bg-2)); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
@@ -148,7 +148,7 @@ main { flex: 1; padding-top: 28px; padding-bottom: 48px; outline: none; }
 /* ===== Placeholder pages ===== */
 .placeholder {
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  padding: 48px 16px 64px; margin-top: 8px;
+  padding: 48px 16px 64px;
   background: linear-gradient(180deg, var(--surface), var(--bg-2));
   border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow);
 }
@@ -168,6 +168,7 @@ main { flex: 1; padding-top: 28px; padding-bottom: 48px; outline: none; }
   border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
   box-shadow: var(--shadow);
 }
+.league-hero + #league-body { margin-top: 18px; }
 .league-hero-logo {
   width: 96px; height: 96px; flex: none; object-fit: cover; border-radius: 16px;
   background: var(--accent-soft); border: 3px solid var(--accent); position: relative; z-index: 1;
@@ -662,7 +663,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 }
 @media (max-width: 760px) {
   .hide-sm { display: none; }
-  main { padding-top: 18px; }
+  main.wrap { padding-top: 12px; padding-bottom: 24px; }
   .league-hero { padding: 16px; gap: 14px; }
   .league-hero-logo { width: 68px; height: 68px; border-radius: 12px; }
   .league-hero-art { opacity: .35; max-width: 70%; }
