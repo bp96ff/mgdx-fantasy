@@ -1858,7 +1858,8 @@
   }
 
   function leagueChip(league) {
-    return `<span class="lchip" style="--c:var(--${league.theme})">${esc(league.displayName || league.name)}</span>`;
+    const name = esc(league.displayName || league.name);
+    return `<span class="lchip" style="--c:var(--${league.theme})" title="${name}"><i class="dot"></i><span class="lchip-name">${name}</span></span>`;
   }
 
   function crossCard(g, records, ranks, openIds) {
@@ -1974,9 +1975,14 @@
         const names = sec.bye
           ? '<span>Bye-week matchups</span>'
           : sec.leagues.map((l, i) => (l
-            ? `<span><i class="dot" style="--c:var(--${l.theme})"></i>${esc(l.displayName)}</span>`
+            ? `<span><img class="xl-logo" src="${LEAGUES.find((c) => c.slug === l.slug).badge}" alt="" width="28" height="28">${esc(l.displayName)}</span>`
             : `<span>${esc(sec.names[i])}</span>`)).join('<em>vs.</em>');
         const open = crossOpen.has(si);
+        const paired = !sec.bye && sec.leagues.every(Boolean);
+        const hideLabel = sec.bye ? 'Hide bye-week matchups' : paired
+          ? `Hide ${sec.leagues.map((l) => `<i class="dot" style="--c:var(--${l.theme})"></i>`).join(' vs. ')} matchups`
+          : 'Hide matchups';
+        const hideName = paired ? `Hide ${sec.leagues.map((l) => esc(l.displayName)).join(' vs. ')} matchups` : '';
         return `
           <section class="panel xl-section" data-sec="${si}">
             <h2 class="xl-head">
@@ -1985,7 +1991,9 @@
                 <span class="xl-view"><span>${open ? 'Hide matchups' : 'View matchups'}</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
               </button>
             </h2>
-            <div class="xl-games" id="xl-${si}" ${open ? '' : 'hidden'}>${sec.games.map((g) => crossCard(g, crossOut, ranks, openIds)).join('')}</div>
+            <div class="xl-games" id="xl-${si}" ${open ? '' : 'hidden'}>${sec.games.map((g) => crossCard(g, crossOut, ranks, openIds)).join('')}
+              <button class="xl-hide" type="button" ${hideName ? `aria-label="${hideName}"` : ''}><span>${hideLabel}</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
           </section>`;
       }).join('');
 
@@ -2003,14 +2011,25 @@
         location.hash = `#/cross-league?week=${e.target.value}`;
       });
       bindToggles(body());
-      body().querySelectorAll('.xl-toggle').forEach((btn) => btn.addEventListener('click', () => {
-        const si = Number(btn.closest('.xl-section').dataset.sec);
-        const open = btn.getAttribute('aria-expanded') !== 'true';
+      const setSection = (section, open) => {
+        const si = Number(section.dataset.sec);
+        const btn = section.querySelector('.xl-toggle');
         if (open) crossOpen.add(si);
         else crossOpen.delete(si);
         btn.setAttribute('aria-expanded', open);
         btn.querySelector('.xl-view span').textContent = open ? 'Hide matchups' : 'View matchups';
         document.getElementById(`xl-${si}`).hidden = !open;
+      };
+      body().querySelectorAll('.xl-toggle').forEach((btn) => btn.addEventListener('click', () => {
+        setSection(btn.closest('.xl-section'), btn.getAttribute('aria-expanded') !== 'true');
+      }));
+      // Closing from the bottom removes everything above the button, so bring the section's bar back into view.
+      body().querySelectorAll('.xl-hide').forEach((btn) => btn.addEventListener('click', () => {
+        const section = btn.closest('.xl-section');
+        setSection(section, false);
+        const top = document.querySelector('.site-header').offsetHeight + 12;
+        if (section.getBoundingClientRect().top < top) window.scrollBy(0, section.getBoundingClientRect().top - top);
+        section.querySelector('.xl-toggle').focus({ preventScroll: true });
       }));
       if (!keepOpen) focusGame(params.get('game'));
 
