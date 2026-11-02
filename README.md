@@ -55,6 +55,9 @@ Change `SEASON` in `js/config.js` (and the league IDs if ESPN gives you new ones
 ## This Week
 - The current week comes live from ESPN. Finished weeks read `data/this-week.json`, saved by `node tools/run-this-week.js`, and a week that isn't in the file comes live instead. The card math is in `js/this-week.js`, shared by the site and the script.
 
+## Luck Index
+- Luck and schedule strength come from `data/standings.json`. Report card grades use season lineup totals from `data/this-week.json`: each team's started points as a share of its best legal lineup, with the 36 teams split evenly into A to D.
+
 ## Draft Boards
 - `tools/build-draft-boards.js` saves `data/draft-boards.json` from ESPN's draft results. Column order and corrections from the physical boards are listed at the top of that script. Rerun it once after each draft, after updating those lists.
 - The tab makes no live ESPN or Google Sheet requests. Owner names, team logos and player NFL teams are saved in the file as of when it was built, so after changing a name in `js/config.js`, rerun the script and bump the `?v=` on `draft-boards.json` in `js/app.js`. Headshots and logo images still load from ESPN's image servers.

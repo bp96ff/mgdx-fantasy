@@ -300,10 +300,16 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
 
 /* Power Rankings */
 .pw-status { margin: 0 2px 12px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.pw-status + .pw-status { margin-top: -8px; }
 .power th.c-num { white-space: normal; vertical-align: bottom; line-height: 1.2; }
 .power .pw-title { color: var(--accent); font-size: 18px; }
 /* Heading and odds share a center line; the arrow sits beside the heading without pushing it off center */
 .power th.pw-grand, .power td.pw-grand { text-align: center; }
+.power td.pw-letter { font: 800 22px/1 var(--display); }
+.power td.grade-a { color: var(--win); }
+.power td.grade-d { color: var(--loss); }
+.power td.luck-up { color: var(--win); }
+.power td.luck-down { color: var(--loss); }
 .power th.pw-grand button { position: relative; justify-content: center; text-align: center; }
 .power th.pw-grand .arrow { position: absolute; right: 1px; top: 50%; margin-top: -3px; }
 .power th.pw-grand .arrow.asc { margin-top: -8px; }

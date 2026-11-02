@@ -807,6 +807,134 @@
       <p class="fineprint">Ranked by chance to win the league. Estimates from ${sims.toLocaleString('en-US')} simulations of the rest of the season, using ESPN's rest-of-season roster projections, each team's scoring so far, the remaining in-league and cross-league schedule, and the playoff format: top 5 make it, top 2 get a round 1 bye.</p>`;
   }
 
+  // Each team's score against all 35 others, every finished week, compared with its actual record.
+  // Strength of schedule is the average all-play win rate of the opponents a team has faced.
+  function luckIndex(entries, currentWeek) {
+    const final = (r) => r.bye || r.result;
+    const weeks = new Map();
+    for (const e of entries) {
+      for (const r of e.results || []) {
+        if (r.week >= currentWeek) continue;
+        if (!weeks.has(r.week)) weeks.set(r.week, { open: false, scores: [] });
+        const w = weeks.get(r.week);
+        if (!final(r)) w.open = true;
+        w.scores.push(r.pf);
+      }
+    }
+    const rows = entries.map((e) => {
+      const all = { w: 0, l: 0, t: 0 };
+      for (const r of e.results || []) {
+        const week = weeks.get(r.week);
+        if (!week || week.open) continue;
+        const others = week.scores.slice();
+        others.splice(others.indexOf(r.pf), 1);
+        for (const score of others) {
+          if (r.pf > score) all.w++;
+          else if (r.pf < score) all.l++;
+          else all.t++;
+        }
+      }
+      const t = e.team;
+      const faced = all.w + all.l + all.t;
+      const games = t.wins + t.losses + (t.ties || 0);
+      const expected = faced ? ((all.w + all.t / 2) / faced) * games : 0;
+      const allPct = faced ? (all.w + all.t / 2) / faced : 0;
+      return { ...e, all, expected, luck: t.wins + (t.ties || 0) / 2 - expected, allPct };
+    });
+    const byKey = new Map(rows.map((e) => [`${e.league.slug}:${e.team.id}`, e]));
+    const byName = new Map(rows.map((e) => [`${e.league.slug}:${e.team.name}`, e]));
+    const finished = (week) => weeks.has(week) && !weeks.get(week).open;
+    for (const e of rows) {
+      const faced = (e.results || []).filter((r) => r.opp && finished(r.week)).map((r) => byName.get(`${e.league.slug}:${r.opp.name}`))
+        .concat((e.team.crossGames || []).filter((g) => finished(g.week)).map((g) => byKey.get(`${g.oppLeague.slug}:${g.opp.id}`)))
+        .filter(Boolean);
+      e.sos = faced.length ? faced.reduce((sum, o) => sum + o.allPct, 0) / faced.length : 0;
+    }
+    // 1 is the hardest schedule.
+    rows.slice().sort((a, b) => b.sos - a.sos || a.rank - b.rank).forEach((e, i) => { e.sosRank = i + 1; });
+    return rows;
+  }
+
+  // Report card: share of potential lineup points started this season. The order behind the letters stays hidden.
+  const GRADES = ['A', 'B', 'C', 'D'];
+  function addGrades(rows, lineups) {
+    const ranked = rows.filter((e) => lineups && lineups[`${e.league.slug}:${e.team.id}`])
+      .map((e) => {
+        const [actual, potential] = lineups[`${e.league.slug}:${e.team.id}`];
+        return { e, share: potential > 0 ? actual / potential : 0 };
+      })
+      .sort((a, b) => b.share - a.share);
+    rows.forEach((e) => { e.grade = 0; e.letter = '—'; });
+    ranked.forEach(({ e }, i) => {
+      const band = Math.min(GRADES.length - 1, Math.floor(i / 9));
+      e.letter = GRADES[band];
+      e.grade = GRADES.length - band;
+    });
+  }
+
+  async function renderLuckIndex(entries, week, body, token) {
+    const file = await thisWeekFile();
+    if (token !== renderToken) return;
+    const all = luckIndex(entries, week);
+    addGrades(all, file && file.lineups);
+    if (!all.some((e) => e.all.w + e.all.l + e.all.t)) {
+      body().innerHTML = '<div class="state"><strong>The Luck Index isn\'t available yet.</strong><span>It fills in once the first week is final.</span></div>';
+      return;
+    }
+    const signed = (n) => {
+      const v = Math.abs(n) < 0.05 ? 0 : n;
+      return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`;
+    };
+    // Click Rank / Luck to sort; click the active one again to flip direction.
+    let sort = { key: 'luck', dir: 'desc' };
+    const draw = () => {
+      const val = (e) => (sort.key === 'rank' ? -e.rank : e[sort.key]);
+      const rows = all.slice().sort((a, b) => (sort.dir === 'desc' ? val(b) - val(a) : val(a) - val(b)) || a.rank - b.rank);
+      const scrolled = body().querySelector('.table-wrap')?.scrollLeft || 0;
+      body().innerHTML = `
+      <p class="pw-status">Through the last finished week. A positive number means more wins than the team's scores would usually earn.</p>
+      <p class="pw-status">Grade reflects how well a team has set their starters vs. their bench.</p>
+      <div class="panel">
+        <p class="pw-sort">Table sortable by Rank, Grade, Strength of Schedule, or Luck</p>
+        <p class="pw-hint">Swipe the table sideways to see every column</p>
+        <div class="table-wrap">
+          <table class="standings power">
+            <thead><tr>
+              ${sortHeader(sort, 'rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th>${sortHeader(sort, 'grade', 'Grade', 'c-num pw-grand', 'Sort by lineup grade')}<th class="c-num">Overall</th>
+              <th class="c-num" title="Record if the team had played all 35 others every week">All-play</th><th class="c-num" title="Wins an average schedule would give these scores">Expected<br>wins</th>${sortHeader(sort, 'sos', 'Schedule<br>strength', 'c-num pw-grand', 'Sort by strength of schedule')}${sortHeader(sort, 'luck', 'Luck', 'c-num pw-grand', 'Sort by luck')}
+            </tr></thead>
+            <tbody>${rows.map(({ team: t, league, rank, all: a, expected, luck, sosRank, letter }) => `
+              <tr class="lg-row" style="--lc:var(--${league.theme})">
+                <td class="c-rank"><span class="rank">${rank}</span></td>
+                <td class="c-team">
+                  <a class="team-cell" href="#/${league.slug}/rosters?team=${t.id}">
+                    ${teamLogo(t, league)}
+                    <span><strong>${esc(t.name)}</strong><small>${esc(t.owner)}${champBadges(t)}</small><small class="lg-name">${esc(league.displayName)}</small></span>
+                  </a>
+                </td>
+                <td class="c-num pw-grand pw-letter grade-${letter.toLowerCase()}">${letter}</td>
+                <td class="c-num c-rec">${record(t)}</td>
+                <td class="c-num">${a.w}-${a.l}${a.t ? `-${a.t}` : ''}</td>
+                <td class="c-num">${f1(expected)}</td>
+                <td class="c-num pw-grand">${sosRank}</td>
+                <td class="c-num pw-title pw-grand ${luck >= 0.05 ? 'luck-up' : luck <= -0.05 ? 'luck-down' : ''}">${signed(luck)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="fineprint">All-play is the record a team would have if its score each week were compared with all 35 other teams. Expected wins applies that win rate to the games the team has actually played. Schedule strength ranks all 36 teams by the average all-play win rate of the opponents they've faced, with 1 being the hardest schedule. Luck is actual wins minus expected wins. All of it covers in-league and cross-league games from finished weeks only.</p>`;
+      body().querySelector('.table-wrap').scrollLeft = scrolled;
+      body().querySelectorAll('th button[data-sort]').forEach((btn) => btn.addEventListener('click', () => {
+        const key = btn.dataset.sort;
+        sort = key === sort.key ? { key, dir: sort.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' };
+        draw();
+        body().querySelector(`th button[data-sort="${key}"]`).focus();
+      }));
+    };
+    draw();
+  }
+
   // ---------- this week ----------
   function twTeam(side, week, live) {
     return `
@@ -955,8 +1083,15 @@
   }
 
   // ---------- home ----------
-  const HOME_TABS = ['standings', 'this-week', 'title-odds'];
-  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds' };
+  const HOME_TABS = ['standings', 'this-week', 'title-odds', 'luck-index'];
+  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds', 'luck-index': 'Luck Index' };
+
+  function sortHeader(sort, key, label, cls, title) {
+    const on = sort.key === key;
+    const aria = on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return `<th class="${cls} sortable ${on ? 'sorted' : ''}" aria-sort="${aria}">
+        <button type="button" data-sort="${key}" title="${title}">${label}<i class="arrow ${on ? sort.dir : ''}" aria-hidden="true"></i></button></th>`;
+  }
 
   // Every team's playoff, league title and Grand Champion odds, from the same weekly run as the Power Rankings.
   async function renderTitleOdds(entries, week, body, token) {
@@ -969,12 +1104,6 @@
     const all = entries.map((e) => ({ ...e, o: locked.odds[`${e.league.slug}:${e.team.id}`] || BLANK_ODDS }));
     // Click Rank / Grand Champion to sort; click the active one again to flip direction.
     let sort = { key: 'grand', dir: 'desc' };
-    const sortTh = (key, label, cls, title) => {
-      const on = sort.key === key;
-      const aria = on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
-      return `<th class="${cls} sortable ${on ? 'sorted' : ''}" aria-sort="${aria}">
-        <button type="button" data-sort="${key}" title="${title}">${label}<i class="arrow ${on ? sort.dir : ''}" aria-hidden="true"></i></button></th>`;
-    };
     const draw = () => {
       const val = (e) => (sort.key === 'rank' ? -e.rank : e.o.grand);
       const rows = all.slice().sort((a, b) => (sort.dir === 'desc' ? val(b) - val(a) : val(a) - val(b))
@@ -988,8 +1117,8 @@
         <div class="table-wrap">
           <table class="standings power">
             <thead><tr>
-              ${sortTh('rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th><th class="c-num">Overall</th>
-              <th class="c-num">Playoffs</th><th class="c-num">Win league</th>${sortTh('grand', 'Grand<br>Champion', 'c-num pw-grand', 'Sort by Grand Champion odds')}
+              ${sortHeader(sort, 'rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th><th class="c-num">Overall</th>
+              <th class="c-num">Playoffs</th><th class="c-num">Win league</th>${sortHeader(sort, 'grand', 'Grand<br>Champion', 'c-num pw-grand', 'Sort by Grand Champion odds')}
             </tr></thead>
             <tbody>${rows.map(({ team: t, league, o, rank }) => `
               <tr class="lg-row" style="--lc:var(--${league.theme})">
@@ -1068,6 +1197,10 @@
       document.getElementById('home-eyebrow').textContent = `${SEASON} · Week ${week}`;
       if (sub === 'title-odds') {
         await renderTitleOdds(entries, week, body, token);
+        return;
+      }
+      if (sub === 'luck-index') {
+        await renderLuckIndex(entries, week, body, token);
         return;
       }
 
