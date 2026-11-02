@@ -1906,6 +1906,9 @@
       <div id="league-body">${loading()}</div>`;
   }
 
+  // Sections open for this visit. They stay open through live refreshes and start closed otherwise.
+  let crossOpen = new Set();
+
   async function renderCrossLeague(params, keepOpen) {
     const token = keepOpen ? renderToken : ++renderToken;
     const body = () => document.getElementById('league-body');
@@ -1961,14 +1964,29 @@
       }));
 
       const openIds = keepOpen || new Set();
+      if (!keepOpen) {
+        crossOpen = new Set();
+        const linked = /^x(\d+)-/.exec(params.get('game') || '');
+        if (linked) crossOpen.add(Number(linked[1])); // a link from This Week opens its game's section
+      }
       const options = weeks.map((w) => `<option value="${w}" ${w === week ? 'selected' : ''}>Week ${w}${w === currentWeek ? ' · current' : ''}</option>`).join('');
-      const html = sections.map((sec) => {
-        const head = sec.bye
-          ? `<h2 class="xl-head"><span>Bye-week matchups</span></h2>`
-          : `<h2 class="xl-head">${sec.leagues.map((l, i) => l
+      const html = sections.map((sec, si) => {
+        const names = sec.bye
+          ? '<span>Bye-week matchups</span>'
+          : sec.leagues.map((l, i) => (l
             ? `<span><i class="dot" style="--c:var(--${l.theme})"></i>${esc(l.displayName)}</span>`
-            : `<span>${esc(sec.names[i])}</span>`).join('<em>vs.</em>')}</h2>`;
-        return `<section class="xl-section">${head}${sec.games.map((g) => crossCard(g, crossOut, ranks, openIds)).join('')}</section>`;
+            : `<span>${esc(sec.names[i])}</span>`)).join('<em>vs.</em>');
+        const open = crossOpen.has(si);
+        return `
+          <section class="panel xl-section" data-sec="${si}">
+            <h2 class="xl-head">
+              <button class="xl-toggle" type="button" aria-expanded="${open}" aria-controls="xl-${si}">
+                <span class="xl-names">${names}</span>
+                <span class="xl-view"><span>${open ? 'Hide matchups' : 'View matchups'}</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              </button>
+            </h2>
+            <div class="xl-games" id="xl-${si}" ${open ? '' : 'hidden'}>${sec.games.map((g) => crossCard(g, crossOut, ranks, openIds)).join('')}</div>
+          </section>`;
       }).join('');
 
       body().innerHTML = `
@@ -1985,6 +2003,15 @@
         location.hash = `#/cross-league?week=${e.target.value}`;
       });
       bindToggles(body());
+      body().querySelectorAll('.xl-toggle').forEach((btn) => btn.addEventListener('click', () => {
+        const si = Number(btn.closest('.xl-section').dataset.sec);
+        const open = btn.getAttribute('aria-expanded') !== 'true';
+        if (open) crossOpen.add(si);
+        else crossOpen.delete(si);
+        btn.setAttribute('aria-expanded', open);
+        btn.querySelector('.xl-view span').textContent = open ? 'Hide matchups' : 'View matchups';
+        document.getElementById(`xl-${si}`).hidden = !open;
+      }));
       if (!keepOpen) focusGame(params.get('game'));
 
       if (!decided && !upcoming && LIVE_REFRESH_MS) {
