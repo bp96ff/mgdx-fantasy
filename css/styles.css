@@ -108,6 +108,11 @@ main { flex: 1; padding-top: 28px; padding-bottom: 48px; outline: none; }
   .nav-list a:hover { background: color-mix(in srgb, var(--nav-c, #fff) 12%, transparent); border-color: color-mix(in srgb, var(--nav-c, #fff) 55%, transparent); }
   .nav-list a.active { background: color-mix(in srgb, var(--nav-c, var(--accent)) 20%, transparent); border-color: var(--nav-c, var(--accent)); }
 }
+.dot-swords { width: 20px; height: 20px; background: url("../assets/img/nav/cross-swords.svg?v=2") center / contain no-repeat; box-shadow: none; }
+@media (min-width: 681px) and (max-width: 1120px) {
+  .nav-list { gap: 4px; }
+  .nav-list a { gap: 6px; padding: 7px 10px; font-size: 14px; }
+}
 /* Home: all four leagues, in the same positions as on the seal */
 .dot-all { width: 12px; height: 12px; background: conic-gradient(var(--rr) 0 25%, var(--mm) 0 50%, var(--gg) 0 75%, var(--lr) 0); }
 
@@ -831,6 +836,13 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .tb-match { display: flex; flex-direction: column; gap: 4px; }
 .tb-match + .tb-match { margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(255, 255, 255, .55); }
 .tb-vs { align-self: center; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+/* Home and Cross-League cover every league, so their highlight runs through all four colors */
+.nav-list a[data-route="home"]:hover, .nav-list a[data-route="cross-league"]:hover {
+  border-color: transparent; background: linear-gradient(90deg, color-mix(in srgb, var(--lr) 16%, transparent), color-mix(in srgb, var(--gg) 16%, transparent), color-mix(in srgb, var(--rr) 16%, transparent), color-mix(in srgb, var(--mm) 16%, transparent)) padding-box, linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(90deg, color-mix(in srgb, var(--lr) 70%, transparent), color-mix(in srgb, var(--gg) 70%, transparent), color-mix(in srgb, var(--rr) 70%, transparent), color-mix(in srgb, var(--mm) 70%, transparent)) border-box;
+}
+.nav-list a[data-route="home"].active, .nav-list a[data-route="cross-league"].active {
+  border-color: transparent; background: linear-gradient(90deg, color-mix(in srgb, var(--lr) 28%, transparent), color-mix(in srgb, var(--gg) 28%, transparent), color-mix(in srgb, var(--rr) 28%, transparent), color-mix(in srgb, var(--mm) 28%, transparent)) padding-box, linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(90deg, color-mix(in srgb, var(--lr) 100%, transparent), color-mix(in srgb, var(--gg) 100%, transparent), color-mix(in srgb, var(--rr) 100%, transparent), color-mix(in srgb, var(--mm) 100%, transparent)) border-box;
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; }
 }
