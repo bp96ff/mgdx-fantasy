@@ -60,7 +60,7 @@ window.MGDX = {
       art: 'assets/img/genomic-gerbils-alt.jpg',
       badge: 'assets/img/champs/genomic-gerbils.png?v=2',
       theme: 'gg',
-      ownerNames: { 9: 'Sloan' }, // the End of YoRHa
+      ownerNames: { 6: 'Jen', 9: 'Sloan' }, // Jen's Team, the End of YoRHa
       champions: {
         8: ['genomic-gerbils', 'genomic-gerbils'], // Tisha (TNT), two titles
       },

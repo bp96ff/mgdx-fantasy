@@ -548,6 +548,14 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   background: #f6efe1; color: #0a1a2a; font: 800 13px/1 var(--font); letter-spacing: .2em; text-transform: uppercase;
   transform: skewX(-6deg); box-shadow: 4px 4px 0 var(--accent);
 }
+/* Hangs from the card's top edge, opposite the Matchup of the Week flag */
+.top-ten {
+  position: absolute; top: -1px; right: 18px; z-index: 1; padding: 6px 12px 5px;
+  background: #0a1a2a; color: #f6d365; border: 1px solid #f6d365; border-top: 0; border-radius: 0 0 8px 8px;
+  font: 800 11px/1 var(--font); letter-spacing: .16em; text-transform: uppercase;
+}
+.top-ten::before { content: "\2605"; margin-right: 5px; }
+@media (min-width: 761px) { .top-ten { padding: 8px 15px 7px; font-size: 13px; } }
 .matchup-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 30px 22px 10px; }
 .side { display: grid; align-items: center; gap: 14px; min-width: 0; }
 .side.left { grid-template-columns: minmax(0, 1fr) auto auto; text-align: right; }
@@ -620,7 +628,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .pad { padding: 16px; }
 
 /* Cross-league */
-.league-hero-logo.seal { border-radius: 50%; border: 0; background: none; clip-path: circle(48.5%); }
+.league-hero-logo.seal { width: 116px; height: 116px; border-radius: 50%; border: 0; background: none; clip-path: circle(48.5%); }
 .cross-hero { background: linear-gradient(110deg, var(--surface) 40%, color-mix(in srgb, var(--dna) 22%, var(--surface))); border-color: var(--line); }
 .hero-dots { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; color: #c9d7e5; font-weight: 600; font-size: 14px; }
 .hero-dots span { display: inline-flex; align-items: center; gap: 7px; }
@@ -648,6 +656,12 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .lchip .dot { display: none; }
 .xl-badges { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .xl-badges .seed, .xl-badges .lchip { margin-bottom: 0; }
+/* Tablet widths: the team column is too narrow for the league name, so show its dot, as on phones */
+@media (min-width: 761px) and (max-width: 920px) {
+  .lchip { padding: 0; border: 0; background: none; }
+  .lchip .dot { display: block; width: 11px; height: 11px; }
+  .lchip-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+}
 /* Each team sits on a wash of its league's color, fading toward the middle of the card */
 .cross .side { padding: 8px 10px; border-radius: 10px; }
 .cross .side.left { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, transparent), transparent); }
@@ -666,6 +680,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   main.wrap { padding-top: 12px; padding-bottom: 24px; }
   .league-hero { padding: 16px; gap: 14px; }
   .league-hero-logo { width: 68px; height: 68px; border-radius: 12px; }
+  .league-hero-logo.seal { width: 68px; height: 68px; }
   .league-hero-art { opacity: .35; max-width: 70%; }
   .subtabs { width: 100%; }
   .pick { flex: 0 0 76px; padding: 10px 6px; }
@@ -837,6 +852,11 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .tb-match { display: flex; flex-direction: column; gap: 4px; }
 .tb-match + .tb-match { margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(255, 255, 255, .55); }
 .tb-vs { align-self: center; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+/* Narrow phones: keep the Matchup of the Week flag and Top-10 tag from colliding */
+@media (max-width: 360px) {
+  .flag { left: 8px; padding: 7px 10px; font-size: 11px; letter-spacing: .12em; }
+  .top-ten { right: 8px; padding: 5px 8px 4px; font-size: 10px; letter-spacing: .08em; }
+}
 /* Home and Cross-League cover every league, so their highlight runs through all four colors */
 .nav-list a[data-route="home"]:hover, .nav-list a[data-route="cross-league"]:hover {
   border-color: transparent; background: linear-gradient(90deg, color-mix(in srgb, var(--lr) 16%, transparent), color-mix(in srgb, var(--gg) 16%, transparent), color-mix(in srgb, var(--rr) 16%, transparent), color-mix(in srgb, var(--mm) 16%, transparent)) padding-box, linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(90deg, color-mix(in srgb, var(--lr) 70%, transparent), color-mix(in srgb, var(--gg) 70%, transparent), color-mix(in srgb, var(--rr) 70%, transparent), color-mix(in srgb, var(--mm) 70%, transparent)) border-box;

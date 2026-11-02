@@ -260,25 +260,42 @@
     drawRankChart(document.getElementById('rank-chart'), weeklyRanks(league, results));
   }
 
-  // Each team's rank after every completed week, by the standings rule at that point in the
-  // season: overall win % (in-league + cross-league), then PF (each week's score, byes included).
+  // One league's table after a given week, by the standings rule at that point in the season:
+  // overall win % (in-league + cross-league), then PF (each week's score, byes included).
+  function standingsThrough(league, results, w, teams = league.teams) {
+    return teams.map((t) => {
+      const own = (results.get(t.id) || []).filter((r) => r.week <= w);
+      const inLeague = own.filter((r) => r.result);
+      const cross = (t.crossGames || []).filter((g) => g.week <= w);
+      const games = inLeague.concat(cross);
+      const tally = (list) => {
+        const wins = list.filter((g) => g.result === 'W').length;
+        const ties = list.filter((g) => g.result === 'T').length;
+        return { wins, losses: list.length - wins - ties, ties };
+      };
+      const record = tally(games);
+      const pf = own.filter((r) => r.result || r.bye).reduce((s, r) => s + r.pf, 0);
+      return {
+        id: t.id, pct: games.length ? (record.wins + record.ties / 2) / games.length : 0, pf,
+        record, inLeague: tally(inLeague), cross: tally(cross),
+      };
+    }).sort((a, b) => b.pct - a.pct || b.pf - a.pf);
+  }
+
+  // Each team's rank and record after every completed week.
   function weeklyRanks(league, results) {
     const weeks = [];
     for (let w = 1; w < league.currentWeek; w++) weeks.push(w);
     const teams = league.teams.slice().sort((a, b) => a.id - b.id); // color follows the team, not its rank
     const ranks = new Map(teams.map((t) => [t.id, []]));
+    const records = new Map(teams.map((t) => [t.id, []]));
     for (const w of weeks) {
-      const table = teams.map((t) => {
-        const own = (results.get(t.id) || []).filter((r) => r.week <= w);
-        const games = own.filter((r) => r.result).concat((t.crossGames || []).filter((g) => g.week <= w));
-        const won = games.filter((g) => g.result === 'W').length;
-        const tied = games.filter((g) => g.result === 'T').length;
-        const pf = own.filter((r) => r.result || r.bye).reduce((s, r) => s + r.pf, 0);
-        return { id: t.id, pct: games.length ? (won + tied / 2) / games.length : 0, pf };
-      }).sort((a, b) => b.pct - a.pct || b.pf - a.pf);
-      table.forEach((row, i) => ranks.get(row.id).push(i + 1));
+      standingsThrough(league, results, w, teams).forEach((row, i) => {
+        ranks.get(row.id).push(i + 1);
+        records.get(row.id).push(row.record);
+      });
     }
-    return { weeks, teams, ranks };
+    return { weeks, teams, ranks, records };
   }
 
   // Validated for the panel surface; 9 hues, so end labels and hover highlight back up the color.
@@ -1696,7 +1713,12 @@
       </div>`;
   }
 
-  function matchupCard(g, league, featured, openIds) {
+  function matchupCard(g, league, top, closest, openIds, going, overall) {
+    const standing = (side) => going && going.get(side.team.id);
+    const asOf = (side) => {
+      const s = standing(side);
+      return s ? { rec: record(s), badge: s.rank ? `<span class="seed">#${s.rank}</span>` : '<span></span>' } : {};
+    };
     if (g.bye) {
       const s = g.home;
       const score = g.byeState === 'upcoming' ? '' : `
@@ -1710,7 +1732,7 @@
             ${teamLogo(s.team, league, 'avatar lg')}
             <div class="bye-id">
               <a class="side-name" href="#/${league.slug}/rosters?team=${s.team.id}">${esc(s.team.name)}</a>
-              <span class="side-owner">${esc(s.team.owner)} · ${record(s.team)}</span>
+              <span class="side-owner">${esc(s.team.owner)} · ${record(standing(s) || s.team)}</span>
               <span class="pill">Bye week</span>
             </div>
             ${score}
@@ -1723,12 +1745,13 @@
     const awayLead = g.decided ? g.winner === 'away' : g.prob < 0.5;
     const hasLineups = g.home.lineup || g.away.lineup;
     return `
-      <article class="matchup ${featured ? 'featured' : ''}" data-id="${g.id}">
-        ${featured ? `<div class="flag">Matchup of the week</div>` : ''}
+      <article class="matchup ${top ? 'featured' : ''}" data-id="${g.id}">
+        ${top ? `<div class="flag">Matchup of the week</div>` : ''}
+        ${topTenTag(`${league.slug}:${g.home.team.id}`, `${league.slug}:${g.away.team.id}`, overall)}
         <div class="matchup-head">
-          ${sideHead(g.home, league, 'left', homeLead)}
+          ${sideHead(g.home, league, 'left', homeLead, asOf(g.home))}
           <span class="vs-mark">vs</span>
-          ${sideHead(g.away, league, 'right', awayLead)}
+          ${sideHead(g.away, league, 'right', awayLead, asOf(g.away))}
         </div>
         <div class="prob" role="img" aria-label="Win probability: ${esc(g.home.team.name)} ${pHome}%, ${esc(g.away.team.name)} ${100 - pHome}%">
           <span class="pct ${homeLead ? 'lead' : ''}">${pHome}%</span>
@@ -1736,7 +1759,7 @@
           <span class="pct ${awayLead ? 'lead' : ''}">${100 - pHome}%</span>
         </div>
         <p class="prob-label">${g.decided ? 'Final' : 'Win probability'}</p>
-        ${featured ? `<div class="banner"><span>${esc(featured)}</span></div>` : ''}
+        ${closest ? `<div class="banner"><span>${esc(closest)}</span></div>` : ''}
         ${hasLineups ? lineupToggle(g, openIds, lineupColumn(g.home, league) + lineupColumn(g.away, league)) : ''}
       </article>`;
   }
@@ -1749,6 +1772,36 @@
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="lineups ${cls}" id="lu-${g.id}" ${open ? '' : 'hidden'}>${inner}</div>`;
+  }
+
+  // Every team's overall rank and record going into a week, keyed `${slug}:${teamId}`. Later weeks
+  // use the latest standings. Week 1 has records but no ranks yet. Empty if the data can't load.
+  async function overallGoingInto(week) {
+    try {
+      const file = await lockedStandings();
+      const all = file ? LEAGUES.map((cfg) => lockedLeague(file, cfg)) : await (async () => {
+        const o = await overallRecords();
+        return Promise.all(o.leagues.map(async (l) => {
+          const league = Object.assign({}, l, { teams: l.teams.map((t) => Object.assign({}, t)) });
+          applyOverall(league, o.out);
+          return { league, results: await ESPN.getResults(l) };
+        }));
+      })();
+      const last = Math.min(week - 1, Math.max(...all.map((e) => e.league.currentWeek)) - 1);
+      const rows = all.flatMap(({ league, results }) => standingsThrough(league, results, Math.max(last, 0))
+        .map((r) => Object.assign(r, { key: `${league.slug}:${r.id}` })));
+      rows.sort((a, b) => b.pct - a.pct || b.pf - a.pf);
+      return new Map(rows.map((r, i) => [r.key, Object.assign(r, { rank: last < 1 ? null : i + 1 })]));
+    } catch (err) {
+      console.warn('Overall standings unavailable', err);
+      return new Map();
+    }
+  }
+
+  function topTenTag(keyA, keyB, overall) {
+    const a = (overall.get(keyA) || {}).rank, b = (overall.get(keyB) || {}).rank;
+    if (!a || !b || a > 10 || b > 10) return '';
+    return `<div class="top-ten" title="Both teams in the overall top 10: #${Math.min(a, b)} and #${Math.max(a, b)}">Top-10</div>`;
   }
 
   // Links from This Week name a game: bring it into view below the sticky header and outline it.
@@ -1771,7 +1824,30 @@
     }));
   }
 
-  function pickFeatured(data) {
+  // Each team's rank and record going into a week, so a week's cards and pick never change
+  // afterward. Later weeks use the latest standings. Week 1 has records but no ranks yet.
+  function standingsGoingInto(league, results, week) {
+    if (week === 1) return new Map(league.teams.map((t) => [t.id, { wins: 0, losses: 0, ties: 0 }]));
+    if (!results) return null;
+    const { weeks, ranks, records } = weeklyRanks(league, results);
+    const i = Math.min(week - 1, weeks.length) - 1;
+    if (i < 0) return null;
+    return new Map(league.teams.map((t) => [t.id, Object.assign({ rank: ranks.get(t.id)[i] }, records.get(t.id)[i])]));
+  }
+
+  // Matchup of the week: the best combined rank in the standings, then the game with the
+  // higher-ranked team.
+  function pickTopRanked(games, rank) {
+    const score = (g) => [rank(g.home) + rank(g.away), Math.min(rank(g.home), rank(g.away))];
+    if (!games.length) return null;
+    return games.reduce((a, b) => {
+      const [sa, ba] = score(a);
+      const [sb, bb] = score(b);
+      return sa < sb || (sa === sb && ba <= bb) ? a : b;
+    }).id;
+  }
+
+  function pickClosest(data) {
     const games = data.games.filter((g) => !g.bye);
     if (!games.length) return null;
     if (games.every((g) => g.decided)) {
@@ -1784,17 +1860,26 @@
 
   async function renderMatchups(league, body, params, token, keepOpen) {
     const week = clampWeek(league, params.get('week'));
-    const data = await ESPN.getMatchups(league, week);
+    const [data, results, overall] = await Promise.all([
+      ESPN.getMatchups(league, week),
+      ESPN.getResults(league).catch((err) => { console.warn('Past results unavailable', err); return null; }),
+      overallGoingInto(week),
+    ]);
     if (token !== renderToken) return;
 
     const openIds = keepOpen || new Set();
-    const featured = pickFeatured(data);
-    const ordered = data.games.slice().sort((a, b) =>
-      (featured && b.id === featured.id) - (featured && a.id === featured.id) || a.bye - b.bye);
+    const closest = pickClosest(data);
+    const going = standingsGoingInto(league, results, week);
+    // No standings yet (Week 1): the closest game takes the tag.
+    const top = going && week > 1
+      ? pickTopRanked(data.games.filter((g) => !g.bye), (side) => going.get(side.team.id).rank)
+      : closest && closest.id;
+    const place = (g) => (g.id === top ? 0 : closest && g.id === closest.id ? 1 : g.bye ? 3 : 2);
+    const ordered = data.games.slice().sort((a, b) => place(a) - place(b));
 
     const cards = ordered.map((g, i) => {
-      const card = matchupCard(g, league, featured && g.id === featured.id ? featured.label : null, openIds);
-      return i === 1 && featured ? `<h2 class="section-label">The rest of the slate</h2>${card}` : card;
+      const card = matchupCard(g, league, g.id === top, closest && g.id === closest.id ? closest.label : null, openIds, going, overall);
+      return i === 1 && top != null ? `<h2 class="section-label">The rest of the slate</h2>${card}` : card;
     }).join('');
 
     body().innerHTML = `
@@ -1862,7 +1947,7 @@
     return `<span class="lchip" style="--c:var(--${league.theme})" title="${name}"><i class="dot"></i><span class="lchip-name">${name}</span></span>`;
   }
 
-  function crossCard(g, records, ranks, openIds) {
+  function crossCard(g, records, ranks, openIds, overall, top) {
     const pHome = Math.round(g.prob * 100);
     const homeLead = g.decided ? g.winner === 'home' : g.prob > 0.5;
     const awayLead = g.decided ? g.winner === 'away' : g.prob < 0.5;
@@ -1870,15 +1955,22 @@
       if (s.missing) {
         return `<div class="side ${align}"><div class="side-id"><span class="side-name">${esc(s.team.name)}</span><span class="side-owner">Not found in ESPN</span></div></div>`;
       }
-      const r = crossRecordText(s.team, records.get(`${s.league.slug}:${s.team.id}`));
+      const key = `${s.league.slug}:${s.team.id}`;
+      const asOf = overall.get(key);
+      const r = asOf
+        ? { text: record(asOf.record), title: `In-league ${record(asOf.inLeague)} · Cross-league ${record(asOf.cross)}` }
+        : crossRecordText(s.team, records.get(key));
+      const rank = asOf ? asOf.rank : ranks.get(key);
       return sideHead(s, s.league, align, lead, {
-        badge: `<span class="xl-badges"><span class="seed" title="Overall rank">#${ranks.get(`${s.league.slug}:${s.team.id}`)}</span>${leagueChip(s.league)}</span>`,
+        badge: `<span class="xl-badges">${rank ? `<span class="seed" title="Overall rank">#${rank}</span>` : ''}${leagueChip(s.league)}</span>`,
         rec: r.text, recTitle: r.title, style: `--accent:var(--${s.league.theme})`,
       });
     };
     const hasLineups = (g.home.lineup || g.away.lineup) && !g.home.missing && !g.away.missing;
     return `
-      <article class="matchup cross" data-id="${g.id}" style="--home-c:var(--${g.home.league.theme});--away-c:var(--${g.away.league.theme})">
+      <article class="matchup cross ${top ? 'featured' : ''}" data-id="${g.id}" style="--home-c:var(--${g.home.league.theme});--away-c:var(--${g.away.league.theme})">
+        ${top ? `<div class="flag">Matchup of the week</div>` : ''}
+        ${topTenTag(`${g.home.league.slug}:${g.home.team.id}`, `${g.away.league.slug}:${g.away.team.id}`, overall)}
         <div class="matchup-head">
           ${side(g.home, 'left', homeLead)}
           <span class="vs-mark">vs</span>
@@ -1926,7 +2018,7 @@
       let week = Number(params.get('week')) || currentWeek;
       if (!weeks.includes(week)) week = weeks.reduce((a, b) => (Math.abs(b - week) < Math.abs(a - week) ? b : a));
 
-      const [sheet, weekData, records] = await Promise.all([
+      const [sheet, weekData, records, overall] = await Promise.all([
         SHEET.getWeek(week),
         Promise.all(leagues.map((l) => ESPN.getMatchups(l, week))),
         lockedStandings().then(async (file) => {
@@ -1934,6 +2026,7 @@
           const o = await overallRecords();
           return { out: o.out, ranks: new Map(rankAllTeams(o).map((e) => [`${e.league.slug}:${e.team.id}`, e.rank])) };
         }),
+        overallGoingInto(week),
       ]);
       if (token !== renderToken) return;
       const { out: crossOut, ranks } = records;
@@ -1964,6 +2057,14 @@
         }),
       }));
 
+      // One matchup of the week across every section, by overall rank. With no ranks yet (Week 1),
+      // the closest game takes the tag.
+      const allGames = sections.flatMap((sec) => sec.games);
+      const overallRank = (side) => (overall.get(`${side.league.slug}:${side.team.id}`) || {}).rank;
+      const rankedGames = allGames.filter((g) => overallRank(g.home) && overallRank(g.away));
+      const closestGame = pickClosest({ games: allGames, week });
+      const top = rankedGames.length ? pickTopRanked(rankedGames, overallRank) : closestGame && closestGame.id;
+
       const openIds = keepOpen || new Set();
       if (!keepOpen) {
         crossOpen = new Set();
@@ -1991,7 +2092,7 @@
                 <span class="xl-view"><span>${open ? 'Hide matchups' : 'View matchups'}</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
               </button>
             </h2>
-            <div class="xl-games" id="xl-${si}" ${open ? '' : 'hidden'}>${sec.games.map((g) => crossCard(g, crossOut, ranks, openIds)).join('')}
+            <div class="xl-games" id="xl-${si}" ${open ? '' : 'hidden'}>${sec.games.slice().sort((a, b) => (b.id === top) - (a.id === top)).map((g) => crossCard(g, crossOut, ranks, openIds, overall, g.id === top)).join('')}
               <button class="xl-hide" type="button" ${hideName ? `aria-label="${hideName}"` : ''}><span>${hideLabel}</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             </div>
           </section>`;
