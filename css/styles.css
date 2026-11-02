@@ -172,9 +172,10 @@ body[data-theme="lr"] .league-hero-art { aspect-ratio: 682 / 480; object-fit: fi
 .subtabs a {
   flex: 1; padding: 10px 22px; border-radius: 9px; text-align: center; text-decoration: none;
   font-weight: 700; color: #c3d2e1; white-space: nowrap;
+  background: rgba(255, 255, 255, .025); border: 1px solid rgba(255, 255, 255, .07);
 }
 .subtabs a:hover { background: var(--surface-2); color: #fff; }
-.subtabs a.active { background: var(--accent); color: var(--accent-ink); }
+.subtabs a.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
 /* ===== Tables ===== */
 .table-wrap { overflow-x: auto; }
@@ -664,6 +665,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .nav-list a { padding: 12px 13px; font-size: 14px; }
   th, td { padding: 10px 8px; }
   .standings .c-rank { width: 40px; }
+  .st-panel:not(.st-expanded) .standings th.c-rank.sortable { min-width: 52px; }
   .rank { font-size: 24px; }
   .avatar { width: 34px; height: 34px; }
   .team-cell { gap: 9px; }
@@ -697,6 +699,12 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 /* Phone menu: icons in place of words, all eight in view. Set here so desktop never downloads them. */
 @media (max-width: 680px) {
   .main-nav .wrap { padding: 0 4px; }
+  .hero-dots { display: none; }
+  /* Each section tab reads as its own button */
+  .subtabs { gap: 5px; }
+  .subtabs a { background: var(--surface-2); border-color: var(--line); }
+  .subtabs a.active { background: var(--accent); border-color: var(--accent); }
+  .home-title { font-size: 30px; }
   .nav-list { gap: 0; overflow: visible; }
   .nav-list li { flex: 1 1 0; min-width: 0; }
   .nav-list a { position: relative; padding: 7px 0 6px; }
@@ -781,7 +789,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 /* ===== Home: Toilet Bowl (shares the bracket styles; advancing here means losing) ===== */
 .tb .pb-team.won { border-color: var(--loss); box-shadow: inset 3px 0 0 var(--loss); }
 .tb-match { display: flex; flex-direction: column; gap: 4px; }
-.tb-match + .tb-match { margin-top: 8px; }
+.tb-match + .tb-match { margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(255, 255, 255, .55); }
 .tb-vs { align-self: center; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; }

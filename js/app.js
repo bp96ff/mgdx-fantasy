@@ -1361,7 +1361,7 @@
         <img class="league-hero-logo seal" src="assets/img/mgdx-logo.png" alt="Microgen Fantasy Football logo" width="96" height="96">
         <div class="league-hero-text">
           <p class="eyebrow" id="home-eyebrow">${SEASON}</p>
-          <h1 class="page-title">Microgen Fantasy Football</h1>
+          <h1 class="page-title home-title">Microgen Fantasy Football</h1>
           <p class="hero-dots">${LEAGUES.map((l) => `<span><i class="dot" style="--c:var(--${l.theme})"></i>${esc(l.name)}</span>`).join('')}</p>
         </div>
       </section>
