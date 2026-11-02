@@ -200,7 +200,7 @@ th.c-num { text-align: right; }
 .dots { display: inline-flex; gap: 5px; vertical-align: middle; }
 .dot-r { width: 11px; height: 11px; border-radius: 50%; background: var(--muted); }
 .dot-r.W { background: var(--win); } .dot-r.L { background: var(--loss); }
-.streak { margin-left: 8px; font-weight: 800; font-size: 14px; }
+.streak { display: inline-block; min-width: 2.2em; margin-left: 8px; text-align: left; font-weight: 800; font-size: 14px; }
 .streak.W { color: var(--win); } .streak.L { color: var(--loss); }
 .playoff-line td { padding: 8px 12px; border-top: 0; }
 .pl {
@@ -214,6 +214,8 @@ th.c-num { text-align: right; }
 .standings tr.lg-row td:first-child { box-shadow: inset 4px 0 0 var(--lc); }
 .standings tr.lg-row .rank { color: var(--lc); }
 .standings tr.lg-row { background: linear-gradient(90deg, color-mix(in srgb, var(--lc) 8%, transparent), transparent 45%); }
+/* League tabs: the same wash in the page's league color */
+.standings tr.in, .standings tr.out { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 45%); }
 .team-cell small.lg-name { font-weight: 700; color: var(--lc); font-size: 12px; }
 .standings tr.lg-row .team-cell strong { white-space: normal; line-height: 1.2; }
 @media (max-width: 1000px) { .hide-md { display: none; } }
@@ -225,6 +227,11 @@ th.sortable button {
   font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit;
 }
 th.sortable button:hover, th.sorted button { color: var(--text); }
+/* Headings and values share a center line; the arrow sits beside the heading without pushing it off center */
+.standings th.c-num, .standings td.c-num, .standings th.c-last, .standings td.c-last { text-align: center; }
+.standings th.c-num.sortable button { position: relative; justify-content: center; text-align: center; }
+.standings th.c-num.sortable .arrow { position: absolute; right: 1px; top: 50%; margin-top: -3px; }
+.standings th.c-num.sorted .arrow.asc { margin-top: -8px; }
 th.c-rank.sortable button { justify-content: center; gap: 2px; padding-left: 0; padding-right: 0; letter-spacing: 0; }
 th.sortable .arrow { width: 0; height: 0; border: 5px solid transparent; border-top-color: currentColor; opacity: .35; margin-top: 5px; }
 th.sorted .arrow { opacity: 1; color: var(--accent); }
@@ -303,16 +310,11 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
 .pw-status + .pw-status { margin-top: -8px; }
 .power th.c-num { white-space: normal; vertical-align: bottom; line-height: 1.2; }
 .power .pw-title { color: var(--accent); font-size: 18px; }
-/* Heading and odds share a center line; the arrow sits beside the heading without pushing it off center */
-.power th.pw-grand, .power td.pw-grand { text-align: center; }
 .power td.pw-letter { font: 800 22px/1 var(--display); }
 .power td.grade-a { color: var(--win); }
 .power td.grade-d { color: var(--loss); }
 .power td.luck-up { color: var(--win); }
 .power td.luck-down { color: var(--loss); }
-.power th.pw-grand button { position: relative; justify-content: center; text-align: center; }
-.power th.pw-grand .arrow { position: absolute; right: 1px; top: 50%; margin-top: -3px; }
-.power th.pw-grand .arrow.asc { margin-top: -8px; }
 .pw-hint { display: none; }
 .pw-sort { margin: 0; padding: 8px 12px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
 @media (max-width: 520px) {
@@ -328,6 +330,8 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
   .power th.c-num { white-space: nowrap; }
   .power .c-rank, .power tr > :nth-child(2) { position: sticky; z-index: 1; background: var(--surface); }
   .power th.c-rank, .power th:nth-child(2) { background: var(--bg-2); }
+  .power tr.lg-row .c-rank, .power tr.lg-row td.c-team { background: color-mix(in srgb, var(--lc) 8%, var(--surface)); }
+  .power tr.in .c-rank, .power tr.in td.c-team { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
   .power .c-rank { left: 0; width: 50px; min-width: 50px; max-width: 50px; padding-left: 4px; padding-right: 4px; }
   .power tr > :nth-child(2) { left: 50px; box-shadow: 6px 0 6px -4px rgba(0, 0, 0, .45); }
   .standings.power td.c-team { width: 150px; min-width: 150px; max-width: 150px; }
@@ -352,6 +356,7 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
   .st-expanded .pl span:first-child { position: sticky; left: 8px; }
   .st-expanded .standings td.c-team { width: 150px; min-width: 150px; max-width: 150px; }
   .st-expanded .standings tr.lg-row .c-rank, .st-expanded .standings tr.lg-row td.c-team { background: color-mix(in srgb, var(--lc) 8%, var(--surface)); }
+  .st-expanded .standings tr.in .c-rank, .st-expanded .standings tr.in td.c-team, .st-expanded .standings tr.out .c-rank, .st-expanded .standings tr.out td.c-team { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
   .st-expanded .playoff-line td { padding-left: 0; padding-right: 0; }
 }
 

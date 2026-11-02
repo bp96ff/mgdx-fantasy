@@ -1102,8 +1102,8 @@
         <div class="table-wrap">
           <table class="standings power">
             <thead><tr>
-              ${sortHeader(sort, 'rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th>${sortHeader(sort, 'grade', 'Grade', 'c-num pw-grand', 'Sort by lineup grade')}<th class="c-num">Overall</th>
-              <th class="c-num" title="Record if the team had played all 35 others every week">All-play</th><th class="c-num" title="Wins an average schedule would give these scores">Expected<br>wins</th>${sortHeader(sort, 'sos', 'Schedule<br>strength', 'c-num pw-grand', 'Sort by strength of schedule')}${sortHeader(sort, 'luck', 'Luck', 'c-num pw-grand', 'Sort by luck')}
+              ${sortHeader(sort, 'rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th>${sortHeader(sort, 'grade', 'Grade', 'c-num', 'Sort by lineup grade')}<th class="c-num">Overall</th>
+              <th class="c-num" title="Record if the team had played all 35 others every week">All-play</th><th class="c-num" title="Wins an average schedule would give these scores">Expected<br>wins</th>${sortHeader(sort, 'sos', 'Schedule<br>strength', 'c-num', 'Sort by strength of schedule')}${sortHeader(sort, 'luck', 'Luck', 'c-num', 'Sort by luck')}
             </tr></thead>
             <tbody>${rows.map(({ team: t, league, rank, all: a, expected, luck, sosRank, letter }) => `
               <tr class="lg-row" style="--lc:var(--${league.theme})">
@@ -1114,12 +1114,12 @@
                     <span><strong>${esc(t.name)}</strong><small>${esc(t.owner)}${champBadges(t)}</small><small class="lg-name">${esc(league.displayName)}</small></span>
                   </a>
                 </td>
-                <td class="c-num pw-grand pw-letter grade-${letter.toLowerCase()}">${letter}</td>
+                <td class="c-num pw-letter grade-${letter.toLowerCase()}">${letter}</td>
                 <td class="c-num c-rec">${record(t)}</td>
                 <td class="c-num">${a.w}-${a.l}${a.t ? `-${a.t}` : ''}</td>
                 <td class="c-num">${f1(expected)}</td>
-                <td class="c-num pw-grand">${sosRank}</td>
-                <td class="c-num pw-title pw-grand ${luck >= 0.05 ? 'luck-up' : luck <= -0.05 ? 'luck-down' : ''}">${signed(luck)}</td>
+                <td class="c-num">${sosRank}</td>
+                <td class="c-num pw-title ${luck >= 0.05 ? 'luck-up' : luck <= -0.05 ? 'luck-down' : ''}">${signed(luck)}</td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -1286,7 +1286,7 @@
 
   // ---------- home ----------
   const HOME_TABS = ['standings', 'this-week', 'title-odds', 'playoff-bracket', 'toilet-bowl', 'luck-index'];
-  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds', 'playoff-bracket': 'Playoff Bracket', 'toilet-bowl': 'Toilet Bowl', 'luck-index': 'Luck Index' };
+  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds', 'playoff-bracket': 'Playoffs', 'toilet-bowl': 'Toilet Bowl', 'luck-index': 'Luck Index' };
 
   function sortHeader(sort, key, label, cls, title) {
     const on = sort.key === key;
@@ -1320,7 +1320,7 @@
           <table class="standings power">
             <thead><tr>
               ${sortHeader(sort, 'rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th><th class="c-num">Overall</th>
-              <th class="c-num">Playoffs</th><th class="c-num">Win league</th>${sortHeader(sort, 'grand', 'Grand<br>Champion', 'c-num pw-grand', 'Sort by Grand Champion odds')}
+              <th class="c-num">Playoffs</th><th class="c-num">Win league</th>${sortHeader(sort, 'grand', 'Grand<br>Champion', 'c-num', 'Sort by Grand Champion odds')}
             </tr></thead>
             <tbody>${rows.map(({ team: t, league, o, rank }) => `
               <tr class="lg-row" style="--lc:var(--${league.theme})">
@@ -1334,7 +1334,7 @@
                 <td class="c-num c-rec">${record(t)}</td>
                 <td class="c-num">${oddsPct(o.playoffs)}</td>
                 <td class="c-num">${oddsPct(o.title)}</td>
-                <td class="c-num pw-title pw-grand">${oddsPct(o.grand)}</td>
+                <td class="c-num pw-title">${oddsPct(o.grand)}</td>
               </tr>`).join('')}
             </tbody>
           </table>
