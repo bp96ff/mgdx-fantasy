@@ -281,6 +281,7 @@
           result = m.winner === 'TIE' ? 'T' : m.winner.toLowerCase() === side ? 'W' : 'L';
         }
         byTeam.get(me.teamId).push({
+          id: m.id,
           week: m.matchupPeriodId,
           opp: opp ? league.teamById.get(opp.teamId) : null,
           bye: !opp,

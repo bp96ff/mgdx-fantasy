@@ -71,10 +71,10 @@ async function main() {
           opp: { id: g.opp.id, name: g.opp.name },
           oppLeague: { slug: g.oppLeague.slug, displayName: g.oppLeague.displayName },
         })),
-        // The whole season's cross-league opponents for the Rosters schedule: [week, 'league:teamId'].
+        // The whole season's cross-league opponents for the Rosters tab: [week, 'league:teamId', game id, bye matchup?].
         crossSchedule: (cross.byTeam.get(`${l.slug}:${t.id}`) || [])
           .filter((x) => !x.opp.missing)
-          .map((x) => [x.week, `${x.opp.league.slug}:${x.opp.team.id}`]),
+          .map((x) => [x.week, `${x.opp.league.slug}:${x.opp.team.id}`, x.game, x.bye]),
       })),
       results: Object.fromEntries([...results[i]].map(([id, list]) => [id,
         list.filter((r) => r.week < week).map((r) => ({

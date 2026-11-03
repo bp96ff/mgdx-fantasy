@@ -113,16 +113,16 @@
     const sheets = await Promise.all(SHEET.weeks.map((w) => SHEET.getWeek(w)));
     const byTeam = new Map();
     SHEET.weeks.forEach((week, i) => {
-      for (const sec of resolveWeek(sheets[i], o.leagues, o.byes.get(week) || [])) {
-        for (const [a, b] of sec.games) {
+      resolveWeek(sheets[i], o.leagues, o.byes.get(week) || []).forEach((sec, si) => {
+        sec.games.forEach(([a, b], gi) => {
           for (const [me, opp] of [[a, b], [b, a]]) {
             if (me.missing) continue;
             const key = `${me.league.slug}:${me.team.id}`;
             if (!byTeam.has(key)) byTeam.set(key, []);
-            byTeam.get(key).push({ week, opp });
+            byTeam.get(key).push({ week, opp, game: `x${si}-${gi}`, bye: !!sec.bye });
           }
-        }
-      }
+        });
+      });
     });
     return { byTeam, out: o.out };
   }
