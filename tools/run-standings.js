@@ -48,6 +48,7 @@ async function main() {
         logo: t.logo,
         titles: t.titles,
         grandTitles: t.grandTitles,
+        ultimateLosses: t.ultimateLosses,
         wins: t.wins,
         losses: t.losses,
         ties: t.ties,

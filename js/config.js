@@ -51,6 +51,8 @@ window.MGDX = {
         7: ['molecular-mice'], // Kayla (Say CHEESE!)
       },
       grandChampions: { 2: 1 }, // Sarah (Sarah's Smart Team)
+      // Former ultimate losers (golden plunger): teamId -> number of times.
+      ultimateLosers: { 9: 1 }, // Amanda (Amanda's Astounding Team)
     },
     {
       slug: 'genomic-gerbils',
@@ -79,6 +81,7 @@ window.MGDX = {
         1: ['molecular-mice', 'research-rodents'], // Emma (Hail Mary Pass), won Molecular Mice before moving here
         3: ['research-rodents'], // Jake (Prestige Worldwide)
       },
+      ultimateLosers: { 6: 1 }, // Hoai-Nha (Hoai-Nha's Bro Dudes)
     },
   ],
 };

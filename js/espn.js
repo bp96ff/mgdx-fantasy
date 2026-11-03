@@ -75,7 +75,7 @@
   }
 
   async function getLeague(cfg) {
-    const { id: leagueId, ownerNames = {}, teamLogos = {}, champions = {}, grandChampions = {} } = cfg;
+    const { id: leagueId, ownerNames = {}, teamLogos = {}, champions = {}, grandChampions = {}, ultimateLosers = {} } = cfg;
     const d = await getJSON(`${BASE}/segments/0/leagues/${leagueId}?view=mTeam&view=mSettings&view=mMatchupScore`);
     const members = new Map((d.members || []).map((m) => [m.id, m]));
     const currentWeek = d.status.currentMatchupPeriod;
@@ -99,6 +99,7 @@
         owner: ownerNames[t.id] || firstName(members.get(ownerId)),
         titles: champions[t.id] || [],
         grandTitles: grandChampions[t.id] || 0,
+        ultimateLosses: ultimateLosers[t.id] || 0,
         wins: rec.wins, losses: rec.losses, ties: rec.ties,
         pct: rec.percentage,
         pf: rec.pointsFor + (byePts.get(t.id) || 0), pa: rec.pointsAgainst,

@@ -51,17 +51,20 @@
     return `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${esc(fallback)}'">`;
   }
 
-  // Small logos by a former champion's name: a golden goat per grand championship, then a league logo per title.
+  // Small logos by a former champion's name: a golden goat per grand championship, a golden plunger per
+  // ultimate loss, then a league logo per title.
   function champBadges(team) {
     const goats = Array.from({ length: team.grandTitles || 0 }, () =>
       '<img class="champ goat" src="assets/img/champs/grand-champion.png" alt="Grand champion" title="Grand champion" width="17" height="17">');
+    const plungers = Array.from({ length: team.ultimateLosses || 0 }, () =>
+      '<img class="champ goat" src="assets/img/champs/ultimate-loser.png" alt="Ultimate loser" title="Ultimate loser" width="17" height="17">');
     const logos = (team.titles || []).map((slug) => {
       const l = LEAGUES.find((x) => x.slug === slug);
       if (!l) return '';
       const label = `${esc(l.name)} champion`;
       return `<img class="champ" src="${l.badge}" alt="${label}" title="${label}" width="17" height="17">`;
     });
-    const all = goats.concat(logos).join('');
+    const all = goats.concat(plungers, logos).join('');
     return all ? `<i class="champs">${all}</i>` : '';
   }
 
@@ -222,7 +225,7 @@
   function applyLocked(league, saved) {
     const live = new Map(league.teams.map((t) => [t.id, t]));
     league.teams = saved.teams.filter((s) => live.has(s.id)).map((s) => {
-      const { name, owner, logo, titles, grandTitles, ...records } = s;
+      const { name, owner, logo, titles, grandTitles, ultimateLosses, ...records } = s;
       return Object.assign(live.get(s.id), records);
     });
     league.overall = true;
