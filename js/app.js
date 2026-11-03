@@ -1314,7 +1314,7 @@
 
   // ---------- home ----------
   const HOME_TABS = ['standings', 'this-week', 'title-odds', 'playoff-bracket', 'toilet-bowl', 'luck-index'];
-  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'This Week', 'title-odds': 'Title Odds', 'playoff-bracket': 'Playoffs', 'toilet-bowl': 'Toilet Bowl', 'luck-index': 'Luck Index' };
+  const HOME_TAB_NAMES = { standings: 'Standings', 'this-week': 'Weekly Snapshot', 'title-odds': 'Title Odds', 'playoff-bracket': 'Playoffs', 'toilet-bowl': 'Toilet Bowl', 'luck-index': 'Luck Index' };
 
   function sortHeader(sort, key, label, cls, title) {
     const on = sort.key === key;
