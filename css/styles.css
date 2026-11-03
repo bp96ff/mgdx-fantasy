@@ -85,8 +85,7 @@ main.wrap { flex: 1; padding-top: 18px; padding-bottom: 36px; outline: none; }
 .site-header { background: linear-gradient(180deg, #04142a, var(--bg-2)); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
 .header-inner { display: flex; align-items: center; padding-top: 10px; padding-bottom: 10px; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
-/* round seal: clip away the white corners of the square image */
-.brand-logo { width: 64px; height: 64px; object-fit: contain; border-radius: 50%; clip-path: circle(48.5%); }
+.brand-logo { width: 64px; height: 64px; object-fit: contain; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; }
 .brand-kicker { font: 700 11px/1 var(--font); letter-spacing: .22em; text-transform: uppercase; color: var(--dna); margin-bottom: 6px; }
 .brand-name { font: 800 clamp(22px, 4.2vw, 34px)/1 var(--display); text-transform: uppercase; letter-spacing: .01em; }
@@ -660,7 +659,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .pad { padding: 16px; }
 
 /* Cross-league */
-.league-hero-logo.seal { width: 116px; height: 116px; border-radius: 50%; border: 0; background: none; clip-path: circle(48.5%); }
+.league-hero-logo.seal { width: 116px; height: 116px; border-radius: 50%; border: 0; background: none; }
 .cross-hero { background: linear-gradient(110deg, var(--surface) 40%, color-mix(in srgb, var(--dna) 22%, var(--surface))); border-color: var(--line); }
 .hero-dots { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; color: #c9d7e5; font-weight: 600; font-size: 14px; }
 .hero-dots span { display: inline-flex; align-items: center; gap: 7px; }
@@ -809,7 +808,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .nav-list a::before { content: ""; width: 34px; height: 34px; max-width: 100%; background: center / contain no-repeat; }
   .nav-list .dot { display: none; }
   .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .nav-list a[data-route="home"]::before { background-image: url("../assets/img/mgdx-logo.png"); border-radius: 50%; }
+  .nav-list a[data-route="home"]::before { background-image: url("../assets/img/mgdx-seal.png"); border-radius: 50%; }
   .nav-list a[data-route="lab-rats"]::before { background-image: url("../assets/img/champs/lab-rats.png?v=2"); width: 37px; }
   .nav-list a[data-route="molecular-mice"]::before { background-image: url("../assets/img/champs/molecular-mice.png?v=2"); width: 37px; }
   .nav-list a[data-route="genomic-gerbils"]::before { background-image: url("../assets/img/champs/genomic-gerbils.png?v=2"); width: 37px; }

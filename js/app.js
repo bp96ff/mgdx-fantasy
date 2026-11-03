@@ -1376,7 +1376,7 @@
     document.title = 'Home · Microgen Fantasy Football';
     main.innerHTML = `
       <section class="league-hero cross-hero">
-        <img class="league-hero-logo seal" src="assets/img/mgdx-logo.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
         <div class="league-hero-text">
           <p class="eyebrow" id="home-eyebrow">${SEASON}</p>
           <h1 class="page-title home-title">Microgen Fantasy Football</h1>
@@ -2039,7 +2039,7 @@
   function crossShell() {
     return `
       <section class="league-hero cross-hero">
-        <img class="league-hero-logo seal" src="assets/img/mgdx-logo.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
         <div class="league-hero-text">
           <p class="eyebrow">Microgen Fantasy Football · ${SEASON}</p>
           <h1 class="page-title">Cross-League</h1>
