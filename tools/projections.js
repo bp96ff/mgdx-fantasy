@@ -1,7 +1,8 @@
 // Season simulator behind the Power Rankings. Plain data in, odds out: no fetching or page code here.
 //
 // Each team gets an expected score per week: ESPN's rest-of-season player projections (best legal
-// lineup, skipping NFL byes and expected missed games) blended with the team's actual scoring so far.
+// lineup, skipping NFL byes and expected missed games) blended with the team's actual scoring so far,
+// then pulled toward that week's average, since big leads have tended to fade.
 // The rest of the season is then played out many times with random weekly scores, using the real
 // in-league and cross-league schedules, the standings rules and the playoff format.
 (function () {
@@ -12,7 +13,11 @@
   const CHAMPIONS_CUP_WEEK = 17; // the four league champions: highest score is Grand Champion
   const LAST_NFL_WEEK = 18; // ESPN's rest-of-season totals run through here
   const ROSTER_WEIGHT = 0.65; // share of a team's expected score from projections; the rest is actual scoring
-  const SKILL_SD = 6; // how far a team's true level could be from our estimate, points per week
+  // These three are interim, chosen with the user from the 2023-2025 seasons ESPN still serves.
+  // Revisit them against real titles once the past seasons' full league data is available.
+  const LEAD_KEPT = 0.65; // share of a team's projected lead over the weekly average it keeps
+  const SKILL_SD = 9; // how far a team's true level could be from our estimate, points per week
+  const WEEKLY_SD = 24.7; // how much a team's score swings from week to week
   const MIN_SCORE = 40;
 
   // Expected points from the best legal lineup. Flex slots fill last, from who is left.
@@ -55,24 +60,21 @@
     const weeks = [];
     for (let w = firstWeek; w <= CHAMPIONS_CUP_WEEK; w++) weeks.push(w);
 
-    // Weekly spread: how much teams swing around their own average, across all completed weeks.
-    let sumSq = 0;
-    let df = 0;
     const ppg = teams.map((t) => {
       const vals = Object.entries(t.scores).filter(([w]) => Number(w) < firstWeek).map(([, v]) => v);
       if (!vals.length) return null;
-      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-      vals.forEach((v) => { sumSq += (v - avg) ** 2; });
-      df += vals.length - 1;
-      return avg;
+      return vals.reduce((a, b) => a + b, 0) / vals.length;
     });
-    const weeklySD = df > 0 ? Math.sqrt(sumSq / df) : 28;
 
     // means[weekIndex][team]
-    const means = weeks.map((w) => teams.map((t, i) => {
-      const roster = bestLineup(t.players, t.slotCounts, w, current.period);
-      return ppg[i] == null ? roster : ROSTER_WEIGHT * roster + (1 - ROSTER_WEIGHT) * ppg[i];
-    }));
+    const means = weeks.map((w) => {
+      const raw = teams.map((t, i) => {
+        const roster = bestLineup(t.players, t.slotCounts, w, current.period);
+        return ppg[i] == null ? roster : ROSTER_WEIGHT * roster + (1 - ROSTER_WEIGHT) * ppg[i];
+      });
+      const avg = raw.reduce((a, b) => a + b, 0) / n;
+      return raw.map((m) => avg + LEAD_KEPT * (m - avg));
+    });
     const gameIdx = weeks.map((w) => (games[w] || []).map(([a, b]) => [index.get(a), index.get(b)])
       .filter(([a, b]) => a != null && b != null));
 
@@ -114,9 +116,9 @@
           if (live) {
             // In progress: only the unplayed part of the projection is still uncertain.
             const share = Math.sqrt(Math.max(0, live.proj - live.score) / Math.max(1, live.proj));
-            row[t] = Math.max(live.score, live.proj + share * (weeklySD * normal() + skill[t]));
+            row[t] = Math.max(live.score, live.proj + share * (WEEKLY_SD * normal() + skill[t]));
           } else {
-            row[t] = Math.max(MIN_SCORE, means[wi][t] + skill[t] + weeklySD * normal());
+            row[t] = Math.max(MIN_SCORE, means[wi][t] + skill[t] + WEEKLY_SD * normal());
           }
           if (w <= LAST_REGULAR_WEEK) pf[t] += row[t];
         }
@@ -147,7 +149,7 @@
 
     return {
       sims,
-      weeklySD,
+      weeklySD: WEEKLY_SD,
       odds: new Map(teams.map((t, i) => [t.key, {
         playoffs: counts[i].playoffs / sims,
         bye: counts[i].bye / sims,
