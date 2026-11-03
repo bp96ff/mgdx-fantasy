@@ -1509,35 +1509,47 @@
       </tr>`).join('');
   }
 
-  // One matchup card for the selected week: final score vs opponent, live total, or projection.
-  // The whole card links to the matchup; the opponent's name still goes to their roster.
-  function scoreCard({ label, result, week, live, livePts, projPts, opp, link, linkLabel }) {
+  // The roster's own score for the selected week: final, live with its projection, or projected.
+  function teamScore(league, team, week, results, livePts, projPts) {
+    const game = (results.get(team.id) || []).find((r) => r.week === week);
+    const stat = (label, value, cls = '') => `<div class="ts-stat"><span class="ws-label">${label}</span><b class="ts-val ${cls}">${value}</b></div>`;
+    let stats;
+    if (week < league.currentWeek) stats = stat(`Week ${week} final score`, game ? f2(game.pf) : '—');
+    else if (week > league.currentWeek) stats = stat(`Week ${week} projected score`, f1(projPts));
+    else stats = stat(`Week ${week} current score`, f2(livePts), 'ts-live') + stat('Projected', f1(projPts));
+    return `<section class="panel team-score">${stats}</section>`;
+  }
+
+  // One matchup card for the selected week, showing the opponent's score. Scores of games still to
+  // finish come from fillOpponentScores. The whole card links to the matchup; the opponent's name
+  // still goes to their roster.
+  function scoreCard({ label, result, week, live, oppKey, opp, link, linkLabel }) {
     const go = `
-        <a class="ws-go" href="${link}" aria-label="${esc(linkLabel)}"><span>View matchup</span><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>`;
+        <a class="ws-go" href="${link}" aria-label="${esc(linkLabel)}"><span>View<span class="ws-go-more"> matchup</span></span><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>`;
     if (result) {
       const word = { W: 'Win', L: 'Loss', T: 'Tie' }[result.result];
       return `
         <div class="week-score ${result.result}">
           <span class="wl ${result.result}">${result.result}</span>
-          <div class="ws-main"><span class="ws-label">Week ${week} · ${label} · Final · ${word}</span><span class="ws-pts">${f2(result.pf)}<small>–${f2(result.pa)}</small></span></div>
-          ${opp}${go}
+          <div class="ws-main"><span class="ws-label">Week ${week} · ${label} · Final · ${word}</span>${opp}</div>
+          <span class="ws-pts">${f2(result.pa)}</span>${go}
         </div>`;
     }
     return `
-      <div class="week-score ${live ? 'live' : 'proj'}">
+      <div class="week-score ${live ? 'now' : 'proj'}">
         <div class="ws-main">
           <span class="ws-label">Week ${week} · ${label} · ${live ? 'Live' : 'Projected'}</span>
-          <span class="ws-pts">${live ? f2(livePts) : f1(projPts)}${live ? `<small>Proj ${f1(projPts)}</small>` : ''}</span>
+          ${opp}
         </div>
-        ${opp}${go}
+        <span class="ws-pts" ${oppKey ? `data-opp="${oppKey}"` : ''}>—</span>${go}
       </div>`;
   }
 
   // The selected week's cards: the in-league game, or the bye matchup in its place, then the cross-league game.
-  function weekScores(league, team, week, results, cross, livePts, projPts) {
+  function weekScores(league, team, week, results, cross) {
     const game = (results.get(team.id) || []).find((r) => r.week === week);
     const live = week === league.currentWeek;
-    const shared = { week, live, livePts, projPts };
+    const shared = { week, live };
     const key = `${league.slug}:${team.id}`;
     const played = cross && cross.out.get(key) ? cross.out.get(key).games : [];
     const games = cross ? (cross.byTeam.get(key) || []).filter((x) => x.week === week) : [];
@@ -1548,6 +1560,7 @@
         ...shared,
         label,
         result: played.find((p) => p.week === week && p.opp.id === x.opp.team.id && p.oppLeague.slug === x.opp.league.slug),
+        oppKey: x.opp.missing ? null : `${x.opp.league.slug}:${x.opp.team.id}`,
         opp: x.opp.missing ? `<span class="ws-opp">vs ${name}</span>`
           : `<a class="ws-opp" href="#/${x.opp.league.slug}/rosters?team=${x.opp.team.id}&week=${week}">vs ${name}</a>`,
         link: `#/cross-league?week=${week}${x.game ? `&game=${x.game}` : ''}`,
@@ -1562,6 +1575,7 @@
         ...shared,
         label: 'In-league',
         result: game.result ? game : null,
+        oppKey: `${league.slug}:${game.opp.id}`,
         opp: `<a class="ws-opp" href="#/${league.slug}/rosters?team=${game.opp.id}&week=${week}">vs ${teamLogo(game.opp, league, 'avatar xs')}<span>${esc(game.opp.name)}</span></a>`,
         link: `#/${league.slug}/matchups?week=${week}&game=${game.id}`,
         linkLabel: `View the week ${week} matchup against ${game.opp.name}`,
@@ -1569,16 +1583,13 @@
     } else if (byeGame) {
       first = crossCardFor(byeGame, 'Bye matchup');
     } else {
-      const past = week < league.currentWeek;
-      const pts = past ? (game ? f2(game.pf) : '—') : live ? f2(livePts) : f1(projPts);
       first = `
         <div class="week-score bye">
           <span class="wl bye">B</span>
           <div class="ws-main">
-            <span class="ws-label">Week ${week} · Bye · ${past ? 'Final' : live ? 'Live' : 'Projected'}</span>
-            <span class="ws-pts">${pts}${live ? `<small>Proj ${f1(projPts)}</small>` : ''}</span>
+            <span class="ws-label">Week ${week} · Bye</span>
+            <span class="ws-opp">No opponent this week</span>
           </div>
-          <span class="ws-opp">No opponent this week</span>
         </div>`;
     }
     return `
@@ -1587,6 +1598,30 @@
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="week-scores" id="ws-cards" ${weekCardsOpen ? '' : 'hidden'}>${first}${others.join('')}</div>`;
+  }
+
+  // Fetched when the cards are first opened, so the roster itself doesn't wait on other leagues.
+  async function fillOpponentScores(root, league, week, token) {
+    const cells = [...root.querySelectorAll('[data-opp]')];
+    if (!cells.length) return;
+    try {
+      const leagues = await loadAllLeagues();
+      const slugs = new Set(cells.map((c) => c.dataset.opp.split(':')[0]));
+      const data = await Promise.all(leagues.filter((l) => slugs.has(l.slug)).map(async (l) => ({ l, d: await ESPN.getMatchups(l, week) })));
+      if (token !== renderToken) return;
+      const sides = new Map();
+      for (const { l, d } of data) {
+        for (const g of d.games) for (const s of [g.home, g.away]) if (s) sides.set(`${l.slug}:${s.team.id}`, s);
+      }
+      for (const cell of cells) {
+        const side = sides.get(cell.dataset.opp);
+        if (!side) continue;
+        cell.innerHTML = week === league.currentWeek ? `${f2(side.score)}<small>Proj ${f1(side.proj)}</small>` : f1(side.proj);
+        cell.removeAttribute('data-opp');
+      }
+    } catch (err) {
+      console.warn('Opponent scores unavailable', err);
+    }
   }
 
   async function renderRosters(league, body, params, token) {
@@ -1676,8 +1711,9 @@
       </section>
       ${note ? `<p class="fineprint week-note">${esc(note)}</p>` : ''}
       <section class="panel week-panel">
-        ${weekScores(league, team, week, results, cross, startersPts, startersProj)}
+        ${weekScores(league, team, week, results, cross)}
       </section>
+      ${teamScore(league, team, week, results, startersPts, startersProj)}
       <div class="panel">
         <div class="table-wrap">
           <table class="roster">
@@ -1705,7 +1741,9 @@
       btn.setAttribute('aria-expanded', weekCardsOpen);
       btn.querySelector('span').textContent = `${weekCardsOpen ? 'Hide' : 'View'} matchups`;
       body().querySelector('#ws-cards').hidden = !weekCardsOpen;
+      if (weekCardsOpen) fillOpponentScores(body(), league, week, token);
     });
+    if (weekCardsOpen) fillOpponentScores(body(), league, week, token);
     body().querySelector('#sched-toggle').addEventListener('click', (e) => {
       scheduleOpen = !scheduleOpen;
       const btn = e.currentTarget;
