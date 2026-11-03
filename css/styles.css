@@ -57,6 +57,19 @@ body {
   font: 500 16px/1.45 var(--font);
   transition: background-color .3s;
 }
+/* Wide desktop only: faint ink art in the empty space either side of the page, over colored specks. Built by tools/build-side-art.py. */
+@media (min-width: 1400px) {
+  body { position: relative; }
+  body::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; opacity: .2; pointer-events: none;
+    background: url("../assets/img/side-art-left.webp?v=7") calc(50% - 910px) 210px / 640px 1500px repeat-y,
+      url("../assets/img/side-art-right.webp?v=7") calc(50% + 910px) 210px / 640px 1500px repeat-y;
+  }
+  body::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; opacity: .4; pointer-events: none;
+    background: url("../assets/img/side-speckle.webp?v=1") 0 0 / 900px 900px;
+  }
+}
 img { max-width: 100%; }
 a { color: inherit; }
 button, select { font: inherit; color: inherit; }
