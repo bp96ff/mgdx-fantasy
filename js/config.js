@@ -57,7 +57,7 @@ window.MGDX = {
       name: 'Genomic Gerbils',
       id: 198075491,
       logo: 'assets/img/genomic-gerbils.jpg',
-      art: 'assets/img/genomic-gerbils-alt.jpg',
+      art: 'assets/img/genomic-gerbils-alt-crop.jpg',
       badge: 'assets/img/champs/genomic-gerbils.png?v=2',
       theme: 'gg',
       ownerNames: { 6: 'Jen', 9: 'Sloan' }, // Jen's Team, the End of YoRHa

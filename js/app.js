@@ -1105,6 +1105,13 @@
       const v = Math.abs(n) < 0.05 ? 0 : n;
       return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}`;
     };
+    // Hardest schedule red, easiest green, fading through the plain text color in the middle.
+    const sosColor = (sosRank) => {
+      const t = (sosRank - 1) / Math.max(1, all.length - 1);
+      return t < 0.5
+        ? `color-mix(in srgb, var(--loss) ${Math.round((1 - t * 2) * 100)}%, var(--text))`
+        : `color-mix(in srgb, var(--win) ${Math.round((t * 2 - 1) * 100)}%, var(--text))`;
+    };
     // Click Rank / Luck to sort; click the active one again to flip direction.
     let sort = { key: 'luck', dir: 'desc' };
     const draw = () => {
@@ -1136,7 +1143,7 @@
                 <td class="c-num c-rec">${record(t)}</td>
                 <td class="c-num">${a.w}-${a.l}${a.t ? `-${a.t}` : ''}</td>
                 <td class="c-num">${f1(expected)}</td>
-                <td class="c-num">${sosRank}</td>
+                <td class="c-num pw-title" style="color:${sosColor(sosRank)}">${sosRank}</td>
                 <td class="c-num pw-title ${luck >= 0.05 ? 'luck-up' : luck <= -0.05 ? 'luck-down' : ''}">${signed(luck)}</td>
               </tr>`).join('')}
             </tbody>

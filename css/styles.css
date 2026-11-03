@@ -193,11 +193,12 @@ main.wrap { flex: 1; padding-top: 18px; padding-bottom: 36px; outline: none; }
   mix-blend-mode: screen; filter: invert(1) hue-rotate(180deg) saturate(1.3);
   pointer-events: none;
 }
-/* These two are cropped tight, so they sit fully inside the banner */
-body[data-theme="rr"] .league-hero-art,
-body[data-theme="lr"] .league-hero-art { height: calc(100% - 20px); right: 14px; }
-/* Lab Rats art is stretched 30% wider than its natural 525x480 to fill more of the banner */
-body[data-theme="lr"] .league-hero-art { aspect-ratio: 682 / 480; object-fit: fill; }
+/* These three are cropped to their ground line (tools/build-banner-art.py), so it meets the banner's bottom edge */
+body[data-theme="lr"] .league-hero-art,
+body[data-theme="gg"] .league-hero-art,
+body[data-theme="rr"] .league-hero-art { top: auto; bottom: 0; transform: none; height: 100%; right: 14px; }
+/* Lab Rats art is stretched 30% wider than its natural 648x574 to fill more of the banner */
+body[data-theme="lr"] .league-hero-art { aspect-ratio: 842 / 574; object-fit: fill; }
 .subtabs {
   display: flex; margin: 18px 0 22px; padding: 4px; gap: 4px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; width: fit-content; max-width: 100%;
