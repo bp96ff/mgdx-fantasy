@@ -1166,12 +1166,13 @@
   }
 
   // ---------- this week ----------
-  function twTeam(side, week, live) {
+  // nums replaces the usual score on the right.
+  function twTeam(side, week, live, nums) {
     return `
       <a class="team-cell tw-team" href="#/${side.league.slug}/rosters?team=${side.team.id}&week=${week}" style="--lc:var(--${side.league.theme})">
         ${teamLogo(side.team, side.league)}
         <span><strong>${esc(side.team.name)}</strong><small>${esc(side.team.owner)}</small><small class="lg-name">${esc(side.league.displayName)}</small></span>
-        <span class="tw-nums"><b class="tw-score">${f2(side.score)}</b><small>${live ? `proj. ${f1(side.proj)}` : 'Final'}</small></span>
+        <span class="tw-nums">${nums || `<b class="tw-score">${f2(side.score)}</b><small>${live ? `proj. ${f1(side.proj)}` : 'Final'}</small>`}</span>
       </a>`;
   }
 
@@ -1187,6 +1188,27 @@
   function twGameCard(label, g, note, week, live) {
     if (!g) return '';
     return twCard(label, `<div class="tw-game">${twTeam(g.high, week, live)}${twTeam(g.low, week, live)}</div>`, note, g.link);
+  }
+
+  // One team that won or lost both games, with a link to each.
+  function twSweepCard(label, x, word, week, live) {
+    if (!x) return '';
+    const games = x.games.map((g) => `<li><a href="${esc(g.link)}" title="View this matchup"><span>${word} ${esc(g.opp.team.name)}</span><b>${live ? f1(g.opp.proj) : f2(g.opp.score)}</b></a></li>`).join('');
+    return twCard(label, `<div class="tw-game">${twTeam(x.side, week, live)}<ul class="tw-opps">${games}</ul></div>`);
+  }
+
+  function twMoversCard(movers, week, live) {
+    if (!movers) return '';
+    const row = (m, up) => `<li>${twTeam(m.side, week, live, `<b class="tw-score ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${Math.abs(m.from - m.to)}</b><small>#${m.from} → #${m.to}</small>`)}</li>`;
+    const group = (title, list, up) => (list.length ? `<h4 class="tw-sub">${title}</h4><ul class="tw-list plain">${list.map((m) => row(m, up)).join('')}</ul>` : '');
+    return twCard('Biggest Movers', `${group('Climbed', movers.up, true)}${group('Fell', movers.down, false)}`, `In the overall standings${live ? ', if the projected results hold' : ''}`);
+  }
+
+  function twStreaksCard(streaks, week, live) {
+    if (!streaks) return '';
+    const row = (x, letter) => `<li>${twTeam(x.side, week, live, `<b class="tw-score ${letter === 'W' ? 'up' : 'down'}">${letter}${x.length}</b><small>${letter === 'W' ? 'won' : 'lost'} in a row</small>`)}</li>`;
+    const group = (title, list, letter) => (list.length ? `<h4 class="tw-sub">${title}</h4><ul class="tw-list plain">${list.map((x) => row(x, letter)).join('')}</ul>` : '');
+    return twCard('Hottest and Coldest', `${group('Hottest', streaks.hot, 'W')}${group('Coldest', streaks.cold, 'L')}`, `Current streaks, in-league and cross-league${live ? ', if the projected results hold' : ''}`);
   }
 
   // Finished weeks are saved by tools/run-this-week.js. A week that isn't in the file comes live from ESPN instead.
@@ -1220,7 +1242,16 @@
       };
     };
     const game = (g) => (g ? { high: side(g.high), low: side(g.low), link: g.link, margin: g.margin, gap: g.gap } : null);
+    const sweep = (x) => (x ? { side: side(x.team), games: x.games.map((g) => ({ opp: side(g.opp), link: g.link })) } : null);
+    const move = ([key, from, to]) => ({ side: side([key, 0]), from, to });
+    const streak = ([key, length]) => ({ side: side([key, 0]), length });
     return {
+      lowest: saved.lowest.map(side),
+      lostBoth: sweep(saved.lostBoth),
+      wonBoth: sweep(saved.wonBoth),
+      managers: saved.managers.map(([key, actual, potential]) => ({ side: side([key, actual]), actual, potential })),
+      movers: saved.movers && { up: saved.movers.up.map(move), down: saved.movers.down.map(move) },
+      streaks: saved.streaks && { hot: saved.streaks.hot.map(streak), cold: saved.streaks.cold.map(streak) },
       scores: saved.scores.map(side),
       closest: game(saved.closest),
       blowout: game(saved.blowout),
@@ -1257,7 +1288,8 @@
       }
       if (!a) {
         live = week === currentWeek && data.sides.some(stillPlaying);
-        a = data.sides.some((s) => s.score > 0) ? thisWeekAwards(data, live) : { scores: [] };
+        const prev = week === 1 ? {} : file && file.weeks[week - 1] && file.weeks[week - 1].standing;
+        a = data.sides.some((s) => s.score > 0) ? thisWeekAwards(data, live, prev) : { scores: [] };
         crossOk = data.crossOk;
       }
     }
@@ -1289,11 +1321,19 @@
       </div>
       <div class="tw-grid">
         ${twCard('Top Scores', `<ol class="tw-list">${a.scores.map((t) => `<li>${twTeam(t, week, live)}</li>`).join('')}</ol>`)}
+        ${twCard('Lowest Scores', `<ol class="tw-list">${a.lowest.map((t) => `<li>${twTeam(t, week, live)}</li>`).join('')}</ol>`)}
+        ${a.managers
+          ? twCard('Top Managers', `<ol class="tw-list">${a.managers.map((m) => `<li>${twTeam(m.side, week, live, `<b class="tw-score">${f1(m.actual / m.potential * 100)}%</b><small>${f2(m.actual)} of ${f2(m.potential)}</small>`)}</li>`).join('')}</ol>`, 'Share of their best possible points they started')
+          : twCard('Top Managers', '', `Appears once Week ${week} is final and every player's points are in.`)}
         ${twGameCard('Closest Game', a.closest, a.closest && `${live ? 'Projected margin' : 'Decided by'} ${pts(a.closest.margin)}`, week, live)}
         ${twGameCard('Biggest Blowout', a.blowout, a.blowout && `${live ? 'Projected to win by' : 'Won by'} ${pts(a.blowout.margin)}`, week, live)}
         ${twGameCard('Biggest Upset', u, u && `Projected to lose by ${f1(u.gap)} before kickoff, ${live ? 'now projected to win by' : 'won by'} ${pts(u.margin)}`, week, live)}
         ${twGameCard('Best Losing Score', a.badBeat, a.badBeat && `${live ? 'Projected to lose despite' : 'Lost despite scoring'} ${pts(live ? a.badBeat.low.proj : a.badBeat.low.score)}`, week, live)}
+        ${twSweepCard('Most Points, Lost Both', a.lostBoth, live ? 'Projected to lose to' : 'Lost to', week, live)}
+        ${twSweepCard('Fewest Points, Won Both', a.wonBoth, live ? 'Projected to beat' : 'Beat', week, live)}
         ${twGameCard('Lowest Winning Score', a.luckyWin, a.luckyWin && `${live ? 'Projected to win with' : 'Won with'} ${pts(live ? a.luckyWin.high.proj : a.luckyWin.high.score)}`, week, live)}
+        ${twMoversCard(a.movers, week, live)}
+        ${twStreaksCard(a.streaks, week, live)}
       </div>
       <p class="fineprint">Covers in-league and cross-league games across all four leagues${crossOk ? '' : ' (cross-league games are unavailable right now, so only in-league games are shown)'}. While games are in progress, teams are ranked by ESPN's live projected final score, which counts points already scored plus projections for players yet to finish. The biggest upset compares that with what each team's starters were projected to score before the week began.</p>`;
     bindWeekSelect();

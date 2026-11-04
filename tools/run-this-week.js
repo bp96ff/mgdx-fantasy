@@ -22,30 +22,9 @@ const { MGDX, SEASON_DATA, THIS_WEEK } = globalThis;
 const two = (n) => Math.round(n * 100) / 100;
 const ref = (side) => [`${side.league.slug}:${side.team.id}`, two(side.score)];
 const game = (g) => (g ? { high: ref(g.high), low: ref(g.low), link: g.link, margin: two(g.margin), gap: two(g.gap) } : null);
-
-// The most points a roster could have started: tries every player in every open slot they're eligible for,
-// so a player who fits several slots can't throw it off. Injured reserve can't start, and a slot may stay empty.
-function potentialPoints(lineup, slotCounts) {
-  const slots = Object.entries(slotCounts)
-    .filter(([slot, count]) => slot !== '20' && slot !== '21' && count > 0)
-    .flatMap(([slot, count]) => Array(count).fill(Number(slot)));
-  let best = new Float64Array(1 << slots.length).fill(-Infinity);
-  best[0] = 0;
-  for (const p of lineup.starters.concat(lineup.bench)) {
-    if (!p.id || p.slotId === 21) continue;
-    const next = best.slice();
-    for (let used = 0; used < best.length; used++) {
-      if (best[used] === -Infinity) continue;
-      slots.forEach((slot, i) => {
-        const bit = 1 << i;
-        if (used & bit || !p.slots.includes(slot)) return;
-        next[used | bit] = Math.max(next[used | bit], best[used] + p.points);
-      });
-    }
-    best = next;
-  }
-  return Math.max(...best);
-}
+const sweep = (x) => (x ? { team: ref(x.side), games: x.games.map((g) => ({ opp: ref(g.opp), link: g.link })) } : null);
+const move = (m) => [ref(m.side)[0], m.from, m.to];
+const streak = (x) => [ref(x.side)[0], x.length];
 
 async function main() {
   const leagues = await SEASON_DATA.loadAllLeagues();
@@ -57,20 +36,23 @@ async function main() {
 
   const weeks = {};
   const lineups = {};
+  let standing = {};
   for (let week = 1; week < currentWeek; week++) {
     const data = await THIS_WEEK.thisWeekGames(leagues, week);
     if (!data.crossOk) throw new Error(`Couldn't read the cross-league games for week ${week}.`);
     if (!data.final) {
       console.log(`Week ${week} isn't final on ESPN yet. Leaving it out.`);
+      standing = null;
       continue;
     }
     for (const side of data.sides) {
       const key = `${side.league.slug}:${side.team.id}`;
       const totals = (lineups[key] = lineups[key] || [0, 0]);
-      totals[0] += side.lineup.starters.reduce((sum, p) => sum + (p.id ? p.points : 0), 0);
-      totals[1] += potentialPoints(side.lineup, side.league.slotCounts);
+      totals[0] += THIS_WEEK.startedPoints(side.lineup);
+      totals[1] += THIS_WEEK.potentialPoints(side.lineup, side.league.slotCounts);
     }
-    const a = THIS_WEEK.thisWeekAwards(data, false);
+    const a = THIS_WEEK.thisWeekAwards(data, false, standing);
+    standing = a.standing;
     weeks[week] = {
       scores: a.scores.map(ref),
       closest: game(a.closest),
@@ -78,6 +60,13 @@ async function main() {
       upset: game(a.upset),
       badBeat: game(a.badBeat),
       luckyWin: game(a.luckyWin),
+      lowest: a.lowest.map(ref),
+      lostBoth: sweep(a.lostBoth),
+      wonBoth: sweep(a.wonBoth),
+      managers: a.managers.map((m) => [ref(m.side)[0], two(m.actual), two(m.potential)]),
+      movers: a.movers && { up: a.movers.up.map(move), down: a.movers.down.map(move) },
+      streaks: a.streaks && { hot: a.streaks.hot.map(streak), cold: a.streaks.cold.map(streak) },
+      standing,
     };
   }
 

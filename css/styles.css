@@ -825,7 +825,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 }
 /* ===== Home: This Week ===== */
 .tw-status { flex: 1; min-width: 240px; }
-.tw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 14px; margin-bottom: 14px; }
+.tw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
 .tw-card { padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .tw-label { margin: 0; font: 700 13px/1.2 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
 .tw-label a { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration: none; }
@@ -844,6 +844,15 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .tw-list li { display: flex; align-items: center; gap: 10px; counter-increment: tw; min-width: 0; }
 .tw-list li::before { content: counter(tw); flex: none; width: 16px; font: 800 18px/1 var(--display); color: var(--muted); text-align: center; }
 .tw-list li > * { flex: 1; min-width: 0; }
+.tw-list.plain { flex: none; gap: 10px; }
+.tw-list.plain li::before { display: none; }
+.tw-sub { margin: 0 0 -4px; font: 700 12px/1.2 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.tw-score.up { color: var(--win); }
+.tw-score.down { color: var(--loss); }
+.tw-opps { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600; }
+.tw-opps a { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); text-decoration: none; }
+.tw-opps a:hover { color: var(--text); text-decoration: underline; }
+.tw-opps b { flex: none; color: var(--text); font-variant-numeric: tabular-nums; }
 @media (max-width: 860px) { .tw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) {
   .tw-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 10px; }
