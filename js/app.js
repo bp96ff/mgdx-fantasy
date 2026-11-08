@@ -124,6 +124,141 @@
       </section>`;
   }
 
+  // ---------- blog ----------
+  const BLOG_TABS = ['main', 'recaps', 'bets', 'polls'];
+  const BLOG_TAB_NAMES = { main: 'Main Blog', recaps: 'Recaps', bets: 'Bets', polls: 'Polls' };
+  const BLOG_KICKERS = { main: 'Takes and trash talk', recaps: 'How each week went down', bets: 'Wagers between managers', polls: 'The league weighs in' };
+
+  function renderBlog(sub, params) {
+    const p = PLACEHOLDERS.blog;
+    document.body.dataset.theme = 'home';
+    document.title = `${BLOG_TAB_NAMES[sub]} · Blog · Microgen Fantasy Football`;
+    main.innerHTML = `
+      <section class="league-hero cross-hero">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <div class="league-hero-text">
+          <p class="eyebrow">${esc(p.kicker)}</p>
+          <h1 class="page-title">${esc(p.title)}</h1>
+        </div>
+      </section>
+      <nav class="subtabs four" aria-label="Blog sections">
+        ${BLOG_TABS.map((s) => `<a href="#/blog/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${BLOG_TAB_NAMES[s]}</a>`).join('')}
+      </nav>
+      ${sub === 'recaps' ? `<div id="league-body">${loading('Loading recaps')}</div>` : `
+      <section class="placeholder">
+        <img class="placeholder-art" src="${p.art}" alt="" width="220" height="220">
+        <p class="eyebrow">${esc(BLOG_KICKERS[sub])}</p>
+        <h2 class="page-title">${esc(BLOG_TAB_NAMES[sub])}</h2>
+        <p class="placeholder-badge">In progress</p>
+      </section>`}`;
+    if (sub === 'recaps') renderRecaps(params);
+  }
+
+  // Weekly recaps from data/recaps.json (tools/build-recaps.py). Each kind of section has its own look.
+  const RECAP_ICONS = {
+    game: '<ellipse cx="12" cy="12" rx="10" ry="6.2" transform="rotate(-35 12 12)"/><path d="M8.6 15.4l6.8-6.8M10 11.6l2.4 2.4M11.6 10l2.4 2.4M8.4 13.2l2.4 2.4" class="ink"/>',
+    upset: '<path d="M13.5 2L4 13.5h6.5L9 22l10-12.5h-6.6z"/>',
+    badbeat: '<path d="M12 21s-8.5-5.3-8.5-11.2A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.5 2.8C20.5 15.7 12 21 12 21z"/><path d="M12 7l-1.6 4 2.8 2.2-1.8 4.3" class="ink"/>',
+    lucky: '<circle cx="8.6" cy="8.6" r="3.9"/><circle cx="15.4" cy="8.6" r="3.9"/><circle cx="8.6" cy="15.4" r="3.9"/><circle cx="15.4" cy="15.4" r="3.9"/><path d="M14 14c2.5 2.5 3.5 5 3.5 8" class="ink stem"/>',
+    dawg: '<ellipse cx="12" cy="16.3" rx="5" ry="4.2"/><ellipse cx="5.4" cy="10.4" rx="2.1" ry="2.7"/><ellipse cx="9.4" cy="6.4" rx="2.1" ry="2.8"/><ellipse cx="14.6" cy="6.4" rx="2.1" ry="2.8"/><ellipse cx="18.6" cy="10.4" rx="2.1" ry="2.7"/>',
+    challenger: '<path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2l-6.1 3.4 1.4-6.8-5.1-4.7 6.9-.8z"/>',
+    funfact: '<path d="M9 2.5h6M10 2.5v6.2L4.6 18.4A2 2 0 0 0 6.3 21.5h11.4a2 2 0 0 0 1.7-3.1L14 8.7V2.5" class="ink line"/><path d="M7.2 14h9.6l2.6 4.4a2 2 0 0 1-1.7 3.1H6.3a2 2 0 0 1-1.7-3.1z"/>',
+  };
+  const RECAP_HM = { game: 'Honorable mention', upset: 'Honorable mention', badbeat: 'Honorable mention', lucky: 'Honorable mention', dawg: 'Honorable mention', funfact: 'Fun fact', challenger: 'Honorable mention' };
+
+  // Doc formatting: *italic* and ~~struck~~
+  const recapText = (s) => esc(s).replace(/~~(.+?)~~/g, '<s>$1</s>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  const recapBody = (body) => body.map((b) => (Array.isArray(b)
+    ? `<ul>${b.map((li) => `<li>${recapText(li)}</li>`).join('')}</ul>`
+    : `<p>${recapText(b)}</p>`)).join('');
+
+  // Scorecard sides find their team by manager first name (unique across the four leagues) in data/standings.json.
+  // The card links to the game: the cross-league game when the winner's cross-league opponent that week is the
+  // loser, otherwise the winner's in-league game.
+  function recapGameLink(o, opp, week) {
+    if (!o) return null;
+    const cross = opp && (o.team.crossGames || []).find((g) => g.week === week && g.opp
+      && String(g.opp.id) === String(opp.team.id) && g.oppLeague && g.oppLeague.slug === opp.league.slug);
+    if (cross) {
+      const slot = (o.team.crossSchedule || []).find((x) => x[0] === week);
+      return `#/cross-league?week=${week}${slot && slot[2] ? `&game=${slot[2]}` : ''}`;
+    }
+    return `#/${o.league.slug}/matchups?week=${week}&team=${o.team.id}`;
+  }
+
+  function recapScore(score, owners, week) {
+    const [[wName, wPts], [lName, lPts]] = score;
+    const link = recapGameLink(owners.get(wName), owners.get(lName), week);
+    const side = (name, pts, win) => {
+      const o = owners.get(name);
+      return `<div class="rc-side ${win ? 'win' : ''}" ${o ? `style="--c:var(--${o.league.theme})"` : ''}>
+        ${o ? teamLogo(o.team, o.league, 'avatar rc-av') : ''}
+        <div class="rc-who">
+          <span class="rc-name">${o ? '<i class="dot"></i>' : ''}${esc(name)}</span>
+          ${o ? `<small>${esc(o.team.name)}</small>` : ''}
+        </div>
+        <b>${pts.toFixed(2)}</b>
+      </div>`;
+    };
+    const tag = link ? 'a' : 'div';
+    return `<${tag} class="rc-score" ${link ? `href="${link}"` : ''} aria-label="${esc(wName)} beat ${esc(lName)} ${wPts.toFixed(2)} to ${lPts.toFixed(2)}${link ? ', view matchup' : ''}">
+      ${side(wName, wPts, true)}${side(lName, lPts, false)}
+      <p class="rc-margin">Final · by ${(wPts - lPts).toFixed(2)}${link ? '<span class="rc-view">View matchup ›</span>' : ''}</p>
+    </${tag}>`;
+  }
+
+  function recapSection(s, owners, week) {
+    const hm = (s.hm || []).map((h, i) => `
+      <div class="rc-hm">
+        <p class="rc-hm-tag">${s.kind === 'funfact' ? `Fun fact #${i + 2}` : RECAP_HM[s.kind]}</p>
+        ${recapBody(h.body)}
+        ${h.score ? recapScore(h.score, owners, week) : ''}
+      </div>`).join('');
+    return `
+      <article class="rc-card rc-${s.kind}">
+        <header class="rc-head">
+          <svg class="rc-icon" viewBox="0 0 24 24" aria-hidden="true">${RECAP_ICONS[s.kind]}</svg>
+          <h3>${recapText(s.label)}</h3>
+        </header>
+        <div class="rc-body">${recapBody(s.body)}</div>
+        ${s.score ? recapScore(s.score, owners, week) : ''}
+        ${hm}
+      </article>`;
+  }
+
+  async function renderRecaps(params) {
+    const token = renderToken;
+    const body = () => document.getElementById('league-body');
+    const json = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const [file, standings] = await Promise.all([json('data/recaps.json'), json('data/standings.json')]);
+    if (token !== renderToken) return;
+    const owners = new Map();
+    for (const league of LEAGUES) {
+      for (const team of (standings && standings.leagues[league.slug] || {}).teams || []) owners.set(team.owner, { team, league });
+    }
+    if (!file || !file.weeks.length) {
+      body().innerHTML = `<div class="state state-error" role="alert"><strong>Couldn't load the recaps.</strong><a class="btn" href="#/blog/recaps" onclick="window.dispatchEvent(new HashChangeEvent('hashchange'));return false;">Try again</a></div>`;
+      return;
+    }
+    const weeks = file.weeks.slice().sort((a, b) => a.week - b.week);
+    const latest = weeks[weeks.length - 1].week;
+    const recap = weeks.find((w) => w.week === Number(params.get('week'))) || weeks[weeks.length - 1];
+    const options = weeks.slice().reverse().map((w) =>
+      `<option value="${w.week}" ${w === recap ? 'selected' : ''}>Week ${w.week}${w.week === latest ? ' · latest' : ''}</option>`).join('');
+    body().innerHTML = `
+      <div class="recap">
+        <div class="matchups-bar">
+          <div class="rc-title"><p class="eyebrow">${SEASON} · Weekly recap</p><h2>Week ${recap.week} Recap</h2></div>
+          <label class="select"><span class="sr-only">Choose week</span><select id="week-select">${options}</select></label>
+        </div>
+        <div class="rc-lede">${recapBody(recap.intro)}</div>
+        ${recap.sections.map((s) => recapSection(s, owners, recap.week)).join('')}
+      </div>`;
+    body().querySelector('#week-select').addEventListener('change', (e) => {
+      location.hash = `#/blog/recaps?week=${e.target.value}`;
+    });
+  }
+
   // ---------- league shell ----------
   function leagueShell(league, sub) {
     return `
@@ -2034,7 +2169,10 @@
       location.hash = `#/${league.slug}/matchups?week=${e.target.value}`;
     });
     bindToggles(body());
-    if (!keepOpen) focusGame(params.get('game'));
+    // A recap links by team: find that team's game this week
+    const teamId = params.get('team');
+    const teamGame = teamId && data.games.find((g) => !g.bye && [g.home, g.away].some((s) => s && s.team && String(s.team.id) === teamId));
+    if (!keepOpen) focusGame(params.get('game') || (teamGame && String(teamGame.id)));
 
     if (data.isCurrent && LIVE_REFRESH_MS) {
       clearTimeout(refreshTimer);
@@ -2308,6 +2446,10 @@
     } else if (key === 'cross-league') {
       setActiveNav('cross-league');
       renderCrossLeague(params);
+    } else if (key === 'blog') {
+      renderToken++;
+      setActiveNav('blog');
+      renderBlog(BLOG_TABS.includes(parts[1]) ? parts[1] : 'main', params);
     } else if (PLACEHOLDERS[key]) {
       renderToken++;
       setActiveNav(key);

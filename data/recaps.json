@@ -1,0 +1,677 @@
+{
+ "weeks": [
+  {
+   "week": 1,
+   "intro": [
+    "Ah you gotta love the wackiness of Week 1 Fantasy Football. It feels so good to be back. There’s nothing like a peaceful sleep on Monday night after a 2-0 week feeling like you’ll never lose again. And there’s nothing like waking up Tuesday morning in a sweat, haunted by the nightmares of the Golden Plunger and ready to blow up your team in panic. Sometimes we feel that way after wins too. But no matter how you felt going in, week 1 always reminds us that this is a game of luck and heartbreak that never fails to beg the question, “why did I do this to myself again?” Never change Fantasy Football.",
+    "Every year we’ve played, week 1 has been among the lowest scoring weeks on the season. But for whatever reason, this was the highest scoring week 1 in history, including the highest scoring Sunday outright in NFL history! This led to some wacky results. Mostly panic and questions, such as “why is Jalen Coker of all people the top WR on the week?” and “how did Colston Loveland score 0 when the Bears put up 59?!” I have no idea, but some of you still had great weeks. Most notable was Courtney, who set a new week 1 scoring record with 191.26 points, good for 7th all-time! We also had another very high score on the week, but spoiler alert, it resulted in an absolutely legendary bad beat. One so improbable, I had to dig through the league archives to find anything that could rival it. So let’s take a stroll down the memory lane of bad beats and reopen some old wounds, shall we?"
+   ],
+   "sections": [
+    {
+     "kind": "game",
+     "label": "Game of the Week",
+     "body": [
+      "For one of our wackiest Week 1s to date, there surprisingly weren’t very many close matchups heading into Sunday and Monday night. Ryan found himself in multiple nailbiters, however. Armed with Dak Prescott vs. Sarah’s CeeDee Lamb on Sunday night, Ryan just needed Dak to throw to anyone but CeeDee to escape with a win. Ultimately, a few drops from George Pickens and a TD to CeeDee Lamb would propel Sarah to the narrow 108.26 – 105.9 victory.",
+      "Ryan would have another opportunity on Monday night though, as he needed a poor game from Julia’s Travis Kelce to save his week. It looked good through most of the game as the Chiefs barely threw the ball at all. But Kelce proved to still be in wedding shape as he turned back the clock on a 50-yard scamper late in the game to give Julia her 1st victory in the league."
+     ],
+     "score": [
+      [
+       "Sarah",
+       108.26
+      ],
+      [
+       "Ryan",
+       105.9
+      ]
+     ]
+    },
+    {
+     "kind": "badbeat",
+     "label": "Bad beat of the week",
+     "body": [
+      "Last year’s week 1 brought us the bad beat of the century as Craig pulled off the impossible, going 0-2 with the 3rd highest score on the week. This year we welcome a new face on the Mount Rushmore of bad beats. Scoring a whopping 180.72, Sidney shattered Jake’s week 1 scoring record (171 in 2024). At least, that’s what should have happened. In our first WTF moment of the year, Sidney’s fantastic start to the year was spoiled, losing to Courtney’s near perfect 191.26. Sidney now breaks the record for most points in a loss, taking the crown from 2023 Week 10 Patrick’s score of 174.74."
+     ],
+     "hm": [
+      {
+       "kind": "badbeat",
+       "label": "Bad beat of the week",
+       "body": [
+        "Trace (151.62), Nick (149.7), and Emma (145.06) all lost their cross-league matchups to Jana, Courtney, and Laith, respectively."
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "lucky",
+     "label": "Lucky team of the week",
+     "body": [
+      "That’s the championship difference baby. Reigning champ Sarah shows she still knows how to get a W, going 2-0 despite only 108.26 points."
+     ],
+     "hm": [
+      {
+       "kind": "lucky",
+       "label": "Lucky team of the week",
+       "body": [
+        "Kayla notching a sub 100-point victory over Laura (Jonathan’s ghost team) 93.86 - 85.86"
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "funfact",
+     "label": "(Not so) Fun fact of the week",
+     "body": [
+      "Coming into week 1, we had 1,462 scores logged in the history of the Microgen Fantasy Football League dating back to 2023. Only 14 times did a team score 180 or more points. This week two teams broke 180 with Courtney and Sidney! Interestingly, this marks the 3rd time this has happened along with 2023 week 5 (Kayla and Laith) and 2025 week 16 (Marsha and Sarah). This is the first time those two played each other, however. Even accounting for the league-wide high scoring weeks, the historical odds coming in that someone would score over 180 points and lose? Roughly 0.05%, or 1 in 2,000. Even worse than Craig’s improbable week 1 from last year. Truly a Hall of Fame worthy bad beat for Sidney."
+     ],
+     "hm": [
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "Looking back at our previous records for most points in a loss, only 6 times has a team broken 160 and lost. 2024 Week 11 Jennifer holds two of those instances as another face on the Mount Rushmore of bad beats, losing not one, but both matchups despite scoring 163.96. Shout out to Trace as well, who scored 160.58 that week and dropped a game. The hell was going on in 2024 Week 11?"
+       ]
+      },
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "If you are curious who the 4th face is on the Mount Rushmore of bad beats joining Sidney, Craig, and Jennifer? That honor goes to 2024 Weeks 1-3 Chandler, who was a heavy preseason favorite but watched as nearly his entire team perished with the most tragic injury luck I’ve ever seen. Chandler lost 5 of his first 6 draft picks to significant injuries and would go on to finish 7-21 for the worst record in the league."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "week": 2,
+   "intro": [
+    "Well, the high scoring fireworks of week 1 were fun while they lasted. Week 2 unfortunately marked our first Bloody Sunday of the year as several high-profile players were lost to injury. It was one of those weeks that reminded us that fantasy football is sometimes just playing minesweeper with a blindfold.",
+    "Tough week all around, and many were unable to avoid zeros or near zeros in their lineups. Despite this, someone was blessed by the fantasy gods with one of the luckiest victories we have ever seen! Shoutout to Laith as well with the league high 150.1 with a 0.8 from his QB. Congrats to all those whose team survived this week though, and shout out to Da Pope for blessing Caleb Williams’ hamstrings! May he bless us all in week 3."
+   ],
+   "sections": [
+    {
+     "kind": "game",
+     "label": "Game of the Week",
+     "body": [
+      "There sadly weren’t many close games league-wide again this week, but we did get a high scoring 50/50 matchup heading into Sunday night between Craig and Sarah. It was Craig’s Patrick Mahomes and Chiefs D vs. Sarah’s Jonathan Taylor. Fortunately for Craig, Mahomes was fantastic, dropping 28. Unfortunately for Craig, Jonathan Taylor was fantastic in his own right, scoring 27 and sapping just enough away from the Chiefs D to clean up on a 4-0 start to the year for Sarah. Sarah takes it down 143.08 – 137.18."
+     ],
+     "score": [
+      [
+       "Sarah",
+       143.08
+      ],
+      [
+       "Craig",
+       137.18
+      ]
+     ]
+    },
+    {
+     "kind": "badbeat",
+     "label": "Bad beat of the week",
+     "body": [
+      "Kayla puts up 128.8 but drops both matchups to Kat’s 138.78 and Emma’s 142.52"
+     ],
+     "hm": [
+      {
+       "kind": "badbeat",
+       "label": "Bad beat of the week",
+       "body": [
+        "After a legendary bad beat last week, Sidney puts up a respectable 120 that was above the average this week, but still loses both. Despite sitting at 3rd overall in total points, Sidney now drops to 1-3. Hopefully her luck turns around soon."
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "lucky",
+     "label": "Lucky team of the ~~week~~ year",
+     "body": [
+      "Xenia did not set her lineup and took not one but two zeros from injured/suspended players. But somehow someway the fantasy gods smiled upon her team, granting an unfathomable sub 70-point victory over Hoai-Nha 68.76 – 60.22. It is the only sub 70-point victory on record in the history of the league, besting Jennifer’s previous record of 77.02 points in a win during week 13 of 2025."
+     ]
+    },
+    {
+     "kind": "funfact",
+     "label": "Fun fact of the week",
+     "body": [
+      "You would expect some of the most elite athletes and best WRs in the game to be leading the league in yards after catch (YAC). You know, your Ja’Marr Chases, CeeDee Lambs, and JSNs (who had an 82-yard catch and run TD this week). But through 2 weeks, your NFL leader in YAC is none other than… Travis Kelce? Never in my Wildest Dreams would I have expected 37 to look so good. He clearly wasn’t kidding about being in wedding shape. Are the Chiefs back?"
+     ],
+     "hm": [
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "Xenia set the record for least points in a win with 68.76, besting Jennifer’s record of 77.02. What’s crazy is prior to this week, Jennifer’s 77.02 was the only *sub-80 point* victory on record! Caleb Williams wasn’t the only one blessed by Da Pope last weekend."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "week": 3,
+   "intro": [
+    "After a wacky start to the year, we got back to basics in week 3 with classic pure chaos. Multiple matchups were decided by less than 3 points. 3 teams scored under 120 and went 2-0, led by a birthday blessing. And there were 3 instances of a team dropping over 150 in losses, 2 of them by the same team.",
+    "We also welcome a new face making her debut atop the league standings, after being one of 4 teams this week to top 160 points. And finally, 2 teams broke into the top 30 of scoring all-time, including a former champion, and the Molecular Mice’s ghost, whose Destiny has finally been revealed!"
+   ],
+   "sections": [
+    {
+     "kind": "challenger",
+     "label": "A New Challenger Approaches",
+     "body": [
+      "Please welcome our newest contender, Destiny! She will be taking over Jonathan’s team in the Molecular Mice, and is picking up in a pretty good spot as you’ll see below."
+     ]
+    },
+    {
+     "kind": "game",
+     "label": "Game of the Week",
+     "body": [
+      "We finally had a true nailbiter with a game decided by 1 point! Sloan looked firmly in control of his matchup with Amanda on Sunday night as the Rams defense was putting the clamps on the Broncos and Amanda’s Bo Nix, allowing no points in the first half. Then came the second half. The Broncos stormed back into it behind 25 points from Bo Nix and brought Amanda back from sure defeat. Nix scored a late game diving TD to secure the win for Amanda and the Broncos. She gets the win over Sloan 104.54 – 103.18."
+     ],
+     "hm": [
+      {
+       "kind": "game",
+       "label": "Game of the Week",
+       "body": [
+        "After the Sunday night game and Kayla’s Rams D getting torched by Bo Nix, Kayla would need a miracle and the Bears alleged Swiss cheese defense to step up and slow down Jen’s Jalen Hurts. It was an absolute masterclass from the Bears defense holding the Eagles to 7 points Monday night, but alas Hurts does what he always does and punched in a tush push to give Jen just enough points for a 115.92 – 113.44 victory over Kayla."
+       ],
+       "score": [
+        [
+         "Jen",
+         115.92
+        ],
+        [
+         "Kayla",
+         113.44
+        ]
+       ]
+      }
+     ],
+     "score": [
+      [
+       "Amanda",
+       104.54
+      ],
+      [
+       "Sloan",
+       103.18
+      ]
+     ]
+    },
+    {
+     "kind": "badbeat",
+     "label": "Bad beat of the week",
+     "body": [
+      "If it weren’t for Sidney in week 1, Purcella this week would be the early favorite for bad beat of the year. Purcella drops 150.04 but somehow goes 0-2, losing to Courtney’s 164.04 and Tiffany’s 162.64. Courtney finds his way into this column again this week, who knew he was such a bully?"
+     ],
+     "hm": [
+      {
+       "kind": "badbeat",
+       "label": "Bad beat of the week",
+       "body": [
+        "Laith scores 151.14 but was haunted by the ghost of Jonathan’s past, losing to Destiny’s new team 172.98- 151.14."
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "lucky",
+     "label": "Lucky team of the week",
+     "body": [
+      "Jake and Bryce somehow pull out 2-0 weeks despite sub 120-point weeks with 118 and 111, respectively. But our lucky team of the week honors goes to the birthday queen, Jana. It may not have been the week she’d hoped for with only 113, but was a pleasant surprise as both of her opponents failed to score 100 and she cruised to a stress-free 2-0 week."
+     ]
+    },
+    {
+     "kind": "funfact",
+     "label": "Fun fact of the week",
+     "body": [
+      "38-year-old Case Keenum TD’s against the Eagles on Monday after 1,009 days since his last start: 3.",
+      "Drake Maye TD’s on the entire season: 1.",
+      "Generational hate watch for me Monday night (we won’t talk about Rio)."
+     ]
+    }
+   ]
+  },
+  {
+   "week": 4,
+   "intro": [
+    "And then there were none. No undefeated teams remain after Tiffany, Tisha, Jana, and Bryce all go down. It did take a Herculean effort to take down our leader in Tiffany, but the others…. did not exactly perform like undefeated teams this week. On the flip side, two of our winless teams remained winless, with Haley and Darcy moving to 0-8. Still a lot of season left for them to get back on track, but another 0-2 week officially puts them on record watch of Tiffany’s 0-14 start in 2025.",
+    "Meanwhile, week 4 was the story of the comeback that never was. Three teams were put in a glass case of emotion Sunday and Monday night, as they made fierce comebacks to steal a win from their opponent, only to fall just a hair short in the end. And finally, we had a team on the wrong side of a historic blowout last week turn the tables and score a blowout win of their own with a top 25 all time score."
+   ],
+   "sections": [
+    {
+     "kind": "game",
+     "label": "Game of the Week",
+     "body": [
+      "Craig was sitting very comfortably in his matchup with Jake heading into Sunday night with a 39-point lead and 99% win probability vs. Jake’s lone Tet McMillan. In an absolutely dominant performance from Tet against the Lions, Jake suddenly found himself down only 1 going into the Panthers final drive of the night as Tet had already put up 38. On the final 3rd down, Bryce Young looked Tet’s way but worked his way back to the other side and threw it away. One of the greatest single player comebacks we’ve seen fell just short, as Craig barely survives Tet’s onslaught, 138.5 – 137.58."
+     ],
+     "hm": [
+      {
+       "kind": "game",
+       "label": "Game of the Week",
+       "body": [
+        "The hot streak of scoring that led to Tiffany’s undefeated start continued as she was poised for another 140+ outing vs. Jen. But thanks to the Cowboys offensive explosion from Jen’s Javonte Williams, Tiffany was down big going into Monday night, needing huge performances from Bijan and Chris Olave to come back. Bijan would pull off a 60 yard TD on the first drive of the game to set her up in good position, but would later have 3 TDs stolen by the backup RB, “only” scoring 27. Olave could make up the difference though, with a late game surge bringing Tiffany to within 2. On the final drive Olave would exit with a minor knee injury and not return, however. The comeback falls short and Jen takes down #1 156.42 – 154."
+       ],
+       "score": [
+        [
+         "Jen",
+         156.42
+        ],
+        [
+         "Tiffany",
+         154.0
+        ]
+       ]
+      }
+     ],
+     "score": [
+      [
+       "Craig",
+       138.5
+      ],
+      [
+       "Jake",
+       137.58
+      ]
+     ]
+    },
+    {
+     "kind": "badbeat",
+     "label": "Bad beat of the week",
+     "body": [
+      "Thankfully no teams that scored above their league average lost both matchups this week. That being said, a 154-point loss is still pretty brutal, so bad beat of the week honors goes to Tiffany, losing her undefeated record despite another stellar performance."
+     ],
+     "hm": [
+      {
+       "kind": "badbeat",
+       "label": "Bad beat of the week",
+       "body": [
+        "Other notable scores in losses this week include Celina @ 144.38 and Julia @ 139.42, losing to Sidney and Amanda, respectively."
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "lucky",
+     "label": "Lucky team of the week",
+     "body": [
+      "After taking home lucky team of the week honors last week, Jana goes back-to-back with good breaks. As one of only 4 teams on the week to score under 100, the schedule favored her this week, securing a W against the imposter of the top 10. 50/50 going into Monday night with only Bryce’s Tyler Shough to go, the Saints offense would stall for most of the game, and Jana outlasts a garbage time barrage to win 96.52 – 94.64."
+     ]
+    },
+    {
+     "kind": "funfact",
+     "label": "Fun facts of the week",
+     "body": [
+      [
+       "This was the first week in NFL history that all 4 cat teams played each other. Shoutout to the Jaguars beating the Bengals and the Panthers beating the Lions.",
+       "The Vikings are 4-0 with 2 of those wins coming without a TD. Vikings D/ST and K stack is a force.",
+       "The Jets recorded their first interception of the year in week 4. The fun part is, it’s their first interception since *January of 2025*. 638 days without an interception."
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "week": 5,
+   "intro": [
+    "What a wild week this was. The NFL had multiple games go into OT, including a tie where the Giants and Commanders played “who wants to lose the game the most” and wouldn’t you know it they both lost. The Cowboys got embarrassed against the 0-4 Bucs (just don’t tell Dak I said that). The Jaguars pulled off a crazy last second FG in London to beat the Eagles for yet another International Game miracle. Tua came in for the Falcons in OT only to immediately break their hearts with an interception. And Josh Allen went full Demigod in the 2nd half vs. the Rams to win his first ever game in OT.",
+    "The Microgen league was no less crazy. Four teams dropped at least 170 points and cracked the top 31 all-time, with the leader putting up a top 10 score. The Lab Rats went nuclear and shattered a scoring record. The #1 team got destroyed by over 90 points and replaced by a new face debuting at #1. We had another contender for 2nd worst beat of the year with a historic bad beat. There was an insane Monday Night Miracle comeback, as well as another that fell just short. And we now have two 0-10 teams pushing this week to tie the 0-12 record.",
+    "We are in full swing now. Buckle up for a recap full of fun facts and historical feats."
+   ],
+   "sections": [
+    {
+     "kind": "game",
+     "label": "Game of the Week",
+     "body": [
+      "Celina’s team has become very spooky, but she didn’t set her lineup, opening the door for Ryan to get back into the Lab Rats race. He entered Monday night vs. Celina’s Puka and Kyren with a 99% win probability and a 45-point lead. Kyren did his thing with 16, but Celina would need 29 from Puka who came into the week injured with a “pre-hernia.” Not sure what that is but they made it a point that he could go down at any moment. So logically the Rams employed the “if he dies, he dies” strategy and spam targeted Puka 24 times. It was the most targets in a game since Brandon Marshall in 2015! Despite this, Ryan would cling to a 1-point lead as Puka ended regulation with 28. But on the Rams one drive in OT, Puka was inevitable, catching a pass and barreling forward 10 yards to give Celina the miracle 141.06 – 140.04 win."
+     ],
+     "hm": [
+      {
+       "kind": "game",
+       "label": "Game of the Week",
+       "body": [
+        "In another Monday night showdown, Trace was down 24 to Sloan with only James Cook left to play. In what was a fantastic game for Cook through most of the night, Trace stormed back to find himself within just 0.1 points of Sloan while the Bills had the ball with a 1st down in OT. All he needed was 2 more yards from Cook to win, but the unthinkable happened as the ball was punched out and Cook fumbled, losing 2 points. He wouldn’t touch the ball again as Trace’s comeback falls short of Sloan 137.1 – 134.98."
+       ],
+       "score": [
+        [
+         "Sloan",
+         137.1
+        ],
+        [
+         "Trace",
+         134.98
+        ]
+       ]
+      }
+     ],
+     "score": [
+      [
+       "Celina",
+       141.06
+      ],
+      [
+       "Ryan",
+       140.04
+      ]
+     ]
+    },
+    {
+     "kind": "badbeat",
+     "label": "Bad beat of the week",
+     "body": [
+      "The haters have been feasting on heartbreak this year as our legendary run of bad beats continues. Joining Week 1 Sidney and ’23 Week 10 Patrick as the only teams to drop 170 points in a loss, Laith enters the illustrious group taking a brutal loss from Nick 184.46 – 173.14."
+     ],
+     "hm": [
+      {
+       "kind": "badbeat",
+       "label": "Bad beat of the week",
+       "body": [
+        "Two teams dropped over 130 points but dropped both games. Trace goes for 134.98 but loses to Sloan and Marsha, while Karen goes for 131.84 losing to Darbie and Julia."
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "lucky",
+     "label": "Lucky team of the week",
+     "body": [
+      "In a week with one of our highest scoring averages ever, Purcella catches a break and snags a sub 100-point W over Daniel 91.86 – 77.7"
+     ]
+    },
+    {
+     "kind": "funfact",
+     "label": "Fun fact of the week",
+     "body": [
+      "The #1 pick in fantasy has been a cheat code so far. Now that Gibbs is on BYE and can’t victimize us, let’s take a look at where his pace stands among the greats.",
+      "The highest scoring player we’ve seen during the Microgen fantasy era was Lamar Jackson in 2024, who set the QB record with 434.4 points (25.56 avg). No other player has eclipsed 430 points in PPR since Cooper Kupp set the WR record at 439.5 (25.85 avg) in 2021, and CMC scored 471 (27.72 avg) in 2019. Prior to that we have to go all the way back to 2006 to find Ladanian Tomlinson, who scored the fantasy football record 481.1 points in 16 games (30.07 avg).",
+      "So how good is Gibbs through 5 weeks? Well, he’s averaging 30.7 in PPR, a 17-game pace of *521.9* points on the season! Gibbs owners are playing on easy mode this year."
+     ],
+     "hm": [
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "What made 2006 LT truly diabolical was he actually got off to a slow start through 5 games. Here were the point totals of his next 7 games:",
+        [
+         "Week 6: 29.2",
+         "Week 7: 44.9",
+         "Week 8: 45.8",
+         "Week 9: 40.2",
+         "Week 10: 45.0",
+         "Week 11: 27.8",
+         "Week 12: 44.5"
+        ],
+        "A world exists in which Gibbs is only just getting started."
+       ]
+      },
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "My weekly Packers hate watch was entirely unsuccessful on Sunday. The Bears spent all week talking trash leading up to their matchup with the rival Packers. And like anyone would do when lil bro starts talking smack, the Packers booted up Madden and spammed 4 verticals every play, absolutely torching the Bears defense. Jordan Love completed 6 passes in the game that traveled 30+ yards. It’s tied for the most in a game since 2000 with another Packer, Brett Favre way back in 2003."
+       ]
+      },
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "The Lab Rats went OFF this week. Only two teams failed to crack 130, and no teams fell below 110. Led by Nick’s 184, the Lab Rats broke the record for average points in a week with 140.71, which was previously held by the Research Rodents in 2024 Week 14 with 137.01. It’s also the 2nd time this season the Lab Rats have all crested the 100-point plateau, a feat only accomplished by the Research Rodents in 2025 and the Molecular Mice in 2023 and 2024. Each of those leagues had razor thin margins in the standings all year. Lab Rats are looking like the League of Death early on."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "week": 6,
+   "intro": [
+    "Week 6 left so many of us wanting more. It was our 2nd lowest scoring week on record, with only three teams breaking 130 and no teams scoring 150. We also set a new record for most teams under 100 points in a week with 15! Given such low scores it was natural that the matchups would be much tighter, and it led to some incredible finishes!",
+    "It was also the week of the underdog as several teams towards the bottom of points scored pulled upsets. The top 10 got a massive shakeup and #1 went down for the 3rd straight week. Many had to dig deep for wins navigating byes and injuries, while others didn’t try. And Tiffany’s record 0-12 start from 2025 stands as Darcy and Haley both secure their first wins!"
+   ],
+   "sections": [
+    {
+     "kind": "game",
+     "label": "Game of the Week",
+     "body": [
+      "It’s been a great start to the season for Courtney, and with Gibbs on bye he would still be a massive favorite over Amanda by projections coming into the week. Courtney would forget to check his lineup though and took a 0 from his TE, all the sudden making this an interesting matchup. Amanda was down big going into Monday night with CMC and Rachaad White to play, but still had a chance. CMC did his thing dropping 26, but the Commanders couldn’t get much going for much of the game. A furious 4th quarter comeback including a Rachaad White TD made it a game again though, and on the final drive, White caught one more dump off for 1.5 points, propelling Amanda to the massive 1-point late upset over Courtney 107.18 – 106.18"
+     ],
+     "hm": [
+      {
+       "kind": "game",
+       "label": "Game of the Week",
+       "body": [
+        "Craig came into the week with 7 players on bye. Given we only have 6 bench spots, Craig made the bold move of riding out the week with no D/ST. He got a comfortable win over Dago, but his matchup with Julia would be much more stressful. Down 12.6 on Monday night with Mike Evans to play, Craig looked like he would get away with it after Evans’ incredible start to the game. But trusting the old man to make it out alive would be Craig’s second mistake. Evans goes down to his tendonitis in the 2nd quarter finishing with… 10.9 points. Defense wins games they say, and the 2 points Julia got from hers was the difference vs. Craig’s 0. Julia takes the W 112.6 – 111.18."
+       ],
+       "score": [
+        [
+         "Julia",
+         112.6
+        ],
+        [
+         "Craig",
+         111.18
+        ]
+       ]
+      }
+     ],
+     "score": [
+      [
+       "Amanda",
+       107.18
+      ],
+      [
+       "Courtney",
+       106.18
+      ]
+     ]
+    },
+    {
+     "kind": "upset",
+     "label": "Upset of the Week",
+     "body": [
+      "Nearly halfway through the season the contenders are starting to solidify themselves. It’s been close to a dream start for #7 Nick and #9 Tiffany, but the reaper was waiting as 0-10 Darcy turned their week 6 into a nightmare. Darcy not only kicks both teams out of the top 10, but she avoids tying Tiffany’s 0-12 record against her in the process."
+     ]
+    },
+    {
+     "kind": "badbeat",
+     "label": "Bad beat of the week",
+     "body": [
+      "It was a very interesting week where if you scored only 100 you were very likely to get a win. Of the 21 teams that broke 100 points this week, 19 of them got at least one win. Let’s pour one out for Ciana and Hoai-Nha, who each crested 100 with 104.36 and 100.4, respectively, but go 0-2 on the week."
+     ]
+    },
+    {
+     "kind": "lucky",
+     "label": "Lucky team of the week",
+     "body": [
+      "With such a low scoring week you would think someone was able to sneak in a couple sub-100-point wins. And while we had several individual wins, no one was able to score the 2-0. Jen goes for least points in a 2-0 week with 102. And Daniel, Haley, and Sarah each score sub-90-point wins with 87.44, 86.48, and 82.18 points, respectively."
+     ]
+    },
+    {
+     "kind": "dawg",
+     "label": "Dawg of the week",
+     "body": [
+      "With byes and so many injuries upon us, it’s time to bring back our Dawg of the week column. Honors go out to those each week who are in dire straits but claw their way to a victory and maybe get a little weird on the waiver wire.",
+      "Our first Dawg of the week goes to Rocio! Missing 4 of her top 5 players and more due to byes or injuries, Rocio didn’t even have a single flex option available. She would go on to scour the waiver wire and strike gold hitting on Tre Tucker, who scored a massive 24.2 points, saving her week in 17 and 13 point wins!"
+     ]
+    },
+    {
+     "kind": "funfact",
+     "label": "Fun fact of the week",
+     "body": [
+      "Not so tough now, are they? Gibbs owners have been bullying the league for 5 weeks, but with the Lions on a bye how would they fare without their cheat code? Not so well as our Gibbs owners go a combined 0-7 against the rest of the league. (Courtney played and beat Laith)"
+     ],
+     "hm": [
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "In the history of the Microgen Fantasy Football League, only once before has the league-wide average been under 110 points. This week we checked in at just 105.65. It just narrowly misses out on the record of 105.23 points way back in our first ever week of the league – 2023 week 1! We did see an individual league record however, as the Molecular Mice score the lowest average to date with only 100.52, beating out the Lab Rats in the aforementioned 2023 week 1 with 103.19."
+       ]
+      },
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "The NFC Least is in full force this year. With the Cowboys and Eagles spiraling, and the Giants and Commanders being… the Giants and Commanders, the NFC East just pulled off history. The division went a combined 0-6-2 over the last two weeks - the first time in NFL history that every team in a division failed to record a win in back-to-back weeks."
+       ]
+      },
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "Travis Hunter may not be the fantasy asset some hoped when you drafted him, but oh boy is he an asset to the Jaguars. The two-way phenom playing corner and wide receiver had the game of a lifetime in London. He joined Roy Green in 1981 and Brian Dawkins in 2002 as the only players to record a reception TD and an interception in the same game. Worth noting that Brian Dawkins scored his TD on a fake punt, not even as a WR."
+       ]
+      },
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "This week Jameis Winston was benched in the 4th quarter of the Giants game in favor of JJ McCarthy. In what almost amounted to a legendary comeback, JJ brought the Giants to the brink of beating the Saints after passing for an absurd 243 yards in the quarter. It’s tied for the most yards ever in a 4th quarter with Eli Manning in 2016. What’s even crazier though? JJ only had 19 yards on his first drive, and didn’t complete his 2nd pass until 8:24 left in the game."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "week": 7,
+   "intro": [
+    "We have officially reached the halfway mark of the regular season! The playoff bubble has started to take shape and the title favorites have begun pulling away from the pack, including one who is on a blistering pace. The season is far from over though, and with no team more than 4 games out of a playoff spot, everyone is still alive and any week could flip the standings.",
+    "Week 7 was a return to normal after a historically low scoring week 6. We saw two top-30 all-time scores, and had our tightest matchup of the year with a team notching a 0.14 point win after a 1-point win last week. We also saw Puka Nacua in the middle of a good old-fashioned controversy - surprisingly not of his own doing. Dreams were crushed, and a pivotal flipped by week 7’s #PukaGate."
+   ],
+   "sections": [
+    {
+     "kind": "game",
+     "label": "Game of the Week",
+     "body": [
+      "In a dead even contest Monday night, it was Amanda’s Eagles D/ST and Brandon Aubrey vs. Nick’s George Pickens. It started off with a bang early as Pickens scored a TD and Aubrey knocked in a long FG. It was the Cowboys running game that took over in the second half though, and as Pickens took a back seat Aubrey knocked in a couple more FGs to give Amanda what should’ve been a comfortable win. But the Eagles D/ST had other plans, going negative with -3 and keeping Nick alive with a sliver of a lead late in the game. A Cowboys TD with just 2 min left gave Aubrey the 1-point extra point though and Amanda takes the W in dramatic fashion 102.58 – 102.44… just 0.14 points! It’s the 2nd week in a row Amanda pulls an incredible late upset on Monday night by 1 point or less!"
+     ],
+     "score": [
+      [
+       "Amanda",
+       102.58
+      ],
+      [
+       "Nick",
+       102.44
+      ]
+     ]
+    },
+    {
+     "kind": "badbeat",
+     "label": "Bad beat of the week",
+     "body": [
+      "So many teams had hope on Sunday as they saw Puka on their opponent’s bench. Due to an ESPN error, that hope was stripped away Monday as Puka was re-inserted into lineups and multiple teams who thought they won lost in the end. These were annoying, but fair beats. The true bad beat to come out of #PukaGate, was one where he never made the starting lineup at all.",
+      "It *appears* as though Puka was automatically benched in Celina’s lineup for Jameson Williams. The catch is that while it was clear for every other team (Puka was replaced with a 0), Celina’s case casts a shadow of doubt on who made the move between her and ESPN. In any case, the fantasy gods blessed her with an upgrade, as Jameson outscored Puka by 6. The controversial bad beat of the week goes to Rocio, who lost to Celina by 4. #PukaGate swings a pivotal matchup as both teams now stand at 7-7, a potential inflection point on the playoff bubble moving forward."
+     ]
+    },
+    {
+     "kind": "lucky",
+     "label": "Lucky team of the week",
+     "body": [
+      "Despite scoring just 111.4, Haley was able to secure both wins against Tiffany’s 103.8 and Alan’s 109.3."
+     ]
+    },
+    {
+     "kind": "dawg",
+     "label": "Dawg of the week",
+     "body": [
+      "Call it a lucky break if you want, but after notching her first win last week, Haley found herself in two very close matchups with her season on the line. A win is a win though, and with her back against the wall Haley found a way to grind out both W’s on the back of a Monday night George Pickens TD. Only 4 games back of a playoff spot now, she’s firmly back in the mix."
+     ]
+    },
+    {
+     "kind": "funfact",
+     "label": "Fun fact of the week",
+     "body": [
+      "Sidney is averaging an absurd 155.33 avg on the season. If that feels like a lot, that’s because she’s on track *to set the all-time scoring record!* She’s looking to become just the 2nd team to score 2,000 points in a season, outpacing Bryce’s record in 2025 of a 153.65 avg. What is truly remarkable though is the consistency of her team. Through 7 weeks, only once has she failed to break 145 points, back in week 2 when she didn’t set her lineup and still managed 120. For perspective, there’s a team in the top 10 that has yet to break 145 a single time."
+     ],
+     "hm": [
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "While Sidney is far and away leading the pack, we can’t sleep on Tisha’s performance thus far. The former Grand Champion is averaging 141.03 herself, which would actually be more than the current 2nd place in all-time scoring, Jana in 2024 with 137.59 per game. A shoutout as well to Craig, who is also outpacing this mark with 138.94 so far."
+       ]
+      },
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "For all those dooming that it’s already over and we must collude to stop Sidney and Tisha, it’s worth noting that history has not been kind to the points leaders in playoffs. Since the start of the league, the 1st and 2nd place teams in scoring each year have combined for…. 1 playoff win (Ryan in 2023 round 1). In fact, of the top 9 highest scoring teams of all-time, they have totaled a whopping 4 playoff wins, with 2024 Trace the only one to even reach the Champions Cup. You would have to go all the way down to 14th in scoring to find our first Grand Champion, 2025 Sarah at 131.36. Perhaps a team can break the curse this year, but the playoffs promote chaos, and it’s anyone’s game once you’re in."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "week": 8,
+   "intro": [
+    "Week 8 was a pretty fun week across the league. We saw the Cowboys continue their trend of getting embarrassed, blowing a massive 4th quarter lead and losing to the Cardinals backup QB. The Bengals almost got embarrassed by the Titans in OT as Burrow threw 3 INTs, but Burrow also had 6 TDs and scored 40 fantasy points in a win. The Lions took down the last undefeated team in the Vikings. Someone hexed the Ravens as both of their QBs went down with season-ending injuries (RIP Lamar), and their emergency 3rd QB got hurt as well. And the Bucs failed to complete a single pass against the Falcons all game…. and won by 16.",
+    "Meanwhile things are starting to get heated in the Microgen league. The top of each league has started to really take shape, but there’s virtually no separation at all on the playoff bubble for the Lab Rats, Genomic Gerbils, and Research Rodents. The Rodents also have a trio of super teams forming between Emma, Craig, and Jake in what looks to be an electric competition for the bye. Sidney continues her dominance, now on a league high 12 game win streak. Amanda pulls off yet another big upset for the 3rd week in a row. The bottom 3 in our Luck Index (Trace, Celina, and Nick) didn’t get much luckier this week. And 4 teams pulled Buccaneers inspired magic getting wins with no pass completions of their own."
+   ],
+   "sections": [
+    {
+     "kind": "game",
+     "label": "Game of the Week",
+     "body": [
+      "Our closest game gets our Game of the Week honors. Celina’s team has been a powerhouse in the Lab Rats by points, but at 35th in the Luck Index, she keeps catching bad breaks. She drew a favorable week 8 matchup though with a struggling Darbie, who had so many byes and injuries she couldn’t field a full lineup. Celina’s team came through with a solid day, but Darbie proved a tough out, dropping 137.16. Celina would need 23 from JSN on Monday night to escape, well within range for the best WR in fantasy. JSN torched the Bears in the first half going for 17.2 fantasy points and putting Celina in range of a comfortable win. But the Bears D tightened up in the second half, holding JSN to just 3.6 more points as Celina catches another tough L 137.16 - 135.02."
+     ],
+     "score": [
+      [
+       "Darbie",
+       137.16
+      ],
+      [
+       "Celina",
+       135.02
+      ]
+     ]
+    },
+    {
+     "kind": "badbeat",
+     "label": "Bad beat of the week",
+     "body": [
+      "Courtney had the most points in an 0-2 week with 119.38, but bad beat of the week goes to Nick who scored 137.56 in a pivotal Lab Rats matchup, losing to Bryce’s season high 156.18. Despite being a very close 2nd in points scored in the Lab Rats, Nick now sits 5 games back of Marsha and Bryce for the bye."
+     ]
+    },
+    {
+     "kind": "lucky",
+     "label": "Lucky team of the week",
+     "body": [
+      "Sometimes you just need a lucky break. Kayla only managed 112.18 this week while she fights for playoff life, but catches a break against Amanda’s 100 and Dago’s week low 67. Speaking of Amanda, she pulled off another low scoring upset this week against Tiffany 100.08 - 94."
+     ]
+    },
+    {
+     "kind": "dawg",
+     "label": "Dawg of the week",
+     "body": [
+      "Darbie has been treading water on the Genomic Gerbils playoff bubble, and she really needed a 2-0 week to set her up for a second half run. Her game of the week with Celina along with her win against Purcella gave her just what she needed. But it’s how she did it that earns Dawg of the week honors. Missing her top 3 players and more to byes and injuries, Darbie couldn’t even start a defense this week, opting to plug in some bench players and hope for the best. Led by Braelon Allen’s 22, she also got above projection performances from Makai Lemon, Stefon Diggs, and Blake Corum to keep her alive in the playoff hunt."
+     ]
+    },
+    {
+     "kind": "funfact",
+     "label": "Fun fact of the week",
+     "body": [
+      "In week 8 the Buccaneers became the 1st team since 1973 to win a game without completing a single pass. They were not the only team to get a win without a pass completion though. Some of your fantasy teams got wins with Lamar Jackson at QB, who was hurt on the first play of the game and scored a donut. Despite taking a 0 from their QB, Marsha, Kayla, Jake, and Tisha somehow went a combined 7-1 on the week, with Tisha suffering the only loss. Pretty impressive if you ask me."
+     ],
+     "hm": [
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "Speaking of Lamar’s injury, the backup Tyler Huntley came in and also got injured. With their top 2 QBs likely out for the season, the Ravens enter week 9 with a QB room of undrafted rookie Joe Fagnano, Kedon Slovis, and Austin Reed. Together these QBs have a combined 1 career passing TD. The Ravens running back, Derrick Henry, has 4."
+       ]
+      },
+      {
+       "kind": "funfact",
+       "label": "Fun fact of the week",
+       "body": [
+        "Through the first 8 weeks of a season in NFL history, no division has ever boasted all 4 teams with a winning record. That is, until this year’s NFC North. The Bears, Lions, Packers, and Vikings have all looked like legit contenders at points thus far. Combine that with the 49ers, Rams, and Seahawks in the NFC West, and it’s an actual travesty that 2 of these 7 teams will miss the playoffs this year."
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

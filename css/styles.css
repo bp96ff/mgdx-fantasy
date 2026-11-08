@@ -172,6 +172,139 @@ main.wrap { flex: 1; padding-top: 18px; padding-bottom: 36px; outline: none; }
   color: var(--dna); font: 700 15px/1 var(--font); letter-spacing: .2em; text-transform: uppercase;
 }
 
+/* ===== Blog: weekly recaps ===== */
+.recap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.recap .matchups-bar { margin-bottom: 0; align-items: flex-end; }
+.rc-title .eyebrow { margin: 0 0 4px; }
+.rc-title h2 { margin: 0; font: 800 clamp(30px, 5vw, 42px)/1 var(--display); text-transform: uppercase; letter-spacing: .01em; }
+.recap p { margin: 0 0 12px; line-height: 1.6; }
+.recap p:last-child { margin-bottom: 0; }
+.recap ul { margin: 0 0 12px; padding-left: 20px; line-height: 1.55; }
+.recap ul:last-child { margin-bottom: 0; }
+.recap li + li { margin-top: 6px; }
+.recap s { opacity: .65; }
+
+/* Opening: the week's story, with a big leather first letter */
+.rc-lede {
+  padding: 22px 24px; border-radius: 16px; font-size: 17px; color: #dfe8f1;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--leather) 14%, var(--surface)), var(--surface) 55%);
+  border: 1px solid var(--line); border-left: 4px solid var(--leather);
+}
+.rc-lede p:first-child::first-letter {
+  font: 800 1.75em/1 var(--display); color: var(--leather); margin-right: 1px;
+}
+
+/* Shared card shell; each kind sets --k and its own touches */
+.rc-card {
+  --k: var(--dna);
+  position: relative; padding: 18px 20px 20px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--k) 12%, var(--surface)), var(--surface) 60%);
+  border: 1px solid color-mix(in srgb, var(--k) 40%, var(--line)); box-shadow: var(--shadow);
+}
+.rc-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.rc-head h3 { margin: 0; font: 800 22px/1.1 var(--display); text-transform: uppercase; letter-spacing: .04em; color: var(--k); }
+.rc-icon {
+  flex: none; width: 40px; height: 40px; padding: 8px; border-radius: 12px;
+  background: color-mix(in srgb, var(--k) 20%, transparent); border: 1px solid color-mix(in srgb, var(--k) 45%, transparent);
+  fill: var(--k); stroke: none;
+}
+.rc-icon .ink { fill: none; stroke: var(--surface); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.rc-icon .stem { stroke: var(--k); stroke-width: 2.2; }
+.rc-icon .line { stroke: var(--k); }
+.rc-body { color: #dbe5ef; }
+.rc-hm { margin-top: 16px; padding-top: 14px; border-top: 1px dashed color-mix(in srgb, var(--k) 40%, var(--line)); color: #c9d6e3; }
+.rc-hm-tag {
+  display: inline-block; margin: 0 0 10px !important; padding: 3px 10px; border-radius: 999px;
+  font: 700 12px/1.4 var(--font); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--k); background: color-mix(in srgb, var(--k) 14%, transparent);
+}
+
+/* Game of the Week: a scoreboard */
+.rc-game { --k: var(--dna); }
+.rc-score {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: 14px; border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--line); background: var(--line);
+}
+.rc-side {
+  --c: var(--line);
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 16%, var(--bg-2)), var(--bg-2) 65%);
+  box-shadow: inset 3px 0 0 var(--c);
+}
+.rc-av { width: 46px; height: 46px; border-color: var(--c); }
+.rc-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rc-name { display: flex; align-items: center; gap: 7px; font-weight: 700; color: var(--muted); }
+.rc-who small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--muted); }
+.rc-side b { font: 800 30px/1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; }
+.rc-side.win .rc-name { color: var(--text); }
+.rc-side.win b { color: var(--win); }
+a.rc-score { text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+a.rc-score:hover { border-color: var(--dna); transform: translateY(-1px); }
+a.rc-score:hover .rc-margin { color: var(--text); }
+.rc-view { margin-left: 10px; color: var(--dna); }
+.rc-margin {
+  grid-column: 1 / -1; margin: 0 !important; padding: 5px; text-align: center; background: var(--surface-2);
+  font: 700 11px/1.4 var(--font) !important; letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+}
+
+/* Upset: hazard stripes along the top */
+.rc-upset { --k: var(--rr); padding-top: 26px; }
+.rc-upset::before {
+  content: ''; position: absolute; inset: 0 0 auto; height: 8px;
+  background: repeating-linear-gradient(-45deg, var(--rr) 0 10px, var(--bg) 10px 20px);
+}
+
+/* Bad beat: red, with a heartbeat line flatlining across the back */
+.rc-badbeat { --k: var(--loss); }
+.rc-badbeat::after {
+  content: ''; position: absolute; right: -10px; top: 18px; width: 220px; height: 48px; opacity: .14; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 48' fill='none' stroke='%23ef5a6f' stroke-width='3' stroke-linejoin='round'%3E%3Cpath d='M0 26h60l10-18 12 36 12-30 8 12h118'/%3E%3C/svg%3E") no-repeat;
+}
+
+/* Lucky team: green with a faint clover pattern */
+.rc-lucky { --k: var(--win); }
+.rc-lucky::after {
+  content: ''; position: absolute; inset: 0; opacity: .05; pointer-events: none;
+  background: radial-gradient(circle at 30% 30%, var(--win) 0 3px, transparent 3.5px) 0 0 / 22px 22px;
+}
+
+/* Dawg of the week: coral, with paw prints walking off the corner */
+.rc-dawg { --k: var(--mm); }
+.rc-dawg::after {
+  content: ''; position: absolute; right: 14px; bottom: 10px; width: 90px; height: 70px; opacity: .1; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 70' fill='%23ec6a4f'%3E%3Cg%3E%3Cellipse cx='16' cy='56' rx='7' ry='6'/%3E%3Ccircle cx='7' cy='47' r='3'/%3E%3Ccircle cx='13' cy='42' r='3'/%3E%3Ccircle cx='20' cy='42' r='3'/%3E%3Ccircle cx='26' cy='47' r='3'/%3E%3C/g%3E%3Cg transform='translate(46 -34)'%3E%3Cellipse cx='16' cy='56' rx='7' ry='6'/%3E%3Ccircle cx='7' cy='47' r='3'/%3E%3Ccircle cx='13' cy='42' r='3'/%3E%3Ccircle cx='20' cy='42' r='3'/%3E%3Ccircle cx='26' cy='47' r='3'/%3E%3C/g%3E%3C/svg%3E") no-repeat;
+}
+
+/* A new challenger: arcade marquee */
+.rc-challenger { --k: var(--rr); background: linear-gradient(135deg, #1a0f3a, #0b1f3d 70%); border: 2px solid var(--rr); }
+.rc-challenger .rc-head h3 { font-size: 26px; font-style: italic; text-shadow: 0 0 14px color-mix(in srgb, var(--rr) 70%, transparent), 3px 3px 0 var(--mm); }
+.rc-challenger .rc-head h3::after { content: '!'; }
+
+/* Fun facts: lab notebook on graph paper */
+.rc-funfact { --k: var(--lr-soft); background-color: var(--surface); }
+.rc-funfact {
+  background:
+    linear-gradient(color-mix(in srgb, var(--dna) 9%, transparent) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, color-mix(in srgb, var(--dna) 9%, transparent) 1px, transparent 1px) 0 0 / 22px 22px,
+    var(--surface);
+  border-color: color-mix(in srgb, var(--dna) 45%, var(--line));
+}
+.rc-funfact .rc-icon { fill: var(--dna); background: color-mix(in srgb, var(--dna) 20%, transparent); border-color: color-mix(in srgb, var(--dna) 45%, transparent); }
+.rc-funfact .rc-icon .line { stroke: var(--dna); }
+.rc-funfact .rc-hm { border-top-style: solid; }
+.rc-funfact .rc-hm-tag { color: var(--dna); background: color-mix(in srgb, var(--dna) 14%, transparent); }
+
+@media (max-width: 600px) {
+  .recap .matchups-bar { flex-direction: column; align-items: stretch; }
+  .rc-lede { padding: 18px 16px; font-size: 16px; }
+  .rc-card { padding: 16px 14px 18px; }
+  .rc-upset { padding-top: 24px; }
+  .rc-head h3 { font-size: 20px; }
+  .rc-challenger .rc-head h3 { font-size: 21px; }
+  .rc-score { grid-template-columns: 1fr; }
+  .rc-side b { font-size: 26px; }
+}
+
 /* ===== League hero + subtabs ===== */
 .league-hero {
   position: relative; display: flex; align-items: center; gap: 20px;
@@ -311,6 +444,7 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
   .tx-none { grid-column: 1; }
   /* Six tabs: two rows of three */
   .subtabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .subtabs.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .subtabs a { display: flex; align-items: center; justify-content: center; padding: 8px 3px; font-size: 14px; line-height: 1.15; white-space: normal; }
 }
 
