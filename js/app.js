@@ -2085,7 +2085,7 @@
     return `<span class="lchip" style="--c:var(--${league.theme})" title="${name}"><i class="dot"></i><span class="lchip-name">${name}</span></span>`;
   }
 
-  function crossCard(g, records, ranks, openIds, overall, top) {
+  function crossCard(g, records, ranks, openIds, overall, top, closest) {
     const pHome = Math.round(g.prob * 100);
     const homeLead = g.decided ? g.winner === 'home' : g.prob > 0.5;
     const awayLead = g.decided ? g.winner === 'away' : g.prob < 0.5;
@@ -2120,6 +2120,7 @@
           <span class="pct ${awayLead ? 'lead' : ''}">${100 - pHome}%</span>
         </div>
         <p class="prob-label">${g.decided ? 'Final' : g.upcoming ? 'Upcoming' : 'Win probability'}</p>
+        ${closest ? `<div class="banner"><span>${esc(closest)}</span></div>` : ''}
         ${hasLineups ? lineupToggle(g, openIds, lineupColumn(g.home, g.home.league) + lineupColumn(g.away, g.away.league)) : ''}
       </article>`;
   }
@@ -2195,13 +2196,16 @@
         }),
       }));
 
-      // One matchup of the week across every section, by overall rank. With no ranks yet (Week 1),
-      // the closest game takes the tag.
+      // One matchup of the week and one closest matchup across every section, the matchup of the week by
+      // overall rank. With no ranks yet (Week 1), the closest game takes that tag too.
       const allGames = sections.flatMap((sec) => sec.games);
       const overallRank = (side) => (overall.get(`${side.league.slug}:${side.team.id}`) || {}).rank;
       const rankedGames = allGames.filter((g) => overallRank(g.home) && overallRank(g.away));
-      const closestGame = pickClosest({ games: allGames, week });
+      const started = !decided && !upcoming && allGames.some((g) => g.home.score > 0 || g.away.score > 0);
+      const closestGame = pickClosest({ games: allGames.filter((g) => !g.home.missing && !g.away.missing), week, started });
       const top = rankedGames.length ? pickTopRanked(rankedGames, overallRank) : closestGame && closestGame.id;
+
+      const place = (g) => (g.id === top ? 0 : closestGame && g.id === closestGame.id ? 1 : 2);
 
       const openIds = keepOpen || new Set();
       if (!keepOpen) {
@@ -2230,7 +2234,7 @@
                 <span class="xl-view"><span>${open ? 'Hide matchups' : 'View matchups'}</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
               </button>
             </h2>
-            <div class="xl-games" id="xl-${si}" ${open ? '' : 'hidden'}>${sec.games.slice().sort((a, b) => (b.id === top) - (a.id === top)).map((g) => crossCard(g, crossOut, ranks, openIds, overall, g.id === top)).join('')}
+            <div class="xl-games" id="xl-${si}" ${open ? '' : 'hidden'}>${sec.games.slice().sort((a, b) => place(a) - place(b)).map((g) => crossCard(g, crossOut, ranks, openIds, overall, g.id === top, closestGame && g.id === closestGame.id ? closestGame.label : null)).join('')}
               <button class="xl-hide" type="button" ${hideName ? `aria-label="${hideName}"` : ''}><span>${hideLabel}</span><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             </div>
           </section>`;
