@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+require('./fetch-retry');
 
 const ROOT = path.join(__dirname, '..');
 const OUTPUT = path.join(ROOT, 'data', 'transactions.json');

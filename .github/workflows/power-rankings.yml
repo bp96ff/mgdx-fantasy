@@ -3,6 +3,8 @@
 # - Standings: saved at the same time, then updated later in the week only if a stat correction changes
 #   a past score.
 # Most checks change nothing, and then nothing is committed.
+# Each script retries brief connection problems itself (tools/fetch-retry.js). If one still fails, the others
+# run anyway and their results are saved, but the run is marked failed so GitHub sends an alert.
 name: Weekly locked data
 
 on:
@@ -23,9 +25,13 @@ jobs:
           node-version: 22
       - run: node tools/run-standings.js
       - run: node tools/run-power-rankings.js
+        if: ${{ !cancelled() }}
       - run: node tools/run-transactions.js
+        if: ${{ !cancelled() }}
       - run: node tools/run-this-week.js
+        if: ${{ !cancelled() }}
       - name: Save new results
+        if: ${{ !cancelled() }}
         run: |
           git add data/standings.json data/power-rankings.json data/transactions.json data/this-week.json
           if git diff --cached --quiet; then
