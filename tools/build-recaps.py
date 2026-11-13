@@ -29,6 +29,7 @@ STYLE = [
     ('Julia takes the W 112.6 – 111.8.', 'Julia takes the W 112.6 – 111.18.'),  # typo in the doc; ESPN has 111.18
     ('weeks with only wins until', 'weeks with *only wins* until'),
     ('straight weeks without a loss before', 'straight weeks *without a loss* before'),
+    ('League favorite Sydney dropped', 'League favorite Sidney dropped'),  # spelling in the doc
 ]
 
 # Final scores for each Game of the Week, winner first, in the order the sections appear
