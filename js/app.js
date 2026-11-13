@@ -180,7 +180,7 @@
     const cross = opp && (o.team.crossGames || []).find((g) => g.week === week && g.opp
       && String(g.opp.id) === String(opp.team.id) && g.oppLeague && g.oppLeague.slug === opp.league.slug);
     if (cross) {
-      const slot = (o.team.crossSchedule || []).find((x) => x[0] === week);
+      const slot = (o.team.crossSchedule || []).find((x) => x[0] === week && x[1] === `${opp.league.slug}:${opp.team.id}`);
       return `#/cross-league?week=${week}${slot && slot[2] ? `&game=${slot[2]}` : ''}`;
     }
     return `#/${o.league.slug}/matchups?week=${week}&team=${o.team.id}`;

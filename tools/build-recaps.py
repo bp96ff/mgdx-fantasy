@@ -27,6 +27,8 @@ STYLE = [
     ('It appears as though', 'It *appears* as though'),
     ('on track to set the all-time scoring record!', 'on track *to set the all-time scoring record!*'),
     ('Julia takes the W 112.6 – 111.8.', 'Julia takes the W 112.6 – 111.18.'),  # typo in the doc; ESPN has 111.18
+    ('weeks with only wins until', 'weeks with *only wins* until'),
+    ('straight weeks without a loss before', 'straight weeks *without a loss* before'),
 ]
 
 # Final scores for each Game of the Week, winner first, in the order the sections appear
@@ -43,6 +45,7 @@ SCORES = {
     (6, 1): [['Julia', 112.60], ['Craig', 111.18]],
     (7, 0): [['Amanda', 102.58], ['Nick', 102.44]],
     (8, 0): [['Darbie', 137.16], ['Celina', 135.02]],
+    (9, 0): [['Darcy', 118.38], ['Alan', 115.36]],
 }
 
 
@@ -51,6 +54,7 @@ def clean(s):
 
 
 def build(text):
+    text = text.replace(' ', ' ')
     for a, b in STYLE:
         assert text.count(a) == 1, a
         text = text.replace(a, b)
@@ -60,7 +64,9 @@ def build(text):
         blanks = blanks + 1 if not line else 0
         m = re.fullmatch(r'Week (\d+) Recap', line)
         if m:
-            cur = {'week': int(m.group(1)), 'intro': intro, 'sections': []}
+            # Recaps run in order, so a repeated heading (Week 9's reads "Week 8 Recap" in the doc) is the next week
+            n = int(m.group(1)) if not weeks or int(m.group(1)) > weeks[-1]['week'] else weeks[-1]['week'] + 1
+            cur = {'week': n, 'intro': intro, 'sections': []}
             weeks.append(cur)
             intro, sec, skipping = [], None, False
             continue

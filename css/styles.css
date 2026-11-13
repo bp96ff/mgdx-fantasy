@@ -173,7 +173,7 @@ main.wrap { flex: 1; padding-top: 18px; padding-bottom: 36px; outline: none; }
 }
 
 /* ===== Blog: weekly recaps ===== */
-.recap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.recap { display: flex; flex-direction: column; gap: 18px; }
 .recap .matchups-bar { margin-bottom: 0; align-items: flex-end; }
 .rc-title .eyebrow { margin: 0 0 4px; }
 .rc-title h2 { margin: 0; font: 800 clamp(30px, 5vw, 42px)/1 var(--display); text-transform: uppercase; letter-spacing: .01em; }
