@@ -176,8 +176,195 @@
       <nav class="subtabs two" aria-label="Archives sections">
         ${ARCHIVE_TABS.map((s) => `<a href="#/archives/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${ARCHIVE_TAB_NAMES[s]}</a>`).join('')}
       </nav>
-      ${sub === 'history' ? `<div id="league-body">${loading('Loading league history')}</div>` : placeholderPanel(p.art, ARCHIVE_KICKERS[sub], ARCHIVE_TAB_NAMES[sub])}`;
+      <div id="league-body">${loading(sub === 'history' ? 'Loading league history' : 'Loading records')}</div>`;
     if (sub === 'history') renderHistory(params);
+    else renderRecords();
+  }
+
+  // ---------- all-time records ----------
+  // Game lists come from each season's games.json (tools/run-games.js: ESPN scores, regular season, every
+  // in-league and cross-league game) plus the playoff scores in each past season's playoffs.json. Season totals
+  // (records, PF, PA) come from data/history.json, the same numbers League History shows, for finished seasons only.
+  async function renderRecords() {
+    const token = renderToken;
+    const body = () => document.getElementById('league-body');
+    const json = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const years = SEASON_PAGES.filter((y) => y !== SEASON);
+    const dirOf = (y) => (y === SEASON ? 'data/' : `data/seasons/${y}/`);
+    const [history, ...files] = await Promise.all([
+      json('data/history.json'),
+      ...[...years, SEASON].flatMap((y) => [json(`${dirOf(y)}games.json`), json(`${dirOf(y)}standings.json`), y === SEASON ? null : json(`${dirOf(y)}playoffs.json`)]),
+    ]);
+    if (token !== renderToken) return;
+    const seasons = [...years, SEASON].map((y, i) => ({ year: y, games: files[i * 3], standings: files[i * 3 + 1], playoffs: files[i * 3 + 2] }))
+      .filter((s) => s.games && s.games.season === s.year);
+    if (!history || !seasons.length) {
+      body().innerHTML = '<div class="state state-error" role="alert"><strong>Couldn\'t load the records.</strong><a class="btn" href="#/archives/records" onclick="window.dispatchEvent(new HashChangeEvent(\'hashchange\'));return false;">Try again</a></div>';
+      return;
+    }
+
+    // Everyone, by season and key ("league:teamId"): team name, owner, league and that season's logo.
+    const who = new Map();
+    for (const s of seasons) {
+      const logos = new Map();
+      for (const [slug, l] of Object.entries((s.standings && s.standings.leagues) || {})) for (const t of l.teams) logos.set(`${slug}:${t.id}`, t.logo);
+      for (const [key, [name, owner]] of Object.entries(s.games.teams)) {
+        const league = LEAGUES.find((l) => l.slug === key.split(':')[0]);
+        who.set(`${s.year}|${key}`, { key, year: s.year, name, owner, league, logo: logos.get(key) });
+      }
+    }
+    const team = (year, key) => who.get(`${year}|${key}`);
+    const link = (year, hash) => (year === SEASON ? hash : `${year}.html${hash}`);
+
+    // Every game, from both sides; every team-week score.
+    const sides = []; // { t, year, week, pf, pa, opp, result, link, inLeague }
+    const weekly = new Map(); // `${year}|${key}|${week}` -> { t, year, week, pf, games: [] }
+    for (const s of seasons) {
+      for (const [week, a, sa, b, sb, hash] of s.games.games) {
+        const inLeague = hash.includes('/matchups');
+        const pair = [[a, sa, b, sb], [b, sb, a, sa]];
+        for (const [me, pf, opp, pa] of b === 'median' ? pair.slice(0, 1) : pair) {
+          const side = {
+            t: team(s.year, me), year: s.year, week, pf, pa, inLeague, link: link(s.year, hash),
+            opp: opp === 'median' ? null : team(s.year, opp),
+            result: pf > pa ? 'W' : pf < pa ? 'L' : 'T',
+          };
+          sides.push(side);
+          const id = `${s.year}|${me}|${week}`;
+          if (!weekly.has(id)) weekly.set(id, { t: side.t, year: s.year, week, pf, link: side.link, games: [] });
+          const w = weekly.get(id);
+          w.games.push(side);
+          if (inLeague) w.link = side.link; // a week's score links to its in-league game when there is one
+        }
+      }
+    }
+    // Playoff weeks of past seasons (each team's one game a week), for the single-week score lists.
+    const scores = [...weekly.values()].map((w) => ({ ...w, label: '' }));
+    for (const s of seasons) {
+      if (!s.playoffs) continue;
+      s.playoffs.games.forEach((g, i) => {
+        for (const side of g.teams) {
+          const t = [...who.values()].find((x) => x.year === s.year && x.owner === side.owner && (!g.league || x.league.slug === g.league));
+          if (t) scores.push({ t, year: s.year, week: g.week, pf: side.score, link: link(s.year, playoffGameLink(g, i)), label: g.name || g.title });
+        }
+      });
+    }
+
+    const oppName = (x) => (x.opp ? `${esc(x.opp.owner)} ${f2(x.pa)}` : `the median ${f2(x.pa)}`);
+    const when = (x) => `${x.year} · Wk ${x.week}`;
+    const scoreRow = (x) => ({ t: x.t, when: `${when(x)}${x.label ? ` · ${esc(x.label)}` : ''}`, value: f2(x.pf), link: x.link });
+    const top = (list, n, val, dir) => list.slice().sort((a, b) => (dir === 'asc' ? val(a) - val(b) : val(b) - val(a))).slice(0, n);
+
+    // Finished seasons' totals, as League History has them.
+    const seasonRows = [];
+    for (const [year, season] of Object.entries(history.seasons)) {
+      const y = Number(year);
+      if (y === SEASON) continue;
+      for (const t of season.teams) {
+        const found = [...who.values()].find((x) => x.year === y && x.owner === t.owner && x.league.slug === t.league);
+        const league = LEAGUES.find((l) => l.slug === t.league);
+        const ties = t.t || 0;
+        seasonRows.push({
+          t: found || { name: t.team, owner: t.owner, league, logo: null },
+          year: y, w: t.w, l: t.l, ties, pct: (t.w + ties / 2) / (t.w + t.l + ties), pf: t.pf, pa: t.pa,
+          link: SEASON_PAGES.includes(y) ? `${y}.html#/home/final-standings` : `#/archives/history?year=${y}`,
+        });
+      }
+    }
+    const rec = (x) => `${x.w}-${x.l}${x.ties ? `-${x.ties}` : ''}`;
+    const seasonRow = (value) => (x) => ({ t: x.t, when: String(x.year), value: value(x), note: `${rec(x)} · ${f2(x.pf)} PF`, link: x.link });
+
+    // A team's week where it played twice or more and lost (or won) them all.
+    const sweeps = (result) => [...weekly.values()].filter((w) => w.games.length >= 2 && w.games.every((g) => g.result === result));
+    const sweepNote = (w) => `${w.games[0].result === 'L' ? 'Lost to' : 'Beat'} ${w.games.map(oppName).join(' and ')}`;
+    // One row per team-week, so a week with two losses (or wins) on the same score is listed once, naming both
+    // opponents; it links to that week's losing (or winning) game.
+    const withResult = (result) => [...weekly.values()].filter((w) => w.games.some((g) => g.result === result))
+      .map((w) => ({ ...w, link: w.games.find((g) => g.result === result).link }));
+    const resultNote = (w, result) => `${result === 'L' ? 'Lost to' : 'Beat'} ${w.games.filter((g) => g.result === result).map(oppName).join(' and ')}`;
+
+    // Streaks within a season, in-league game before cross-league each week. A tie ends a streak.
+    const streaks = { W: [], L: [] };
+    const latest = Math.max(...sides.filter((x) => x.year === SEASON).map((x) => x.week), 0);
+    for (const s of seasons) {
+      const mine = new Map();
+      for (const x of sides) if (x.year === s.year) (mine.get(x.t.key) || mine.set(x.t.key, []).get(x.t.key)).push(x);
+      for (const list of mine.values()) {
+        list.sort((a, b) => a.week - b.week || b.inLeague - a.inLeague);
+        let run = null;
+        const close = () => { if (run && run.n >= 2) streaks[run.result].push(run); run = null; };
+        for (const x of list) {
+          if (run && run.result === x.result) { run.n++; run.end = x.week; continue; }
+          close();
+          if (x.result !== 'T') run = { t: x.t, year: s.year, result: x.result, n: 1, start: x.week, end: x.week };
+        }
+        if (run && s.year === SEASON && run.end === latest) run.active = true;
+        close();
+      }
+    }
+    const streakRow = (x) => ({
+      t: x.t, when: `${x.year} · Wk ${x.start}${x.end !== x.start ? `–${x.end}` : ''}`, value: `${x.n} ${x.result === 'W' ? 'wins' : 'losses'}`,
+      // Links to the team's roster page, whose season schedule shows the streak game by game.
+      note: x.active ? '<b class="rec-active">Active</b>' : '',
+      link: link(x.year, `#/${x.t.league.slug}/rosters?team=${x.t.key.split(':')[1]}`),
+    });
+
+    const sections = [
+      ['Highest single-week scores', 50, top(scores, 50, (x) => x.pf).map(scoreRow), 'Score'],
+      ['Lowest single-week scores', 50, top(scores, 50, (x) => x.pf, 'asc').map(scoreRow), 'Score'],
+      ['Best regular-season records', 30, top(seasonRows, 30, (x) => x.pct + x.pf / 1e6).map(seasonRow(rec)), 'Record'],
+      ['Worst regular-season records', 30, top(seasonRows, 30, (x) => x.pct + x.pf / 1e6, 'asc').map(seasonRow(rec)), 'Record'],
+      ['Most regular-season points for', 30, top(seasonRows, 30, (x) => x.pf).map(seasonRow((x) => f2(x.pf))), 'PF'],
+      ['Fewest regular-season points for', 30, top(seasonRows, 30, (x) => x.pf, 'asc').map(seasonRow((x) => f2(x.pf))), 'PF'],
+      ['Most regular-season points against', 30, top(seasonRows, 30, (x) => x.pa).map(seasonRow((x) => f2(x.pa))), 'PA'],
+      ['Fewest regular-season points against', 30, top(seasonRows, 30, (x) => x.pa, 'asc').map(seasonRow((x) => f2(x.pa))), 'PA'],
+      ['Most points in a loss', 30, top(withResult('L'), 30, (x) => x.pf)
+        .map((x) => ({ t: x.t, when: when(x), value: f2(x.pf), note: resultNote(x, 'L'), link: x.link })), 'Score'],
+      ['Most points in an 0-2 week', 15, top(sweeps('L'), 15, (x) => x.pf)
+        .map((x) => ({ t: x.t, when: when(x), value: f2(x.pf), note: sweepNote(x), link: x.link })), 'Score'],
+      ['Fewest points in a win', 30, top(withResult('W'), 30, (x) => x.pf, 'asc')
+        .map((x) => ({ t: x.t, when: when(x), value: f2(x.pf), note: resultNote(x, 'W'), link: x.link })), 'Score'],
+      ['Fewest points in a 2-0 week', 15, top(sweeps('W'), 15, (x) => x.pf, 'asc')
+        .map((x) => ({ t: x.t, when: when(x), value: f2(x.pf), note: sweepNote(x), link: x.link })), 'Score'],
+      ['Longest winning streaks', 10, top(streaks.W, 10, (x) => x.n).map(streakRow), 'Streak'],
+      ['Longest losing streaks', 10, top(streaks.L, 10, (x) => x.n).map(streakRow), 'Streak'],
+    ];
+
+    // Ranks share a number on an exact tie (1, 2, 2, 4).
+    const table = ([title, n, rows, head]) => {
+      let rank = 0;
+      const body = rows.map((r, i) => {
+        if (i === 0 || r.value !== rows[i - 1].value) rank = i + 1;
+        const lg = r.t.league;
+        return `
+          <tr class="lg-row" style="--lc:var(--${lg.theme})">
+            <td class="c-rank"><span class="rank">${rank}</span></td>
+            <td class="c-team"><a class="team-cell" href="${r.link}">
+              ${teamLogo({ logo: r.t.logo }, lg)}
+              <span><strong>${esc(r.t.name)}</strong><small>${esc(r.t.owner)}</small><small class="lg-name">${esc(lg.name)}</small><small class="rec-sub">${r.when}${r.note ? `<br>${r.note}` : ''}</small></span>
+            </a></td>
+            <td class="c-when">${r.when}${r.note ? `<small>${r.note}</small>` : ''}</td>
+            <td class="c-num c-val">${esc(r.value)}</td>
+          </tr>`;
+      }).join('');
+      const first = rows[0];
+      return `
+        <details class="panel rec-section">
+          <summary>
+            <span class="rec-title"><strong>${esc(title)}</strong><small>Top ${n}</small></span>
+            ${first ? `<span class="rec-lead">${esc(first.t.owner)} · ${esc(first.value)}</span>` : ''}
+          </summary>
+          <div class="table-wrap"><table class="standings rec-table">
+            <thead><tr><th class="c-rank">#</th><th>Team</th><th class="c-when">When</th><th class="c-num">${esc(head)}</th></tr></thead>
+            <tbody>${body || '<tr><td colspan="4" class="muted">Nothing yet.</td></tr>'}</tbody>
+          </table></div>
+        </details>`;
+    };
+    const first = Math.min(...seasons.map((s) => s.year));
+    body().innerHTML = `
+      <p class="pw-status">All-time records from ${first} on. Tap a list to open it.</p>
+      <div class="rec-list">${sections.map(table).join('')}</div>
+      <p class="fineprint">Single-week scores, game lists and streaks use ESPN's scores and include the ${SEASON} season's finished weeks; single-week scores also count past seasons' playoff games. Season records, PF and PA are from finished seasons, as League History shows them; PA counts every opponent, in-league and cross-league. Streaks run within one season, counting each week's in-league game before its cross-league game; a tie ends a streak. ${history.seasons[2023] ? 'In 2023, a team on bye played the week’s median, and those games count.' : ''}</p>`;
   }
 
   function placeholderPanel(art, kicker, title) {
@@ -462,6 +649,7 @@
           <h3>${recapText(s.label)}</h3>
         </header>
         <div class="rc-body">${recapBody(s.body)}</div>
+        ${s.update ? `<div class="rc-update"><p class="rc-hm-tag">Update</p>${recapBody(s.update)}</div>` : ''}
         ${s.score ? recapScore(s.score, owners, week) : ''}
         ${hm}
       </article>`;

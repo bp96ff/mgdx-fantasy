@@ -32,6 +32,16 @@ STYLE = [
     ('League favorite Sydney dropped', 'League favorite Sidney dropped'),  # spelling in the doc
 ]
 
+# Updates posted on the site after the doc, shown under a section: (week, kind) -> paragraphs.
+# They go on the first section of that kind (the main one, not an honorable mention).
+UPDATES = {
+    (9, 'funfact'): [
+        'Slight update, I missed that 2024 Sloan did in fact go 5 straight weeks with only wins. Furthermore, '
+        'due to how winning streaks are calculated, games to start or end the streak in 1-1 weeks add to the '
+        'streak. So Sloan has the previous record at 11 wins, while Ryan had a 10 game win streak across 6 weeks.',
+    ],
+}
+
 # Final scores for each Game of the Week, winner first, in the order the sections appear
 SCORES = {
     (1, 0): [['Sarah', 108.26], ['Ryan', 105.90]],
@@ -124,6 +134,11 @@ def build(text):
                     e['score'] = SCORES[(w['week'], n)]
                     n += 1
         assert all((w['week'], k) in SCORES for k in range(n))
+    for (week, kind), paras in UPDATES.items():
+        w = next((x for x in weeks if x['week'] == week), None)
+        if w:
+            s = next(s for s in w['sections'] if s['kind'] == kind)
+            s['update'] = paras
     return weeks
 
 

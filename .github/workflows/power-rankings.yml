@@ -30,10 +30,12 @@ jobs:
         if: ${{ !cancelled() }}
       - run: node tools/run-this-week.js
         if: ${{ !cancelled() }}
+      - run: node tools/run-games.js
+        if: ${{ !cancelled() }}
       - name: Save new results
         if: ${{ !cancelled() }}
         run: |
-          git add data/standings.json data/power-rankings.json data/transactions.json data/this-week.json
+          git add data/standings.json data/power-rankings.json data/transactions.json data/this-week.json data/games.json
           if git diff --cached --quiet; then
             echo "No new results."
           else

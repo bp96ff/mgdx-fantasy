@@ -7,7 +7,7 @@
 // 1. Saves ESPN's league, weekly matchups, weekly rosters and the NFL schedule to data/seasons/<year>/espn/,
 //    keeping only what the site reads. Playoff weeks keep each team's lineup but not ESPN's own playoff
 //    games: the bracket comes from the league's sheet (playoffs.json).
-// 2. Runs tools/run-standings.js and tools/run-this-week.js against those files.
+// 2. Runs tools/run-standings.js, tools/run-this-week.js and tools/run-games.js against those files.
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -147,7 +147,7 @@ async function main() {
   });
   for (const cfg of MGDX.LEAGUES) await saveLeague(cfg);
   const env = { ...process.env, MGDX_CONFIG: configFile };
-  for (const script of ['run-standings.js', 'run-this-week.js']) {
+  for (const script of ['run-standings.js', 'run-this-week.js', 'run-games.js']) {
     execFileSync(process.execPath, [path.join(__dirname, script)], { env, stdio: 'inherit' });
   }
 }
