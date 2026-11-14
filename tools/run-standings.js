@@ -5,20 +5,30 @@
 // rewrites the file when something actually changed, and leaves it alone until last week is final.
 //
 //   node tools/run-standings.js
+// A past season (tools/build-season.js) keeps its official records from data/history.json instead.
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 require('./fetch-retry');
+const { loadSite } = require('./load-site');
 
-const ROOT = path.join(__dirname, '..');
-const OUTPUT = path.join(ROOT, 'data', 'standings.json');
+const { ESPN, SEASON_DATA, MGDX, ROOT, dataDir } = loadSite(['js/espn.js', 'js/sheet.js', 'js/season.js']);
+const OUTPUT = path.join(dataDir, 'standings.json');
 
-// The site's data files expect a browser `window`; here it is just the global object.
-globalThis.window = globalThis;
-for (const file of ['js/config.js', 'js/espn.js', 'js/sheet.js', 'js/season.js']) {
-  vm.runInThisContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), { filename: file });
+// The records, points and seeds the league went by that year (tools/build-history.py), in place of
+// ones rebuilt from ESPN and the cross-league sheet, which don't always match them.
+function applyOfficial(slug, teams) {
+  const season = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'history.json'), 'utf8')).seasons[MGDX.SEASON];
+  const official = new Map(season.teams.filter((t) => t.league === slug).map((t) => [t.owner, t]));
+  for (const t of teams) {
+    const o = official.get(t.owner);
+    if (!o) throw new Error(`${t.owner} isn't in data/history.json for ${MGDX.SEASON}`);
+    Object.assign(t, {
+      wins: o.w, losses: o.l, ties: 0, pct: o.w / (o.w + o.l), pf: o.pf, pa: o.pa, crossPa: o.crossPa,
+      inW: o.w - t.xW, inL: o.l - t.xL, inT: 0, seed: o.seed,
+    });
+  }
+  teams.sort((a, b) => a.seed - b.seed);
 }
-const { ESPN, SEASON_DATA, MGDX } = globalThis;
 
 async function main() {
   const o = await SEASON_DATA.overallRecords();
@@ -40,6 +50,7 @@ async function main() {
   o.leagues.forEach((l, i) => {
     const copy = { ...l, teams: l.teams.map((t) => ({ ...t })) };
     SEASON_DATA.applyOverall(copy, o.out);
+    if (MGDX.ARCHIVE) applyOfficial(l.slug, copy.teams);
     leagues[l.slug] = {
       playoffTeams: l.playoffTeams,
       teams: copy.teams.map((t) => ({

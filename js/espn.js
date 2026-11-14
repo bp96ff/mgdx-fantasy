@@ -1,8 +1,18 @@
 // ESPN Fantasy API access + normalization into plain objects the views can render.
 // All four leagues are public, so no espn_s2 / SWID cookies are needed.
 (function () {
-  const { SEASON } = window.MGDX;
+  const { SEASON, ARCHIVE } = window.MGDX;
   const BASE = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${SEASON}`;
+
+  // A past season reads the ESPN answers saved by tools/build-season.js instead of asking ESPN.
+  function archivePath(url) {
+    if (url.includes('proTeamSchedules')) return `${ARCHIVE.dir}espn/pro.json`;
+    const id = /leagues\/(\d+)/.exec(url)[1];
+    const period = (/scoringPeriodId=(\d+)/.exec(url) || [])[1];
+    if (url.includes('mRoster')) return `${ARCHIVE.dir}espn/${id}-rosters-${period}.json`;
+    if (url.includes('mScoreboard')) return `${ARCHIVE.dir}espn/${id}-matchups-${period}.json`;
+    return `${ARCHIVE.dir}espn/${id}.json`;
+  }
 
   const SLOTS = {
     0: 'QB', 2: 'RB', 4: 'WR', 6: 'TE', 16: 'D/ST', 17: 'K', 20: 'BE', 21: 'IR', 23: 'FLEX', 7: 'SFLX',
@@ -15,9 +25,13 @@
   // ---------- fetch with a short in-memory cache ----------
   const cache = new Map();
   async function getJSON(url, ttl = 60000) {
+    if (ARCHIVE) {
+      url = archivePath(url);
+      ttl = Infinity;
+    }
     const hit = cache.get(url);
     if (hit && Date.now() - hit.t < ttl) return hit.p;
-    const p = fetch(url, { cache: 'no-store' }).then((r) => {
+    const p = fetch(url, { cache: ARCHIVE ? 'default' : 'no-store' }).then((r) => {
       if (!r.ok) throw new Error(`ESPN responded ${r.status}`);
       return r.json();
     });
@@ -75,7 +89,7 @@
   }
 
   async function getLeague(cfg) {
-    const { id: leagueId, ownerNames = {}, teamLogos = {}, champions = {}, grandChampions = {}, ultimateLosers = {} } = cfg;
+    const { id: leagueId, ownerNames = {}, teamNames = {}, teamLogos = {}, champions = {}, grandChampions = {}, ultimateLosers = {} } = cfg;
     const d = await getJSON(`${BASE}/segments/0/leagues/${leagueId}?view=mTeam&view=mSettings&view=mMatchupScore`);
     const members = new Map((d.members || []).map((m) => [m.id, m]));
     const currentWeek = d.status.currentMatchupPeriod;
@@ -93,7 +107,7 @@
       const ownerId = owners.find((o) => o !== t.primaryOwner) || t.primaryOwner || owners[0];
       return {
         id: t.id,
-        name: (t.name || `${t.location || ''} ${t.nickname || ''}`).trim() || `Team ${t.id}`,
+        name: teamNames[t.id] || (t.name || `${t.location || ''} ${t.nickname || ''}`).trim() || `Team ${t.id}`,
         abbrev: t.abbrev,
         logo: teamLogos[t.id] || t.logo || '',
         owner: ownerNames[t.id] || firstName(members.get(ownerId)),

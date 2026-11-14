@@ -295,7 +295,11 @@ a.rc-score:hover .rc-margin { color: var(--text); }
 .rc-funfact .rc-hm-tag { color: var(--dna); background: color-mix(in srgb, var(--dna) 14%, transparent); }
 
 @media (max-width: 600px) {
-  .recap .matchups-bar { flex-direction: column; align-items: stretch; }
+  .recap .matchups-bar, .matchups-bar.hist-bar { flex-direction: column; align-items: stretch; }
+  .hist-actions { flex-direction: column-reverse; align-items: stretch; }
+  .season-link { justify-content: center; }
+  .back-archives { padding: 8px 10px; font-size: 13px; }
+  .back-archives .back-to { display: none; }
   .rc-lede { padding: 18px 16px; font-size: 16px; }
   .rc-card { padding: 16px 14px 18px; }
   .rc-upset { padding-top: 24px; }
@@ -304,6 +308,45 @@ a.rc-score:hover .rc-margin { color: var(--text); }
   .rc-score { grid-template-columns: 1fr; }
   .rc-side b { font-size: 26px; }
 }
+
+/* ===== Archives: league history ===== */
+.hist-bar { align-items: flex-end; }
+.hist-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.season-link, .back-archives {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 10px; white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--text); font-weight: 700; font-size: 14px; text-decoration: none;
+}
+.season-link:hover, .back-archives:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 24%, var(--surface)); }
+.season-link svg, .back-archives svg { flex: none; color: var(--accent); }
+.back-archives { margin-left: auto; }
+/* Winners on one row, losers on the next: one column per league plus the grand award */
+.hist-awards { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 14px; margin-bottom: 26px; }
+.hist-award {
+  --k: var(--lc);
+  position: relative; display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--k) 16%, var(--surface)), var(--surface) 65%);
+  border: 1px solid color-mix(in srgb, var(--k) 45%, var(--line)); box-shadow: var(--shadow);
+}
+.hist-award.grand { --k: #f2c94c; }
+.hist-award.loser { --k: #b07a3c; }
+.hist-award.league-loser { background: linear-gradient(160deg, color-mix(in srgb, var(--k) 8%, var(--surface)), var(--surface) 65%); }
+.hist-award.league-loser .hist-badge { border-radius: 10px; filter: grayscale(.85) brightness(.85) drop-shadow(0 4px 8px rgba(0,0,0,.4)); }
+.hist-badge { position: absolute; top: 14px; right: 14px; width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,.4)); }
+.hist-award-title { margin: 0; padding-right: 50px; font: 800 20px/1.1 var(--display); text-transform: uppercase; letter-spacing: .04em; color: var(--k); }
+.hist-award-team { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.hist-award-team .avatar { border-color: var(--lc); }
+.hist-award-team div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hist-award-team strong { font-size: 19px; }
+.hist-award-team small { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-award-team small.lg-name { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--lc); }
+.hist-award-team .dot { --c: var(--lc); width: 8px; height: 8px; }
+.hist-award-note { margin: 0; font-size: 13px; color: var(--muted); }
+@media (max-width: 900px) { .hist-awards { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); } }
+.standings.hist-table tr.podium .rank { font-size: 1.15em; }
+.standings.hist-table tr.p1 .rank { color: #f2c94c; }
+.standings.hist-table tr.p2 .rank { color: #cfd8e3; }
+.standings.hist-table tr.p3 .rank { color: #d9925b; }
 
 /* ===== League hero + subtabs ===== */
 .league-hero {
@@ -445,6 +488,7 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
   /* Six tabs: two rows of three */
   .subtabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
   .subtabs.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .subtabs.two, .subtabs.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .subtabs a { display: flex; align-items: center; justify-content: center; padding: 8px 3px; font-size: 14px; line-height: 1.15; white-space: normal; }
 }
 
@@ -709,6 +753,9 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .select select:hover { border-color: var(--accent); }
 .matchup-list { display: flex; flex-direction: column; gap: 18px; }
 .section-label { margin: 18px 0 -6px; font: 700 13px/1 var(--font); letter-spacing: .2em; text-transform: uppercase; color: #c3d2e1; }
+/* Cross-League Finals: the two halves of the bracket */
+.section-label.xl-finals-head { margin: 30px 0 4px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.14); font: 800 20px/1 var(--display); letter-spacing: .08em; color: #fff; }
+.section-label.xl-finals-head:first-child { margin-top: 6px; }
 .matchup { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
 .matchup.featured { border-color: color-mix(in srgb, var(--accent) 70%, var(--line)); margin-top: 18px; }
 .flag {
@@ -1036,6 +1083,34 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .tb .pb-team.won { border-color: var(--loss); box-shadow: inset 3px 0 0 var(--loss); }
 .tb-match { display: flex; flex-direction: column; gap: 4px; }
 .tb-match + .tb-match { margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(255, 255, 255, .55); }
+.tb-low .pb-team.won { border-color: var(--loss); box-shadow: inset 3px 0 0 var(--loss); }
+.pb-game + .pb-game { margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(255, 255, 255, .55); }
+.pb-game-title { margin: 0 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.pb-finals .pb-group { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.pb-finals .pb-game + .pb-game { margin-top: 0; padding-top: 0; border-top: 0; }
+/* Title games: each league's championship and the Grand Championship */
+.pb-game.pb-champ {
+  --gold: #f2c94c;
+  padding: 12px; border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent); border-radius: 14px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--gold) 16%, transparent), transparent 70%);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--gold) 14%, transparent);
+}
+.pb-game.pb-champ + .pb-game { border-top: 0; }
+.pb-game.pb-champ.pb-loser { --gold: #c48a52; }
+.pb-loser .pb-game-title img { border-radius: 50%; }
+.pb-champ .pb-game-title { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: var(--gold); font: 800 16px/1.1 var(--display); letter-spacing: .05em; }
+.pb-champ .pb-game-title img { width: 22px; height: 22px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
+.pb-champ .pb-team.won { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 25%, transparent); }
+.pb-finals .pb-grand { grid-column: 1 / -1; padding: 16px; }
+.pb-grand .pb-game-title { font-size: 22px; }
+.pb-grand .pb-game-title img { width: 30px; height: 30px; }
+.pb-grand .tb-match { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.pb-grand .pb-num { font-size: 22px; }
+@media (max-width: 680px) {
+  .pb-finals .pb-group { grid-template-columns: minmax(0, 1fr); }
+  .pb-grand .tb-match { display: flex; flex-direction: column; gap: 4px; }
+  .pb-grand .pb-game-title { font-size: 19px; }
+}
 .tb-vs { align-self: center; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 /* Narrow phones: keep the Matchup of the Week flag and Top-10 tag from colliding */
 @media (max-width: 360px) {

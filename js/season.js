@@ -3,6 +3,8 @@
   const { LEAGUES } = window.MGDX;
 
   const UNKNOWN_LEAGUE = { slug: '', name: 'Unknown', logo: 'assets/img/mgdx-shield.png?v=3', teams: [], theme: 'home' };
+  // In 2023 a team on bye played the week's median score instead of another team.
+  const MEDIAN_LEAGUE = { slug: '', name: 'Median', displayName: 'Median', logo: 'assets/img/mgdx-shield.png?v=3', teams: [], theme: 'home' };
 
   async function loadAllLeagues() {
     return Promise.all(LEAGUES.map(async (cfg) => Object.assign({}, await ESPN.getLeague(cfg),
@@ -36,10 +38,16 @@
       const pools = s.bye
         ? [byeTeams, byeTeams]
         : lg.map((l, i) => (l ? teamsOf([l]) : teamsOf(leagues.filter((x) => x !== lg[1 - i]))));
-      const games = s.games.map(([a, b]) => [a, b].map((name, i) => {
+      const games = s.games.map(([a, b], gi) => [a, b].map((name, i) => {
+        // A saved past season carries its official score and result for each side.
+        const sheet = s.results ? { score: s.scores[gi][i], result: s.results[gi][i] } : null;
+        if (s.median && i === 1) {
+          return { league: MEDIAN_LEAGUE, team: { id: null, name: 'Weekly median', owner: 'Median', logo: '' }, missing: true, median: true, sheet };
+        }
         const hit = matchOwner(pools[i], name);
         if (!hit) console.warn(`Cross-league: couldn't match "${name}"`);
-        return hit || { league: lg[i] || UNKNOWN_LEAGUE, team: { id: null, name, owner: name, logo: '' }, missing: true };
+        if (!hit) return { league: lg[i] || UNKNOWN_LEAGUE, team: { id: null, name, owner: name, logo: '' }, missing: true };
+        return sheet ? Object.assign({}, hit, { sheet }) : hit;
       }));
       if (!s.bye) {
         lg.forEach((l, i) => {
@@ -80,13 +88,15 @@
     pastWeeks.forEach((w, i) => {
       for (const sec of resolveWeek(sheets[i], leagues, byes.get(w) || [])) {
         for (const [a, b] of sec.games) {
-          if (a.missing || b.missing) continue;
+          if ((a.missing && !a.median) || (b.missing && !b.median)) continue;
           const ka = `${a.league.slug}:${a.team.id}`, kb = `${b.league.slug}:${b.team.id}`;
-          const pa = scores.get(`${ka}:${w}`) || 0, pb = scores.get(`${kb}:${w}`) || 0;
-          const ra = pa > pb ? 'W' : pb > pa ? 'L' : 'T';
-          const rb = ra === 'W' ? 'L' : ra === 'L' ? 'W' : 'T';
-          log(ka, w, ra, pa, pb, b);
-          log(kb, w, rb, pb, pa, a);
+          // Saved seasons use their official scores and results; a median side has no ESPN score of its own.
+          const score = (x, k) => (x.sheet && x.sheet.score != null ? x.sheet.score : scores.get(`${k}:${w}`) || 0);
+          const pa = score(a, ka), pb = score(b, kb);
+          const ra = a.sheet ? a.sheet.result || (b.sheet.result === 'W' ? 'L' : 'W') : pa > pb ? 'W' : pb > pa ? 'L' : 'T';
+          const rb = b.sheet && b.sheet.result ? b.sheet.result : ra === 'W' ? 'L' : ra === 'L' ? 'W' : 'T';
+          if (!a.median) log(ka, w, ra, pa, pb, b);
+          if (!b.median) log(kb, w, rb, pb, pa, a);
         }
       }
     });

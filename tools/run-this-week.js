@@ -7,18 +7,11 @@
 //   node tools/run-this-week.js
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 require('./fetch-retry');
+const { loadSite } = require('./load-site');
 
-const ROOT = path.join(__dirname, '..');
-const OUTPUT = path.join(ROOT, 'data', 'this-week.json');
-
-// The site's data files expect a browser `window`; here it is just the global object.
-globalThis.window = globalThis;
-for (const file of ['js/config.js', 'js/espn.js', 'js/sheet.js', 'js/season.js', 'js/this-week.js']) {
-  vm.runInThisContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), { filename: file });
-}
-const { MGDX, SEASON_DATA, THIS_WEEK } = globalThis;
+const { MGDX, SEASON_DATA, THIS_WEEK, dataDir } = loadSite(['js/espn.js', 'js/sheet.js', 'js/season.js', 'js/this-week.js']);
+const OUTPUT = path.join(dataDir, 'this-week.json');
 
 const two = (n) => Math.round(n * 100) / 100;
 const ref = (side) => [`${side.league.slug}:${side.team.id}`, two(side.score)];

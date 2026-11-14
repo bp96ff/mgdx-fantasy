@@ -2,7 +2,23 @@
 // the sheet; scores, projections and lineups come from ESPN.
 (function () {
   const { sheetId, weekGids } = window.MGDX.CROSS_LEAGUE;
+  const { ARCHIVE } = window.MGDX;
   const cache = new Map();
+
+  // A past season's pairings were saved with that year's official scores and results (tools/build-history.py):
+  //   { weeks: { "1": [{ leagues: [a, b], games: [[ownerA, ownerB]], scores: [[a, b]], results: [["W", "L"]] },
+  //                    { bye: true, median: true, games: [[owner, "Median"]], scores: [[null, median]], results: [["W", null]] }] } }
+  let archiveFile = null;
+  function archiveWeek(week) {
+    if (!archiveFile) {
+      archiveFile = fetch(`${ARCHIVE.dir}cross.json`).then((r) => {
+        if (!r.ok) throw new Error(`Saved cross-league games responded ${r.status}`);
+        return r.json();
+      });
+      archiveFile.catch(() => { archiveFile = null; });
+    }
+    return archiveFile.then((f) => (f.weeks[week] || []).map((s) => Object.assign({ bye: false, leagues: null }, s)));
+  }
 
   function parseCSV(text) {
     const rows = [];
@@ -50,6 +66,7 @@
   }
 
   function getWeek(week) {
+    if (ARCHIVE) return archiveWeek(week);
     const gid = weekGids[week];
     if (gid == null) return Promise.resolve([]);
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
