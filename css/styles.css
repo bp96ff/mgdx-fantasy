@@ -1085,7 +1085,10 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .tb-match + .tb-match { margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(255, 255, 255, .55); }
 .tb-low .pb-team.won { border-color: var(--loss); box-shadow: inset 3px 0 0 var(--loss); }
 .pb-game + .pb-game { margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(255, 255, 255, .55); }
-.pb-game-title { margin: 0 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.pb-game-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.pb-game-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pb-view { flex: none; color: var(--dna); font: 700 11px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; text-decoration: none; white-space: nowrap; }
+.pb-view:hover, .pb-view:focus-visible { text-decoration: underline; }
 .pb-finals .pb-group { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
 .pb-finals .pb-game + .pb-game { margin-top: 0; padding-top: 0; border-top: 0; }
 /* Title games: each league's championship and the Grand Championship */

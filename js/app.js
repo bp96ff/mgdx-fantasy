@@ -345,7 +345,9 @@
     return {
       html: `
         <p class="pw-sort">Table sortable by Finish, PF, and PA</p>
-        <div class="panel">
+        <div class="panel st-panel ${standingsExpanded ? 'st-expanded' : ''}">
+          <button class="toggle st-expand" type="button" aria-expanded="${standingsExpanded}">${standingsExpanded ? 'Show fewer columns' : 'Show all columns'}</button>
+          <p class="st-hint">Swipe the table sideways to see every column</p>
           <div class="table-wrap">${table()}</div>
         </div>`,
       bind(root) {
@@ -1368,6 +1370,7 @@
     }
     const byOwner = new Map(entries.map((e) => [e.team.owner, e]));
     const games = file.games.filter((g) => g.bracket === kind);
+    const indexOf = new Map(file.games.map((g, i) => [g, i]));
     const sinks = (g) => /Losers|Ultimate Loser|Toilet Bowl/.test(g.title); // the lower score moves on
     const place = (g) => (g.title === 'Championship' ? 1 : g.title === 'Toilet Bowl' ? 99 : parseInt(g.title, 10) || 50);
     const game = (g, label = g.title) => {
@@ -1383,7 +1386,8 @@
       const name = cfg ? `${cfg.name} ${g.title}` : champ ? 'Grand Championship' : 'Toilet Bowl';
       const head = title ? `<img src="${icon}" alt="" width="22" height="22">${esc(name)}` : esc(label);
       const cls = title ? `pb-champ ${champ ? '' : 'pb-loser'} ${cfg ? '' : 'pb-grand'}` : '';
-      return `<div class="pb-game ${cls}"><p class="pb-game-title">${head}</p><div class="tb-match ${sinks(g) ? 'tb-low' : ''}">${sides.join('<span class="tb-vs">vs</span>')}</div></div>`;
+      const view = `<a class="pb-view" href="${playoffGameLink(g, indexOf.get(g))}" aria-label="View the ${esc(title ? name : `${cfg ? `${cfg.name} ` : ''}${label}`)} matchup">View matchup ›</a>`;
+      return `<div class="pb-game ${cls}"><p class="pb-game-title"><span class="pb-game-name">${head}</span>${view}</p><div class="tb-match ${sinks(g) ? 'tb-low' : ''}">${sides.join('<span class="tb-vs">vs</span>')}</div></div>`;
     };
     const [r1, n1, r2, n2] = SEASON_ROUNDS[kind];
     const cards = LEAGUES.map((cfg) => {
@@ -2457,7 +2461,7 @@
   async function renderMatchups(league, body, params, token, keepOpen) {
     const asked = Number(params.get('week'));
     if (ARCHIVE && PLAYOFF_ROUND_NAMES[asked] && asked < 17) {
-      await renderPlayoffMatchups(league, body, asked, token);
+      await renderPlayoffMatchups(league, body, asked, token, params);
       return;
     }
     const week = clampWeek(league, params.get('week'));
@@ -2534,6 +2538,11 @@
   }
   const playoffWeekOptions = (weeks, selected) => weeks.map((w) =>
     `<option value="${w}" ${w === selected ? 'selected' : ''}>${PLAYOFF_ROUND_NAMES[w]} · Week ${w}</option>`).join('');
+  // A game's id is its place in playoffs.json, so the Playoffs and Toilet Bowl tabs can link to it.
+  const playoffGameId = (i) => `g${i}`;
+  const playoffGameLink = (g, i) => (g.league
+    ? `#/${g.league}/matchups?week=${g.week}&game=${playoffGameId(i)}`
+    : `#/cross-league?week=17&game=${playoffGameId(i)}`);
   const sinksGame = (g) => /Losers|Ultimate Loser|Toilet Bowl/.test(g.title); // the lower score moves on
 
   // Each owner's team, league and lineup for a playoff week.
@@ -2558,13 +2567,13 @@
     return `<h2 class="section-label">${esc(prefix)}${esc(g.playoffTitle)}${note}</h2>`;
   }
 
-  async function renderPlayoffMatchups(league, body, week, token) {
+  async function renderPlayoffMatchups(league, body, week, token, params) {
     const [file, sides] = await Promise.all([seasonPlayoffs(), playoffSides([league], week)]);
     if (token !== renderToken) return;
     // Seeds and records are the official regular-season ones.
     const going = new Map(league.teams.map((t, i) => [t.id, { wins: t.wins, losses: t.losses, ties: 0, rank: i + 1 }]));
-    const games = file.games.filter((g) => g.league === league.slug && g.week === week)
-      .map((g, i) => playoffGame(g, `p${week}-${i}`, sides));
+    const games = file.games.map((g, i) => [g, i]).filter(([g]) => g.league === league.slug && g.week === week)
+      .map(([g, i]) => playoffGame(g, playoffGameId(i), sides));
     const cards = games.map((g) => playoffLabel(g, g.playoffTitle === 'Championship' ? `${league.name} ` : '')
       + matchupCard(g, league, false, null, new Set(), going, new Map())).join('');
     body().innerHTML = `
@@ -2580,10 +2589,11 @@
       location.hash = `#/${league.slug}/matchups?week=${e.target.value}`;
     });
     bindToggles(body());
+    focusGame(params.get('game'));
   }
 
   // Cross-League's Finals: the placement games between the leagues (week 17, plus Round 1's 9th place final).
-  async function renderCrossFinals(body, token, weeks) {
+  async function renderCrossFinals(body, token, weeks, params) {
     const leagues = await loadAllLeagues();
     const [file, standings, late, early] = await Promise.all([
       seasonPlayoffs(), lockedStandings(), playoffSides(leagues, 17), playoffSides(leagues, 15),
@@ -2600,11 +2610,11 @@
       }
     }
     const place = (g) => (g.title === 'Championship' ? 1 : g.title === 'Toilet Bowl' ? 99 : parseInt(g.title, 10) || 50);
-    const finals = file.games.filter((g) => !g.league).map((g, i) => {
+    const finals = file.games.map((g, i) => [g, i]).filter(([g]) => !g.league).map(([g, i]) => {
       // Lab Rats on the left, as in the weekly cross-league games.
       const teams = g.teams.slice().sort((a, b) => LEAGUES.findIndex((l) => l.slug === (late.get(a.owner) || {}).league.slug)
         - LEAGUES.findIndex((l) => l.slug === (late.get(b.owner) || {}).league.slug));
-      return Object.assign(playoffGame({ ...g, teams }, `f${i}`, g.week === 15 ? early : late), { week: g.week, place: place(g) });
+      return Object.assign(playoffGame({ ...g, teams }, playoffGameId(i), g.week === 15 ? early : late), { week: g.week, place: place(g) });
     });
     const section = (title, list) => `<h2 class="section-label xl-finals-head">${esc(title)}</h2>${list.map((g) =>
       playoffLabel(g) + crossCard(g, out, ranks, new Set(), overall, false, null)).join('')}`;
@@ -2631,6 +2641,7 @@
       location.hash = `#/cross-league?week=${e.target.value}`;
     });
     bindToggles(body());
+    focusGame(params.get('game'));
   }
 
   // ---------- cross-league ----------
@@ -2741,7 +2752,7 @@
       const currentWeek = Math.max(...leagues.map((l) => l.currentWeek));
       const weeks = SHEET.weeks;
       if (ARCHIVE && Number(params.get('week')) === 17) {
-        await renderCrossFinals(body, token, weeks);
+        await renderCrossFinals(body, token, weeks, params);
         return;
       }
       let week = Number(params.get('week')) || currentWeek;
