@@ -6,7 +6,7 @@ window.MGDX = {
   // Past season: every page reads its saved files. lastWeek is the final regular-season week; the playoffs
   // come from the league's own bracket in playoffs.json, not ESPN's.
   // playoffWeeks have saved lineups only (the bracket's games and scores are in playoffs.json).
-  ARCHIVE: { dir: 'data/seasons/2023/', lastWeek: 14, playoffWeeks: [15, 16, 17] },
+  ARCHIVE: { dir: 'data/seasons/2023/', lastWeek: 14, playoffWeeks: [15, 16, 17], medianByes: true },
   // The cross-league weeks saved in data/seasons/2023/cross.json.
   CROSS_LEAGUE: { weekGids: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0 } },
   LEAGUES: [

@@ -1130,3 +1130,33 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; }
 }
+
+/* A past season's four-team final on Cross-League (2024 on): teams by score, the place each finished */
+.xf { --mark: var(--win); }
+.xf.xf-cup { --mark: #f2c94c; }
+.xf.xf-bowl { --mark: #c48a52; }
+.xf-title { display: flex; align-items: center; gap: 10px; margin: 0; padding: 20px 22px 4px; font: 800 20px/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
+.xf-cup .xf-title, .xf-bowl .xf-title { color: var(--mark); }
+.xf-title img { width: 26px; height: 26px; object-fit: contain; }
+.xf-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px 22px 4px; }
+.xf-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+.xf-row.marked { border-color: var(--mark); box-shadow: inset 3px 0 0 var(--mark), 0 0 14px color-mix(in srgb, var(--mark) 22%, transparent); }
+.xf-place { min-width: 34px; font: 800 17px/1 var(--display); color: var(--muted); text-align: center; }
+.xf-row.marked .xf-place { color: var(--mark); }
+.xf-row .avatar { border-color: var(--accent); }
+.xf-row .side-id { gap: 2px; }
+.xf-row .side-name { font-size: 16px; }
+.xf-row .side-owner { color: var(--muted); font-size: 13px; }
+.xf-row .score { font-size: 26px; }
+@media (max-width: 760px) {
+  .xf-rows { grid-template-columns: minmax(0, 1fr); padding: 10px 12px 4px; }
+  .xf-title { padding: 16px 14px 2px; font-size: 18px; }
+  .xf-row { gap: 10px; padding: 8px 10px; }
+  .xf-row .score { font-size: 22px; }
+}
+
+/* A past season's four-team bracket finals (Playoffs and Toilet Bowl tabs) */
+.tb-four { gap: 6px; }
+.pb-grand .tb-match.tb-four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1100px) { .pb-grand .tb-match.tb-four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .pb-grand .tb-match.tb-four { grid-template-columns: minmax(0, 1fr); } }

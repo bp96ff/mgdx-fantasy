@@ -17,12 +17,26 @@ import openpyxl
 LEAGUES = {'Lab Rats': 'lab-rats', 'Molecular Mice': 'molecular-mice', 'Genomic Gerbils': 'genomic-gerbils',
            'Research Rodents': 'research-rodents'}
 
-# Per season: owners no longer in the league (shown with their league's logo) and spellings the sheet uses
-# for someone in more than one way.
+# 2024's sheet already uses each owner's league name, and its Standings tab gives the in-league and
+# cross-league split itself; the weekly tabs supply cross-league points against.
+# Per season: owners no longer in the league (shown with their league's logo), spellings the sheet uses
+# for someone in more than one way, and ESPN first names that aren't the name the league uses ('espn', plus
+# 'espn_by_league' for an account that plays as different people in different leagues).
+# 'layout' is the sheet's shape: 2023 had two leagues with bye weeks against the median and two-team finals;
+# 2024 had four leagues, no byes, and four-team finals (one team from each league).
 SEASONS = {
     2023: {
+        'layout': 2023,
         'former': ['Anna', 'David', 'Jonathan', 'Kira', 'Patrick', 'Andrew', 'Dominique', 'Chandler'],
         'aliases': {'Dom': 'Dominique', 'Courtney': 'Kayla', 'Sebastian': 'Darbie'},
+    },
+    2024: {
+        'layout': 2024,
+        # Jennifer (Genomic Gerbils) isn't the current season's Jen; Tiffany is the current season's Tiffany.
+        'former': ['Chandler', 'RJ', 'Andrew', 'Patrick', 'Jonathan', 'Jennifer', 'Magaly', 'David', 'Kyle'],
+        'aliases': {},
+        'espn': {'James': 'Trace', 'S': 'Sloan', 'Ramon': 'RJ', 'Sebastian': 'Darbie'},
+        'espn_by_league': {'molecular-mice': {'Courtney': 'Kayla'}},
     },
 }
 
@@ -145,7 +159,7 @@ def playoff_games(wb, alias, by_owner):
     return games
 
 
-def league_pa(paths, alias, by_owner):
+def league_pa(paths, alias, by_owner, by_league=None):
     """Points against in regular-season in-league games, from ESPN's league files. A team with co-owners
     (the commissioner sometimes co-managed) goes to whichever of them the sheet lists in that league."""
     pa = {}
@@ -153,9 +167,10 @@ def league_pa(paths, alias, by_owner):
         d = json.loads(Path(path).read_text(encoding='utf-8'))
         slug = next(s for n, s in LEAGUES.items() if d['settings']['name'].startswith(n))
         first = {m['id']: (lambda n: n[:1].upper() + n[1:])(m['firstName'].strip()) for m in d['members']}
+        here = {**alias, **(by_league or {}).get(slug, {})}
         owner = {}
         for t in d['teams']:
-            names = [alias.get(first[o], first[o]) for o in t['owners']]
+            names = [here.get(first[o], first[o]) for o in t['owners']]
             match = [n for n in names if n in by_owner and by_owner[n]['league'] == slug]
             assert len(match) == 1, f'{t["name"]}: owners {names} vs the sheet'
             owner[t['id']] = match[0]
@@ -189,7 +204,214 @@ def finals(wb, alias):
     return games
 
 
+# ---------- the 2024 sheet ----------
+def owner_name(cell):
+    """'x - Trace', 'e - Laith*' -> 'Trace', 'Laith' (a clinch mark in front, * for the commissioner)."""
+    return re.sub(r'^[xyze] - ', '', str(cell)).rstrip('*').strip()
+
+
+def standings_2024(wb, espn, cfg):
+    """The Standings tab: four blocks (two across, two down) of Place, Owner, In-W, In-L, Out-W, Out-L, Tot-W,
+    Tot-L, Win %, Points. Team names aren't on the sheet, so they come from ESPN."""
+    grid = [list(r) for r in wb['Standings'].iter_rows(values_only=True)]
+    teams = []
+    for i, r in enumerate(grid):
+        for col, name in enumerate(r):
+            if name not in LEAGUES:
+                continue
+            for row in grid[i + 1:]:
+                place = row[col] if col < len(row) else None
+                if isinstance(place, str) and place in LEAGUES:
+                    break
+                if not isinstance(place, (int, float)):
+                    if any(isinstance(row[c], (int, float)) for c in range(col, min(col + 10, len(row)))):
+                        break
+                    continue
+                owner, in_w, in_l, x_w, x_l, w, l, _pct, pts = row[col + 1:col + 10]
+                teams.append({'owner': owner_name(owner), 'league': LEAGUES[name], 'seed': int(place),
+                              'w': int(w), 'l': int(l), 'inW': int(in_w), 'inL': int(in_l), 'xW': int(x_w), 'xL': int(x_l),
+                              'pf': round(pts, 2)})
+    names = espn_team_names(espn, cfg, {(t['league'], t['owner']) for t in teams})
+    for t in teams:
+        t['team'] = names[(t['league'], t['owner'])]
+    return teams
+
+
+def espn_team_names(paths, cfg, owners):
+    """(league, owner) -> the team's ESPN name, naming owners the way league_pa does. owners: (league, owner) pairs."""
+    out = {}
+    for path in paths:
+        d = json.loads(Path(path).read_text(encoding='utf-8'))
+        slug = next(s for n, s in LEAGUES.items() if d['settings']['name'].startswith(n))
+        here = {**cfg.get('espn', {}), **cfg.get('espn_by_league', {}).get(slug, {})}
+        first = {m['id']: (lambda n: n[:1].upper() + n[1:])(m['firstName'].strip()) for m in d['members']}
+        for t in d['teams']:
+            names = [here.get(first[o], first[o]) for o in t['owners']]
+            match = [n for n in names if (slug, n) in owners]
+            out[(slug, match[0] if len(match) == 1 else None)] = (t.get('name') or '').strip()
+    return out
+
+
+def cross_weeks_2024(wb, alias):
+    """Each "Week N" tab: two sections, each headed by the two leagues playing that week.
+    Rows: Result, Team, Current, Final, vs, Final, Current, Team, Result."""
+    weeks = {}
+    for ws in wb.worksheets:
+        m = re.fullmatch(r'Week (\d+)', ws.title)
+        if not m:
+            continue
+        sections, cur = [], None
+        for r in ws.iter_rows(values_only=True):
+            r = list(r) + [None] * 9
+            if r[0] in LEAGUES and r[5] in LEAGUES:
+                cur = {'leagues': [r[0], r[5]], 'games': [], 'scores': [], 'results': []}
+                sections.append(cur)
+            elif cur is not None and r[0] in ('W', 'L') and r[8] in ('W', 'L'):  # the middle cell is 'vs' or a tag like 'Top 10'
+                cur['games'].append([alias.get(r[1], r[1]), alias.get(r[7], r[7])])
+                cur['scores'].append([round(r[3], 2), round(r[5], 2)])
+                cur['results'].append([r[0], r[8]])
+            elif r[3] == 'Weekly Averages':
+                cur = None
+        weeks[m.group(1)] = sections
+    return weeks
+
+
+def cross_records_2024(weeks):
+    rec = {}  # owner: [wins, losses, points against]
+    for sections in weeks.values():
+        for s in sections:
+            for (a, b), (sa, sb), (ra, rb) in zip(s['games'], s['scores'], s['results']):
+                for owner, res, opp in ((a, ra, sb), (b, rb, sa)):
+                    r = rec.setdefault(owner, [0, 0, 0.0])
+                    r[0 if res == 'W' else 1] += 1
+                    r[2] += opp
+    return rec
+
+
+def playoff_games_2024(wb, alias, by_owner):
+    """Weeks 15 and 16 in each league (Champions and Toilet Bowl tabs), then week 17's four-team finals between
+    the leagues: the Champions Cup, the Toilet Bowl Final and the placement finals in "Other Matchups"."""
+    games = []
+
+    def team(owner, score):
+        owner = alias.get(owner, owner)
+        assert owner in by_owner, f'playoff owner {owner}'
+        return {'owner': owner, 'seed': by_owner[owner]['seed'], 'score': round(score, 2)}
+
+    def title_of(text):
+        t = re.sub(r'^(' + '|'.join(LEAGUES) + r') ', '', text.strip())
+        return re.sub(r' Match$', '', t)
+
+    for tab, week, bracket in (('Champions R1', 15, 'playoffs'), ('Toilet Bowl R1', 15, 'toilet'),
+                               ('Champions R2', 16, 'playoffs'), ('Toilet Bowl R2', 16, 'toilet')):
+        grid = [list(r) for r in wb[tab].iter_rows(values_only=True)]
+        for i, r in enumerate(grid[:-1]):
+            for c, text in enumerate(r):
+                if not isinstance(text, str) or not any(text.startswith(n) for n in LEAGUES) or grid[i + 1][c] != 'Seed':
+                    continue
+                head = grid[i + 1]
+                # This game's columns run from its Seed to the next Seed: Team ... Total ... Total ... Team.
+                end = next((k for k in range(c + 1, len(head)) if head[k] == 'Seed'), len(head))
+                cols = range(c, end + 1)
+                team_cols = [k for k in cols if head[k] == 'Team']
+                total_cols = [k for k in cols if head[k] == 'Total']
+                lg = next(s for n, s in LEAGUES.items() if text.startswith(n))
+                j = i + 2
+                while j < len(grid) and isinstance(grid[j][c], (int, float)):
+                    g = grid[j]
+                    games.append({'week': week, 'title': title_of(text), 'league': lg, 'bracket': bracket,
+                                  'teams': [team(g[team_cols[0]], g[total_cols[0]]), team(g[team_cols[1]], g[total_cols[1]])]})
+                    j += 1
+    # The two big finals: owners on row 3, scores on the Total row (each team's Score column).
+    for tab, title, name, bracket in (('Champions Cup', 'Championship', 'Champions Cup', 'playoffs'),
+                                      ('Toilet Bowl Final', 'Toilet Bowl', 'Toilet Bowl Final', 'toilet')):
+        grid = [list(r) for r in wb[tab].iter_rows(values_only=True)]
+        owners = grid[2]
+        total = next(r for r in grid if r[0] == 'Total')
+        games.append({'week': 17, 'title': title, 'name': name, 'league': None, 'bracket': bracket,
+                      'teams': [team(owners[c + 2], total[c + 3]) for c in (0, 4, 8, 12)]})
+    grid = [list(r) for r in wb['Other Matchups'].iter_rows(values_only=True)]
+    for i, r in enumerate(grid):
+        m = re.fullmatch(r'Microgen (\d+)(?:st|nd|rd|th) Place Final', str(r[0] or ''))
+        if not m:
+            continue
+        rows_ = grid[i + 2:i + 4]
+        place = int(m.group(1))
+        games.append({'week': 17, 'title': f'{ordinal(place)} Place Final', 'league': None,
+                      'bracket': 'toilet' if place >= 17 else 'playoffs',
+                      'teams': [t for g in rows_ for t in (team(g[1], g[3]), team(g[7], g[5]))]})
+    return games
+
+
+def ordinal(n):
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def place_finals(games, teams):
+    """Week 17's four-team finals give out four places each: the Champions Cup 1st to 4th by score, a placement
+    final from its number down, and the Toilet Bowl Final the last four, the lowest score last."""
+    size = len(teams)
+    for g in games:
+        if g['week'] != 17:
+            continue
+        base = 1 if g['title'] == 'Championship' else size - 3 if g['title'] == 'Toilet Bowl' else int(re.match(r'\d+', g['title']).group())
+        ranked = sorted(g['teams'], key=lambda x: -x['score'])
+        label = g.get('name', g['title'])
+        for k, side in enumerate(ranked):
+            t = next(t for t in teams if t['owner'] == side['owner'])
+            assert 'finish' not in t, f'{side["owner"]} placed twice'
+            t['finish'] = base + k
+            # The team just ahead (or, for the top score, just behind), for the award notes.
+            near = ranked[1] if k == 0 else ranked[k - 1]
+            t['final'] = {'label': label, 'won': k == 0, 'score': side['score'], 'opp': near['owner'],
+                          'oppScore': near['score'], 'place': k + 1, 'of': len(ranked)}
+
+
+def build_2024(season, path, espn):
+    cfg = SEASONS[season]
+    wb = openpyxl.load_workbook(path, data_only=True)
+    teams = standings_2024(wb, espn, cfg)
+    by_owner = {t['owner']: t for t in teams}
+    assert len(by_owner) == len(teams), 'owner names must be unique'
+    weeks = cross_weeks_2024(wb, cfg['aliases'])
+    cross = cross_records_2024(weeks)
+    assert set(cross) == set(by_owner), f'cross-league owners differ: {sorted(set(cross) ^ set(by_owner))}'
+    for owner, (xw, xl, _) in cross.items():
+        t = by_owner[owner]
+        if (xw, xl) != (t['xW'], t['xL']):
+            print(f"note: {owner}'s weekly tabs add up to {xw}-{xl} cross-league; Standings says {t['xW']}-{t['xL']}")
+    in_pa = league_pa(espn, cfg.get('espn', {}), by_owner, cfg.get('espn_by_league'))
+    assert set(in_pa) == set(by_owner), f'ESPN and sheet owners differ: {sorted(set(in_pa) ^ set(by_owner))}'
+    for owner, (_, _, xpa) in cross.items():
+        t = by_owner[owner]
+        t.update({'pa': round(in_pa[owner] + xpa, 2), 'crossPa': round(xpa, 2)})
+    games = playoff_games_2024(wb, cfg['aliases'], by_owner)
+    place_finals(games, teams)
+    assert sorted(t['finish'] for t in teams) == list(range(1, len(teams) + 1)), 'every place filled once'
+    for t in teams:
+        t['former'] = t['owner'] in cfg['former']
+    teams.sort(key=lambda t: t['finish'])
+    site = Path(__file__).resolve().parent.parent / 'data' / 'seasons' / str(season)
+    site.mkdir(parents=True, exist_ok=True)
+    for name, data in (('cross', {'weeks': weeks}), ('playoffs', {'games': games})):
+        (site / f'{name}.json').write_text(json.dumps(data, ensure_ascii=False) + '\n', encoding='utf-8')
+    leagues = sorted({t['league'] for t in teams}, key=list(LEAGUES.values()).index)
+    return {
+        'leagues': leagues,
+        'grandChampion': teams[0]['owner'],
+        'ultimateLoser': teams[-1]['owner'],
+        'champions': {lg: next(t['owner'] for t in teams if t['league'] == lg) for lg in leagues},
+        'teams': teams,
+    }
+
+
 def build(season, path, espn):
+    if SEASONS[season]['layout'] == 2024:
+        return build_2024(season, path, espn)
+    return build_2023(season, path, espn)
+
+
+def build_2023(season, path, espn):
     cfg = SEASONS[season]
     wb = openpyxl.load_workbook(path, data_only=True)
     teams = standings(wb, cfg['aliases'])
@@ -226,6 +448,7 @@ def build(season, path, espn):
     leagues = sorted({t['league'] for t in teams}, key=list(LEAGUES.values()).index)
     return {
         'leagues': leagues,
+        'medianByes': True,
         'grandChampion': teams[0]['owner'],
         'ultimateLoser': teams[-1]['owner'],
         'champions': {lg: next(t['owner'] for t in teams if t['league'] == lg) for lg in leagues},
