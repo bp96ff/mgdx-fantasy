@@ -1089,6 +1089,9 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .pb-game-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .pb-view { flex: none; color: var(--dna); font: 700 11px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; text-decoration: none; white-space: nowrap; }
 .pb-view:hover, .pb-view:focus-visible { text-decoration: underline; }
+/* Round 1's first-round bye teams, set off from the round's games below */
+.pb-bye { margin-bottom: 6px; padding-bottom: 12px; border-bottom: 2px solid rgba(255, 255, 255, .55); }
+.pb-bye + .pb-game { margin-top: 0; padding-top: 0; border-top: 0; }
 .pb-finals .pb-group { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
 .pb-finals .pb-game + .pb-game { margin-top: 0; padding-top: 0; border-top: 0; }
 /* Title games: each league's championship and the Grand Championship */
@@ -1140,6 +1143,8 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .xf-title img { width: 26px; height: 26px; object-fit: contain; }
 .xf-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px 22px 4px; }
 .xf-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+/* An odd team out (a three-team game) sits centered under the pair above it */
+.xf-row:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 4px); }
 .xf-row.marked { border-color: var(--mark); box-shadow: inset 3px 0 0 var(--mark), 0 0 14px color-mix(in srgb, var(--mark) 22%, transparent); }
 .xf-place { min-width: 34px; font: 800 17px/1 var(--display); color: var(--muted); text-align: center; }
 .xf-row.marked .xf-place { color: var(--mark); }
@@ -1152,6 +1157,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .xf-rows { grid-template-columns: minmax(0, 1fr); padding: 10px 12px 4px; }
   .xf-title { padding: 16px 14px 2px; font-size: 18px; }
   .xf-row { gap: 10px; padding: 8px 10px; }
+  .xf-row:last-child:nth-child(odd) { width: auto; justify-self: stretch; }
   .xf-row .score { font-size: 22px; }
 }
 

@@ -22,9 +22,10 @@ function applyOfficial(slug, teams) {
   for (const t of teams) {
     const o = official.get(t.owner);
     if (!o) throw new Error(`${t.owner} isn't in data/history.json for ${MGDX.SEASON}`);
+    const ties = o.t || 0; // 2025 had two in-league ties
     Object.assign(t, {
-      wins: o.w, losses: o.l, ties: 0, pct: o.w / (o.w + o.l), pf: o.pf, pa: o.pa, crossPa: o.crossPa,
-      inW: o.w - t.xW, inL: o.l - t.xL, inT: 0, seed: o.seed,
+      wins: o.w, losses: o.l, ties, pct: (o.w + ties / 2) / (o.w + o.l + ties), pf: o.pf, pa: o.pa, crossPa: o.crossPa,
+      inW: o.inW, inL: o.inL, inT: o.inT || 0, xW: o.xW, xL: o.xL, xT: 0, seed: o.seed,
     });
   }
   teams.sort((a, b) => a.seed - b.seed);

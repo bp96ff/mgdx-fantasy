@@ -194,7 +194,7 @@
   // team's logo from that season (data/seasons/<year>/standings.json). Otherwise managers still in the league
   // show their current team logo, found by first name in data/standings.json, and former managers their league's.
   const HISTORY_YEARS = [2025, 2024, 2023];
-  const SEASON_PAGES = [2023, 2024]; // seasons with their own saved site (<year>.html, tools/build-season.js)
+  const SEASON_PAGES = [2023, 2024, 2025]; // seasons with their own saved site (<year>.html, tools/build-season.js)
 
   async function renderHistory(params) {
     const token = renderToken;
@@ -270,13 +270,13 @@
       ...season.leagues.map((slug) => {
         const t = byOwner.get(season.champions[slug]);
         const league = leagueOf(slug);
-        return award('league', league.badge, `${league.name} Champion`, t, `${ordinal(t.seed)} seed · ${t.w}-${t.l} regular season`);
+        return award('league', league.badge, `${league.name} Champion`, t, `${ordinal(t.seed)} seed · ${t.w}-${t.l}${t.t ? `-${t.t}` : ''} regular season`);
       }),
       // Each league's loser is its lowest finisher after the playoffs
       ...season.leagues.map((slug) => {
         const t = season.teams.filter((x) => x.league === slug).pop();
         const league = leagueOf(slug);
-        return award('league-loser', league.logo, `${league.name} Loser`, t, `${ordinal(t.finish)} overall · ${ordinal(t.seed)} seed · ${t.w}-${t.l} regular season`);
+        return award('league-loser', league.logo, `${league.name} Loser`, t, `${ordinal(t.finish)} overall · ${ordinal(t.seed)} seed · ${t.w}-${t.l}${t.t ? `-${t.t}` : ''} regular season`);
       }),
       award('loser', 'assets/img/champs/ultimate-loser.png', 'Ultimate Loser', loser, loser.final.of > 2
         ? `Lowest score in the ${esc(loser.final.label)}: ${f2(loser.final.score)}, behind ${esc(loser.final.opp)}'s ${f2(loser.final.oppScore)}`
@@ -309,8 +309,9 @@
         season.champions[t.league] === t.owner ? `<img class="champ" src="${league.badge}" alt="${esc(league.name)} champion" title="${esc(league.name)} champion" width="17" height="17">` : '',
         t.owner === season.ultimateLoser ? '<img class="champ goat" src="assets/img/champs/ultimate-loser.png" alt="Ultimate loser" title="Ultimate loser" width="17" height="17">' : '',
       ].join('');
-      const pct = (t.w / (t.w + t.l)).toFixed(3).replace(/^0/, '');
-      const split = (w, l) => (w == null ? '—' : `${w}-${l}`);
+      const ties = t.t || 0; // 2025 had two in-league ties
+      const pct = ((t.w + ties / 2) / (t.w + t.l + ties)).toFixed(3).replace(/^0/, '');
+      const split = (w, l, tied) => (w == null ? '—' : `${w}-${l}${tied ? `-${tied}` : ''}`);
       return `
         <tr class="lg-row ${n <= 3 ? `podium p${n}` : ''}" style="--lc:var(--${league.theme})">
           <td class="c-rank"><span class="rank">${n}</span></td>
@@ -320,8 +321,8 @@
               <span><strong>${esc(t.team)}</strong><small>${esc(t.owner)}${badges ? `<i class="champs">${badges}</i>` : ''}</small><small class="lg-name">${opts.inLeague ? `${ordinal(t.finish)} overall` : esc(league.name)}</small></span>
             </div>
           </td>
-          <td class="c-num c-rec">${t.w}-${t.l}</td>
-          <td class="c-num hide-sm muted">${split(t.inW, t.inL)}</td>
+          <td class="c-num c-rec">${split(t.w, t.l, ties)}</td>
+          <td class="c-num hide-sm muted">${split(t.inW, t.inL, t.inT)}</td>
           <td class="c-num hide-sm muted">${split(t.xW, t.xL)}</td>
           <td class="c-num hide-sm">${pct}</td>
           <td class="c-num">${f2(t.pf)}</td>
@@ -1287,6 +1288,11 @@
       </a>`;
   }
 
+  // The teams that skip Round 1, listed above its games without scores.
+  function byeBlock(teams) {
+    return `<div class="pb-game pb-bye"><p class="pb-game-title"><span class="pb-game-name">First-round bye</span></p><div class="tb-match">${teams.map((t) => bracketTeam(t, {})).join('')}</div></div>`;
+  }
+
   function bracketGroup(title, week, note, inner) {
     return `
       <div class="pb-round">
@@ -1327,7 +1333,7 @@
         <article class="panel pb-card" style="--lc:var(--${cfg.theme})">
           <h3 class="pb-league"><i class="dot" style="--c:var(--${cfg.theme})"></i>${esc(cfg.name)}</h3>
           <div class="pb-rounds">
-            ${bracketGroup('Round 1', PLAYOFF_ROUNDS.round1, 'Top score advances', round1.map((t) => bracketTeam(t, shown(t, PLAYOFF_ROUNDS.round1, r1Winner))).join(''))}
+            ${bracketGroup('Round 1', PLAYOFF_ROUNDS.round1, 'Top score advances', byeBlock(top.slice(0, 2)) + round1.map((t) => bracketTeam(t, shown(t, PLAYOFF_ROUNDS.round1, r1Winner))).join(''))}
             <i class="pb-arrow" aria-hidden="true"></i>
             ${bracketGroup('Round 2', PLAYOFF_ROUNDS.round2, 'Top score is League Champion', `${round2.map((t) => bracketTeam(t, shown(t, PLAYOFF_ROUNDS.round2, champion))).join('')}${r1Winner ? '' : '<p class="pb-slot">Round 1 winner</p>'}`)}
           </div>
@@ -1363,6 +1369,16 @@
       toilet: [
         'Round 1', 'The lower score of each semifinal moves on to the Ultimate Loser game',
         'Round 2', 'The lower score of the Ultimate Loser game goes to the Toilet Bowl',
+      ],
+    },
+    2025: {
+      playoffs: [
+        'Round 1', 'Seeds 3 to 5 play a three-team Wildcard: the top score goes to the Championship, the other two play for 4th',
+        'Round 2', 'Seeds 1 and 2 and the Wildcard winner play for the league title; the top score goes to the Champions Cup',
+      ],
+      toilet: [
+        'Round 1', 'Seeds 6 to 9 play in pairs: the lower scores meet in the Losers Final, the higher scores play for 6th',
+        'Round 2', 'The lower score of each league\u2019s Losers Final goes to the Toilet Bowl Final',
       ],
     },
     2024: {
@@ -1402,7 +1418,7 @@
       // Ultimate Loser game and the Toilet Bowl in brown.
       const cfg = g.league && LEAGUES.find((l) => l.slug === g.league);
       const champ = g.title === 'Championship';
-      const title = champ || g.title === 'Ultimate Loser' || g.title === 'Toilet Bowl';
+      const title = champ || g.title === 'Ultimate Loser' || g.title === 'Toilet Bowl' || g.title === 'Losers Final';
       const icon = cfg ? (champ ? cfg.badge : cfg.logo) : `assets/img/champs/${champ ? 'grand-champion' : 'ultimate-loser'}.png`;
       const name = g.name || (cfg ? `${cfg.name} ${g.title}` : champ ? 'Grand Championship' : 'Toilet Bowl');
       const head = title ? `<img src="${icon}" alt="" width="22" height="22">${esc(name)}` : esc(label);
@@ -1414,11 +1430,16 @@
     const cards = LEAGUES.map((cfg) => {
       const mine = games.filter((g) => g.league === cfg.slug);
       const round = (week) => mine.filter((g) => g.week === week).map((g) => game(g)).join('');
+      // Teams that start in Round 2 had a first-round bye.
+      const inRound1 = new Set(mine.filter((g) => g.week === 15).flatMap((g) => g.teams.map((s) => s.owner)));
+      const byes = mine.filter((g) => g.week === 16).flatMap((g) => g.teams)
+        .filter((s) => !inRound1.has(s.owner) && byOwner.has(s.owner)).sort((a, b) => a.seed - b.seed);
+      const byeList = byes.length ? byeBlock(byes.map((s) => ({ ...byOwner.get(s.owner), seed: s.seed }))) : '';
       return `
         <article class="panel pb-card" style="--lc:var(--${cfg.theme})">
           <h3 class="pb-league"><i class="dot" style="--c:var(--${cfg.theme})"></i>${esc(cfg.name)}</h3>
           <div class="pb-rounds">
-            ${bracketGroup(r1, 15, n1, round(15))}
+            ${bracketGroup(r1, 15, n1, byeList + round(15))}
             <i class="pb-arrow" aria-hidden="true"></i>
             ${bracketGroup(r2, 16, n2, round(16))}
           </div>
@@ -2585,8 +2606,9 @@
   }
 
   function playoffLabel(g, prefix = '') {
-    const note = /Losers/.test(g.playoffTitle) ? ' · lower score moves on'
-      : g.playoffTitle === 'Ultimate Loser' ? ' · lower score is the Ultimate Loser'
+    const note = g.playoffTitle === 'Losers Final' ? ' · lower score goes to the Toilet Bowl Final'
+      : /Losers/.test(g.playoffTitle) ? ' · lower score moves on'
+        : g.playoffTitle === 'Ultimate Loser' ? ' · lower score is the Ultimate Loser'
         : g.playoffTitle === 'Toilet Bowl' && g.league ? ' · lower score goes to the Toilet Bowl Final' : '';
     return `<h2 class="section-label">${esc(prefix)}${esc(g.playoffTitle)}${note}</h2>`;
   }
@@ -2595,11 +2617,19 @@
     const [file, sides] = await Promise.all([seasonPlayoffs(), playoffSides([league], week)]);
     if (token !== renderToken) return;
     // Seeds and records are the official regular-season ones.
-    const going = new Map(league.teams.map((t, i) => [t.id, { wins: t.wins, losses: t.losses, ties: 0, rank: i + 1 }]));
+    const going = new Map(league.teams.map((t, i) => [t.id, { wins: t.wins, losses: t.losses, ties: t.ties || 0, rank: i + 1 }]));
+    const leagueName = (LEAGUES.find((l) => l.slug === league.slug) || league).name;
     const games = file.games.map((g, i) => [g, i]).filter(([g]) => g.league === league.slug && g.week === week)
-      .map(([g, i]) => playoffGame(g, playoffGameId(i), sides));
-    const cards = games.map((g) => playoffLabel(g, g.playoffTitle === 'Championship' ? `${(LEAGUES.find((l) => l.slug === league.slug) || league).name} ` : '')
-      + matchupCard(g, league, false, null, new Set(), going, new Map())).join('');
+      .map(([g, i]) => (g.teams.length > 2
+        // 2025 on: a three-team Wildcard and league Championship, top score moving on
+        ? { many: true, id: playoffGameId(i), week, title: g.title, sinks: sinksGame(g),
+          playoffTitle: `${g.title === 'Championship' ? `${leagueName} ` : ''}${g.title} · top score ${g.title === 'Championship' ? 'goes to the Champions Cup' : 'moves on'}`,
+          teams: g.teams.map((s) => Object.assign({}, sides.get(s.owner), { score: s.score, seed: s.seed })) }
+        : playoffGame(g, playoffGameId(i), sides)));
+    const cards = games.map((g) => (g.many
+      ? fourTeamCard(g, new Map(), { place: () => '', badge: (s) => `<span class="seed" title="Seed">#${s.seed}</span>`, record: (s) => going.get(s.team.id) })
+      : playoffLabel(g, g.playoffTitle === 'Championship' ? `${leagueName} ` : '')
+        + matchupCard(g, league, false, null, new Set(), going, new Map()))).join('');
     body().innerHTML = `
       <div class="matchups-bar">
         <p class="muted">${PLAYOFF_ROUND_NAMES[week]} of the playoffs, from the league's bracket. Numbers are regular-season seeds.</p>
@@ -2629,9 +2659,9 @@
     const overall = new Map();
     for (const cfg of LEAGUES) {
       for (const t of standings.leagues[cfg.slug].teams) {
-        const tally = (wins, losses) => ({ wins, losses, ties: 0 });
+        const tally = (wins, losses, ties) => ({ wins, losses, ties: ties || 0 });
         overall.set(`${cfg.slug}:${t.id}`, {
-          record: tally(t.wins, t.losses), inLeague: tally(t.inW, t.inL), cross: tally(t.xW, t.xL), rank: ranks.get(`${cfg.slug}:${t.id}`),
+          record: tally(t.wins, t.losses, t.ties), inLeague: tally(t.inW, t.inL, t.inT), cross: tally(t.xW, t.xL, t.xT), rank: ranks.get(`${cfg.slug}:${t.id}`),
         });
       }
     }
@@ -2679,23 +2709,25 @@
 
   // A four-team final: its teams by score, each with the place it finished. The top score is marked, except in
   // the Toilet Bowl Final, where the lowest score (the Ultimate Loser) is.
-  function fourTeamCard(g, overall) {
+  // opts (a league's three-team games): place(k) labels a row, badge(side) and record(side) replace the overall rank and record.
+  function fourTeamCard(g, overall, opts = {}) {
     const ranked = g.teams.slice().sort((a, b) => b.score - a.score);
     const bowl = g.title === 'Toilet Bowl';
     const marked = bowl ? ranked[ranked.length - 1] : ranked[0];
     const cls = g.title === 'Championship' ? 'xf-cup' : bowl ? 'xf-bowl' : '';
     const row = (s, k) => {
       const key = `${s.league.slug}:${s.team.id}`;
-      const asOf = overall.get(key);
+      const asOf = opts.record ? { record: opts.record(s), inLeague: null } : overall.get(key);
       const href = `#/${s.league.slug}/rosters?team=${s.team.id}&week=${s.week}`;
+      const label = opts.place ? opts.place(k) : ordinal(g.place + k);
       return `
         <div class="xf-row ${s === marked ? 'marked' : ''}" style="--accent:var(--${s.league.theme})">
-          <span class="xf-place" title="Finished ${ordinal(g.place + k)} overall">${ordinal(g.place + k)}</span>
+          <span class="xf-place" ${opts.place ? '' : `title="Finished ${label} overall"`}>${label}</span>
           ${teamLogo(s.team, s.league, 'avatar')}
           <div class="side-id">
-            <span class="xl-badges">${asOf && asOf.rank ? `<span class="seed" title="Overall rank">#${asOf.rank}</span>` : ''}${leagueChip(s.league)}</span>
+            <span class="xl-badges">${opts.badge ? opts.badge(s) : `${asOf && asOf.rank ? `<span class="seed" title="Overall rank">#${asOf.rank}</span>` : ''}${leagueChip(s.league)}`}</span>
             <a class="side-name" href="${href}">${esc(s.team.name)}</a>
-            <span class="side-owner">${esc(s.team.owner)}${asOf ? ` · <span title="In-league ${record(asOf.inLeague)} · Cross-league ${record(asOf.cross)}">${record(asOf.record)}</span>` : ''}</span>
+            <span class="side-owner">${esc(s.team.owner)}${asOf ? ` · <span ${asOf.inLeague ? `title="In-league ${record(asOf.inLeague)} · Cross-league ${record(asOf.cross)}"` : ''}>${record(asOf.record)}</span>` : ''}</span>
           </div>
           <span class="score">${f2(s.score)}</span>
         </div>`;
