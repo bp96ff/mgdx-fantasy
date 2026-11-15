@@ -1383,7 +1383,44 @@ button.react-chip:hover { border-color: var(--accent); }
 .post-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
 .post-more { display: flex; justify-content: center; margin: 2px 0 12px; }
 .post-start { margin: 2px 0 12px; text-align: center; color: var(--muted); font-size: 13px; }
+/* Pictures in posts and in the post box */
+.post-media { display: block; margin-top: 10px; line-height: 0; }
+.post-media img, .post-attach img { display: block; width: 100%; height: auto; border-radius: 10px; background: var(--bg-2); }
+.post-attach { position: relative; width: fit-content; max-width: 100%; margin-top: 10px; line-height: 0; }
+.post-attach img { max-height: 220px; width: auto; max-width: 100% !important; }
+.post-attach-x {
+  position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border: 0; border-radius: 50%; cursor: pointer;
+  background: rgba(0, 0, 0, .72); color: #fff; font: 700 14px/30px var(--font);
+}
+.post-attach-x:hover, .post-attach-x:focus-visible { background: #000; outline: 2px solid #fff; }
+.post-tools-left { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-width: 0; }
+.post-add { position: relative; display: inline-flex; align-items: center; gap: 6px; font: 700 14px/1.2 var(--font); }
+.post-add input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.post-add:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.post-add.off, .post-add:disabled { opacity: .45; cursor: default; text-decoration: none; }
+.post-add.off { pointer-events: none; }
+.gif-badge { padding: 1px 5px; border: 2px solid currentColor; border-radius: 5px; font: 800 11px/1.2 var(--font); letter-spacing: .04em; }
+/* GIF search */
+.gif-picker { margin-top: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+.gif-picker input {
+  width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--text); font: inherit; font-size: 16px;
+}
+.gif-picker input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.gif-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin-top: 10px;
+  max-height: 260px; overflow-y: auto; overscroll-behavior: contain;
+}
+.gif-pick { padding: 0; border: 0; border-radius: 6px; overflow: hidden; background: var(--surface-3); cursor: pointer; aspect-ratio: 1; }
+.gif-pick img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.gif-pick:hover, .gif-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.gif-note { grid-column: 1 / -1; margin: 8px 0; color: var(--muted); text-align: center; }
+.gif-note.error { color: var(--loss); }
+.gif-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.gif-foot small { color: var(--muted); font-weight: 700; letter-spacing: .02em; }
 @media (max-width: 600px) {
   .post { padding: 14px; }
+  .gif-grid { grid-template-columns: repeat(3, 1fr); max-height: 220px; }
+  .post-add span { display: none; } /* icons only, so Photo, GIF and Post fit one row */
   .post-tools { flex-direction: column; gap: 0; align-items: flex-end; }
 }

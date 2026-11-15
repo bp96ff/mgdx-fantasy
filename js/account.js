@@ -170,6 +170,19 @@
       return null;
     },
 
+    // Post pictures, in the post-media bucket under the member's own folder. upload returns the file's path.
+    mediaUrl: (p) => `${cfg.url}/storage/v1/object/public/post-media/${p.split('/').map(encodeURIComponent).join('/')}`,
+    async uploadPostMedia(blob) {
+      const me = state.me;
+      if (!me || !me.league) throw new Error('Only this season’s managers can post pictures.');
+      const ext = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif' }[blob.type] || 'png';
+      const path = `${me.manager_id}/${Date.now()}.${ext}`;
+      const { error } = await client.storage.from('post-media').upload(path, blob, { contentType: blob.type, cacheControl: '31536000' });
+      if (error) throw new Error(/size|large/i.test(error.message) ? 'That picture is over 5 MB.' : error.message);
+      return path;
+    },
+    removePostMedia: (p) => p && client.storage.from('post-media').remove([p]).then(({ error }) => { if (error) console.error(error); }),
+
     logos,
     logosReady,
     onLogosChange(fn) { logoListeners.add(fn); return () => logoListeners.delete(fn); },

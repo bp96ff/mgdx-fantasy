@@ -60,6 +60,13 @@ So email-and-password sign-ups need your own sender:
 
 Until this is done, Google sign-in still works.
 
+### 5. GIF search (GIPHY)
+1. Make a free account at developers.giphy.com, then **Create an API Key** → choose **API** (not SDK).
+2. Send the key to Claude to put in `GIPHY_KEY` in `js/config.js`. Like the anon key, it's meant to be public.
+
+A new key allows 100 searches an hour for the whole site. If that runs out, GIPHY's dashboard can upgrade it.
+Without a key, the GIF button is hidden; uploading photos and GIFs still works.
+
 ## Each season
 Once `data/standings.json` has the new season's teams:
 

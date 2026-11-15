@@ -21,6 +21,9 @@ window.MGDX = {
     url: 'https://blfbdmrnrwvylvqakgck.supabase.co',
     anonKey: 'sb_publishable_YgYOVZ69vU8LUPqhHvN7YQ_RJdv64e_',
   },
+  // GIF search on the Main Blog (developers.giphy.com). Like the key above, it's meant to be public.
+  // Empty hides the GIF button; photo and GIF uploads still work.
+  GIPHY_KEY: 'tRWl9lrgSEBo2Nq2UenJLzpI0gQsoCu7',
   LEAGUES: [
     {
       slug: 'lab-rats',

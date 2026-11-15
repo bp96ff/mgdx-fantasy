@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=169">
+  <link rel="stylesheet" href="css/styles.css?v=170">
 </head>
 <body data-theme="home">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -50,6 +50,7 @@
         <li><b>Sign-in details.</b> Your email address. If you sign in with Google, also the name and profile picture on your Google account. If you use a password, it’s stored scrambled (hashed), and no one can read it.</li>
         <li><b>Your manager link.</b> Which league manager your account belongs to, and when you entered your claim code. Attempts to enter a code are logged with a time, to stop guessing.</li>
         <li><b>Sign-in records.</b> The sign-in service keeps basic security logs, such as when you signed in and from what IP address.</li>
+        <li><b>What you post.</b> Your posts, reactions, team logo and any pictures you upload. These are public on the site. Deleting a post deletes its picture too.</li>
       </ul>
       <p>The site has no ads, analytics or tracking. Your browser keeps a sign-in token so you stay signed in; signing out removes it.</p>
 
@@ -58,7 +59,8 @@
 
       <h2>Who stores it</h2>
       <ul>
-        <li><b>Supabase</b> runs the sign-in service and the database that holds accounts.</li>
+        <li><b>Supabase</b> runs the sign-in service and the database that holds accounts, posts and uploaded pictures.</li>
+        <li><b>GIPHY</b> runs the Main Blog’s GIF search. What you type in that search box goes to GIPHY, and GIFs picked from it load from GIPHY.</li>
         <li><b>Google</b> handles “Continue with Google” if you choose it, and serves the site’s fonts.</li>
         <li><b>Resend</b> delivers account emails.</li>
         <li><b>GitHub Pages</b> hosts the site.</li>

@@ -284,6 +284,22 @@ create table if not exists public.posts (
 );
 create index if not exists posts_created_at on public.posts (created_at desc);
 
+-- A post can carry one picture: a photo or GIF the member uploaded (media_kind 'image', media = its path in the
+-- post-media bucket) or a GIF picked from GIPHY's search (media_kind 'gif', media = its GIPHY address).
+-- Width and height let the page save the picture's space before it loads. A post with a picture can skip the text.
+alter table public.posts add column if not exists media_kind text;
+alter table public.posts add column if not exists media text;
+alter table public.posts add column if not exists media_w int;
+alter table public.posts add column if not exists media_h int;
+alter table public.posts drop constraint if exists posts_body_check;
+alter table public.posts add constraint posts_body_check check (char_length(body) <= 2000);
+alter table public.posts drop constraint if exists posts_media_check;
+alter table public.posts add constraint posts_media_check check (
+  (media_kind is null and media is null and media_w is null and media_h is null)
+  or (media_kind in ('image', 'gif') and media is not null and media_w between 1 and 10000 and media_h between 1 and 10000));
+alter table public.posts drop constraint if exists posts_content_check;
+alter table public.posts add constraint posts_content_check check (char_length(body) > 0 or media is not null);
+
 -- One row per manager, thing and reaction. target names what was reacted to, e.g. 'post:<id>',
 -- 'recap:2026:w9', 'match:2026:lab-rats:w10:1-12', 'xmatch:2026:w10:lab-rats.1-genomic-gerbils.8',
 -- 'snap:2026:w10:top-scores'.
@@ -300,11 +316,13 @@ revoke all on public.posts, public.reactions from anon, authenticated;
 
 -- Newest first; pass the oldest created_at shown so far to get the next page. The author's league and team
 -- are this season's (null for a manager who has left).
-create or replace function public.list_posts(p_before timestamptz default null, p_limit int default 20)
+drop function if exists public.list_posts(timestamptz, int);
+create function public.list_posts(p_before timestamptz default null, p_limit int default 20)
 returns table (id uuid, manager_id text, name text, league text, team_id int, team_name text,
-  body text, created_at timestamptz, edited_at timestamptz)
+  body text, media_kind text, media text, media_w int, media_h int, created_at timestamptz, edited_at timestamptz)
 language sql stable security definer set search_path = public as $$
-  select p.id, p.manager_id, m.name, s.league, s.team_id, s.team_name, p.body, p.created_at, p.edited_at
+  select p.id, p.manager_id, m.name, s.league, s.team_id, s.team_name, p.body,
+    p.media_kind, p.media, p.media_w, p.media_h, p.created_at, p.edited_at
   from posts p
   join managers m on m.id = p.manager_id
   left join season_teams s on s.manager_id = p.manager_id and s.season = current_season()
@@ -313,7 +331,11 @@ language sql stable security definer set search_path = public as $$
   limit least(greatest(coalesce(p_limit, 20), 1), 50)
 $$;
 
-create or replace function public.create_post(p_body text) returns uuid
+-- p_media_kind 'image': p_media is a file the member already uploaded to their own post-media folder.
+-- p_media_kind 'gif': p_media is a GIPHY image address. Leave all four media arguments null for a text post.
+drop function if exists public.create_post(text);
+create or replace function public.create_post(p_body text, p_media_kind text default null, p_media text default null,
+  p_media_w int default null, p_media_h int default null) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   mid text := my_manager_id();
@@ -321,35 +343,82 @@ declare
   new_id uuid;
 begin
   if mid is null then raise exception 'Only this season''s managers can post'; end if;
-  if char_length(clean) = 0 then raise exception 'Write something first'; end if;
+  if char_length(clean) = 0 and p_media is null then raise exception 'Write something or add a picture first'; end if;
   if char_length(clean) > 2000 then raise exception 'Posts can be up to 2,000 characters'; end if;
+  if p_media is not null or p_media_kind is not null then
+    if p_media_w is null or p_media_h is null or p_media_w not between 1 and 10000 or p_media_h not between 1 and 10000 then
+      raise exception 'That picture''s size is missing';
+    end if;
+    if p_media_kind = 'image' then
+      if p_media is null or left(p_media, length(mid) + 1) <> mid || '/' or p_media like '%..%'
+          or not exists (select 1 from storage.objects o where o.bucket_id = 'post-media' and o.name = p_media)
+          or exists (select 1 from posts where media_kind = 'image' and media = p_media) then
+        raise exception 'That isn''t your uploaded picture';
+      end if;
+    elsif p_media_kind = 'gif' then
+      if p_media is null or char_length(p_media) > 600
+          or p_media !~ '^https://(media[0-9]?|i)\.giphy\.com/[A-Za-z0-9._/-]+\.(gif|webp)(\?[A-Za-z0-9=&._%-]*)?$' then
+        raise exception 'That GIF has to come from the GIF search';
+      end if;
+    else
+      raise exception 'Unknown kind of picture';
+    end if;
+  end if;
   if (select count(*) from posts where manager_id = mid and created_at > now() - interval '10 minutes') >= 5 then
     raise exception 'That''s a lot of posts. Wait a few minutes, then try again';
   end if;
-  insert into posts (manager_id, body) values (mid, clean) returning posts.id into new_id;
+  insert into posts (manager_id, body, media_kind, media, media_w, media_h)
+  values (mid, clean, p_media_kind, p_media, p_media_w, p_media_h) returning posts.id into new_id;
   return new_id;
 end
 $$;
 
+-- Changes the text only; a post's picture stays. The text can be empty when there's a picture.
 create or replace function public.edit_post(p_id uuid, p_body text) returns void
 language plpgsql security definer set search_path = public as $$
 declare clean text := btrim(coalesce(p_body, ''));
 begin
-  if char_length(clean) not between 1 and 2000 then raise exception 'Posts need 1 to 2,000 characters'; end if;
-  update posts set body = clean, edited_at = now() where posts.id = p_id and manager_id = my_manager_id();
-  if not found then raise exception 'You can only edit your own posts'; end if;
+  if char_length(clean) > 2000 then raise exception 'Posts can be up to 2,000 characters'; end if;
+  update posts set body = clean, edited_at = now()
+  where posts.id = p_id and manager_id = my_manager_id() and (char_length(clean) > 0 or media is not null);
+  if not found then
+    if char_length(clean) = 0 then raise exception 'Write something first'; end if;
+    raise exception 'You can only edit your own posts';
+  end if;
 end
 $$;
 
--- The author or any moderator. Its reactions go with it.
-create or replace function public.delete_post(p_id uuid) returns void
+-- The author or any moderator. Its reactions go with it. Returns the uploaded picture's path (or null) so the
+-- site can delete the file.
+drop function if exists public.delete_post(uuid);
+create function public.delete_post(p_id uuid) returns text
 language plpgsql security definer set search_path = public as $$
+declare kind text; path text;
 begin
-  delete from posts where posts.id = p_id and (manager_id = my_manager_id() or is_moderator());
+  delete from posts where posts.id = p_id and (manager_id = my_manager_id() or is_moderator())
+  returning media_kind, media into kind, path;
   if not found then raise exception 'Only the author or a moderator can delete this post'; end if;
   delete from reactions where target = 'post:' || p_id::text;
+  return case when kind = 'image' then path end;
 end
 $$;
+
+-- Uploaded post pictures: anyone can view them. The site shrinks photos; GIFs go up as they are.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('post-media', 'post-media', true, 5242880, array['image/webp', 'image/png', 'image/jpeg', 'image/gif'])
+on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+-- Members add files only in their own folder; they and moderators can list and delete them.
+drop policy if exists "members upload their own post pictures" on storage.objects;
+create policy "members upload their own post pictures" on storage.objects for insert to authenticated
+  with check (bucket_id = 'post-media' and (storage.foldername(name))[1] = public.my_manager_id());
+drop policy if exists "members and moderators see post picture files" on storage.objects;
+create policy "members and moderators see post picture files" on storage.objects for select to authenticated
+  using (bucket_id = 'post-media' and ((storage.foldername(name))[1] = public.my_manager_id() or public.is_moderator()));
+drop policy if exists "members and moderators delete post picture files" on storage.objects;
+create policy "members and moderators delete post picture files" on storage.objects for delete to authenticated
+  using (bucket_id = 'post-media' and ((storage.foldername(name))[1] = public.my_manager_id() or public.is_moderator()));
 
 -- Every reaction on the given things (up to 300 at once), with the reacting manager's name.
 create or replace function public.get_reactions(p_targets text[])
@@ -391,8 +460,8 @@ begin
 end
 $$;
 
-revoke execute on function public.create_post(text), public.edit_post(uuid, text), public.delete_post(uuid),
+revoke execute on function public.create_post(text, text, text, int, int), public.edit_post(uuid, text), public.delete_post(uuid),
   public.toggle_reaction(text, text) from public, anon;
-grant execute on function public.create_post(text), public.edit_post(uuid, text), public.delete_post(uuid),
+grant execute on function public.create_post(text, text, text, int, int), public.edit_post(uuid, text), public.delete_post(uuid),
   public.toggle_reaction(text, text) to authenticated;
 grant execute on function public.list_posts(timestamptz, int), public.get_reactions(text[]) to anon, authenticated;

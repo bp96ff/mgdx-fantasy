@@ -295,7 +295,9 @@
   }
 
   // ---------- Main Blog: posts ----------
-  let feed = { posts: [], done: false, draft: '', editing: null, busy: false, msg: '' };
+  // attach: the picture waiting in the post box ({ kind: 'image', blob, preview, w, h } or { kind: 'gif', url,
+  // preview, w, h }). gif: the open GIF search ({ q, items, loading, error }), or null.
+  let feed = { posts: [], done: false, draft: '', editing: null, busy: false, msg: '', attach: null, gif: null };
   const relTime = (iso) => {
     const s = (Date.now() - new Date(iso)) / 1000;
     if (s < 60) return 'just now';
@@ -307,6 +309,108 @@
   // Text as written: line breaks kept, links clickable, nothing else interpreted.
   const postText = (s) => esc(s).replace(/(https?:\/\/[^\s<]+[^\s<.,!?)'"])/g, '<a href="$1" target="_blank" rel="noopener noreferrer nofollow">$1</a>')
     .split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+
+  // A post's picture, at its own shape and up to 420px tall. The space is saved before it loads, so the
+  // scroll box doesn't jump. Tapping it opens the full picture.
+  const GIPHY_HOST = /^https:\/\/(media[0-9]?|i)\.giphy\.com\//;
+  const MEDIA_MAX_H = 420;
+  function mediaImg(src, w, h, alt) {
+    return `<img src="${esc(src)}" alt="${esc(alt)}" width="${w}" height="${h}" loading="lazy" decoding="async"
+      style="aspect-ratio:${w}/${h};max-width:min(100%, ${w}px, ${Math.round((MEDIA_MAX_H * w) / h)}px)">`;
+  }
+  function postMedia(p) {
+    if (!p.media || !p.media_w || !p.media_h) return '';
+    const gif = p.media_kind === 'gif';
+    if (gif && !GIPHY_HOST.test(p.media)) return '';
+    const src = gif ? p.media : ACCOUNT.mediaUrl(p.media);
+    const alt = gif ? `GIF posted by ${p.name}` : `Picture posted by ${p.name}`;
+    return `<a class="post-media" href="${esc(src)}" target="_blank" rel="noopener noreferrer">${mediaImg(src, p.media_w, p.media_h, alt)}</a>`;
+  }
+
+  // A chosen photo, ready to upload: photos shrink to 1600px on the long side (WebP, or JPEG where the browser
+  // can't make WebP); GIFs stay as they are so they keep moving. The bucket takes up to 5 MB.
+  const MEDIA_LIMIT = 5 * 1024 * 1024;
+  async function preparePostImage(file) {
+    if (!/^image\//.test(file.type)) throw new Error('That file isn’t a picture.');
+    if (file.size > 30 * 1024 * 1024) throw new Error('That picture is over 30 MB. Try a smaller one.');
+    const url = URL.createObjectURL(file);
+    try {
+      const im = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error('That file couldn’t be opened as a picture.'));
+        i.src = url;
+      });
+      const w0 = im.naturalWidth, h0 = im.naturalHeight;
+      if (file.type === 'image/gif') {
+        if (file.size > MEDIA_LIMIT) throw new Error('GIFs can be up to 5 MB. Try a smaller one, or find it in the GIF search.');
+        return { blob: file, w: w0, h: h0 };
+      }
+      const scale = Math.min(1, 1600 / Math.max(w0, h0));
+      const c = document.createElement('canvas');
+      c.width = Math.round(w0 * scale);
+      c.height = Math.round(h0 * scale);
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(im, 0, 0, c.width, c.height);
+      const make = (type, q) => new Promise((r) => c.toBlob(r, type, q));
+      let blob = await make('image/webp', 0.85);
+      if (!blob || blob.type !== 'image/webp') blob = await make('image/jpeg', 0.85);
+      if (blob.size > MEDIA_LIMIT) blob = await make(blob.type, 0.6);
+      if (blob.size > MEDIA_LIMIT) throw new Error('That picture is too big even after shrinking it.');
+      return { blob, w: c.width, h: c.height };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  // ---------- GIF search (GIPHY) ----------
+  // A beta GIPHY key allows 100 searches an hour for the whole site, so searches wait for a pause in typing
+  // and repeat searches come from memory.
+  const GIPHY_KEY = (window.MGDX && window.MGDX.GIPHY_KEY) || '';
+  const gifCache = new Map();
+  let gifTimer = 0;
+  async function searchGifs(q) {
+    const key = q.trim().toLowerCase();
+    if (gifCache.has(key)) return gifCache.get(key);
+    const params = new URLSearchParams({ api_key: GIPHY_KEY, limit: '24', rating: 'pg-13' });
+    if (key) params.set('q', key);
+    const r = await fetch(`https://api.giphy.com/v1/gifs/${key ? 'search' : 'trending'}?${params}`);
+    if (r.status === 429) throw new Error('The GIF search is busy. Try again in a bit.');
+    if (!r.ok) throw new Error('The GIF search isn’t working right now.');
+    const { data } = await r.json();
+    const items = (data || []).map((g) => {
+      const full = g.images && (g.images.downsized || g.images.fixed_height);
+      const thumb = g.images && (g.images.fixed_width_small || g.images.fixed_width || full);
+      if (!full || !thumb || !GIPHY_HOST.test(full.url)) return null;
+      return { url: full.url, w: Number(full.width), h: Number(full.height), thumb: thumb.url, title: g.title || 'GIF' };
+    }).filter((g) => g && g.w && g.h);
+    gifCache.set(key, items);
+    return items;
+  }
+  function gifGrid() {
+    const g = feed.gif;
+    if (g.error) return `<p class="gif-note error">${esc(g.error)}</p>`;
+    if (g.loading && !g.items.length) return '<p class="gif-note">Loading GIFs…</p>';
+    if (!g.items.length) return '<p class="gif-note">No GIFs found. Try other words.</p>';
+    return g.items.map((it, i) => `<button type="button" class="gif-pick" data-gif="${i}" title="${esc(it.title)}" aria-label="${esc(it.title)}">
+      <img src="${esc(it.thumb)}" alt="" loading="lazy"></button>`).join('');
+  }
+  async function runGifSearch(q) {
+    feed.gif = { ...feed.gif, q, loading: true, error: '' };
+    const grid = document.querySelector('.gif-grid');
+    if (grid && !gifCache.has(q.trim().toLowerCase())) grid.innerHTML = gifGrid();
+    try {
+      const items = await searchGifs(q);
+      if (!feed.gif || feed.gif.q !== q) return; // a newer search took over, or the picker closed
+      feed.gif = { ...feed.gif, items, loading: false };
+    } catch (err) {
+      if (!feed.gif || feed.gif.q !== q) return;
+      feed.gif = { ...feed.gif, items: [], loading: false, error: err.message };
+    }
+    const g2 = document.querySelector('.gif-grid');
+    if (g2) { g2.innerHTML = gifGrid(); g2.scrollTop = 0; }
+  }
 
   function postCard(p) {
     const me = canReact() ? ACCOUNT.state.me : null;
@@ -331,11 +435,12 @@
         ${editing ? `
           <form class="post-form" data-post-act="save">
             <label class="sr-only" for="edit-${p.id}">Edit your post</label>
-            <textarea id="edit-${p.id}" name="body" maxlength="2000" rows="4" required>${esc(p.body)}</textarea>
+            <textarea id="edit-${p.id}" name="body" maxlength="2000" rows="4"${p.media ? '' : ' required'}>${esc(p.body)}</textarea>
             <div class="post-form-row"><span></span><div class="logo-actions">
               <button type="button" class="btn-quiet" data-post-act="cancel">Cancel</button>
               <button type="submit" class="btn">Save</button></div></div>
-          </form>` : `<div class="post-body">${postText(p.body)}</div>`}
+          </form>` : p.body ? `<div class="post-body">${postText(p.body)}</div>` : ''}
+        ${postMedia(p)}
         ${reactBar(`post:${p.id}`)}
       </article>`;
   }
@@ -348,11 +453,31 @@
         <a class="btn" href="#/account">${!s.user ? 'Sign in' : 'Link your team'}</a></div>`;
     }
     const n = feed.draft.length;
+    const a = feed.attach;
+    const attached = a ? `
+      <div class="post-attach">
+        ${mediaImg(a.preview, a.w, a.h, a.kind === 'gif' ? 'The GIF you picked' : 'The picture you picked')}
+        <button type="button" class="post-attach-x" data-post-act="unattach" aria-label="Remove the ${a.kind === 'gif' ? 'GIF' : 'picture'}" title="Remove"${feed.busy ? ' disabled' : ''}>✕</button>
+      </div>` : '';
+    const picker = feed.gif ? `
+      <div class="gif-picker">
+        <label class="sr-only" for="gif-q">Search GIFs</label>
+        <input id="gif-q" type="search" placeholder="Search GIFs" value="${esc(feed.gif.q)}" autocomplete="off" enterkeyhint="search">
+        <div class="gif-grid" aria-live="polite">${gifGrid()}</div>
+        <div class="gif-foot"><small>Powered by GIPHY</small><button type="button" class="btn-quiet" data-post-act="gif-close">Close</button></div>
+      </div>` : '';
+    const PHOTO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.8" fill="currentColor"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L19 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
     return `<form class="panel post-form composer" data-post-act="create">
       <label class="sr-only" for="post-body">Write a post</label>
-      <textarea id="post-body" name="body" maxlength="2000" rows="3" placeholder="Takes, trash talk, trade offers…" required>${esc(feed.draft)}</textarea>
+      <textarea id="post-body" name="body" maxlength="2000" rows="3" placeholder="Takes, trash talk, trade offers…">${esc(feed.draft)}</textarea>
+      ${attached}${picker}
       <div class="post-form-row">
-        <small class="post-count${n > 1800 ? ' near' : ''}">${n ? `${n} / 2,000` : ''}</small>
+        <div class="post-tools-left">
+          <label class="btn-quiet post-add${a || feed.busy ? ' off' : ''}" title="Add a photo or GIF from your device">${PHOTO}<span>Photo</span>
+            <input id="post-file" type="file" accept="image/*" aria-label="Add a photo or GIF from your device"${a || feed.busy ? ' disabled' : ''}></label>
+          ${GIPHY_KEY ? `<button type="button" class="btn-quiet post-add" data-post-act="gif" aria-label="Search GIFs" aria-expanded="${Boolean(feed.gif)}"${a || feed.busy ? ' disabled' : ''}><b class="gif-badge">GIF</b></button>` : ''}
+          <small class="post-count${n > 1800 ? ' near' : ''}">${n ? `${n} / 2,000` : ''}</small>
+        </div>
         <button type="submit" class="btn"${feed.busy ? ' disabled' : ''}>${feed.busy ? 'Posting…' : 'Post'}</button>
       </div>
       ${feed.msg ? `<p class="acct-msg error" role="alert">${esc(feed.msg)}</p>` : ''}
@@ -367,7 +492,7 @@
     if (!el || !el.classList.contains('feed-body')) return;
     const old = el.querySelector('.post-scroll');
     const fromBottom = toBottom || !old ? 0 : old.scrollHeight - old.scrollTop;
-    const active = document.activeElement && document.activeElement.id === 'post-body';
+    const activeId = document.activeElement && document.activeElement.id;
     const top = !feed.posts.length ? ''
       : feed.done ? '<p class="post-start">The beginning of the blog</p>'
       : `<div class="post-more"><button type="button" class="btn-quiet" data-post-act="more"${feed.loadingOlder ? ' disabled' : ''}>${feed.loadingOlder ? 'Loading older posts…' : 'Load older posts'}</button></div>`;
@@ -381,15 +506,32 @@
     const box = el.querySelector('.post-scroll');
     box.scrollTop = fromBottom ? box.scrollHeight - fromBottom : box.scrollHeight;
     box.addEventListener('scroll', () => { if (box.scrollTop < 120) loadOlder(); }, { passive: true });
-    if (active) {
-      const t = document.getElementById('post-body');
-      t.focus();
-      t.setSelectionRange(t.value.length, t.value.length);
-    }
+    refocus(activeId);
     hydrateReactions(el);
     // Fewer posts than fill the box: keep loading until it scrolls (or there are no more).
     if (!feed.done && box.scrollHeight <= box.clientHeight) loadOlder();
   }
+
+  // Typing spots keep focus (and the cursor at the end) through a redraw.
+  function refocus(id) {
+    if (id !== 'post-body' && id !== 'gif-q') return;
+    const t = document.getElementById(id);
+    if (!t) return;
+    t.focus({ preventScroll: true });
+    t.setSelectionRange(t.value.length, t.value.length);
+  }
+  // Redraws just the post box (a picture added or removed, the GIF search opened), leaving the posts alone.
+  function redrawComposer(focusId) {
+    const form = document.querySelector('.composer');
+    if (!form) return drawFeed();
+    const activeId = focusId || (document.activeElement && document.activeElement.id);
+    form.outerHTML = composer();
+    refocus(activeId);
+  }
+  const dropAttach = () => {
+    if (feed.attach && feed.attach.kind === 'image') URL.revokeObjectURL(feed.attach.preview);
+    feed.attach = null;
+  };
 
   async function loadOlder() {
     if (feed.done || feed.loadingOlder || !feed.posts.length) return;
@@ -439,7 +581,31 @@
   }
 
   if (ACCOUNT && !ARCHIVE) {
+    main.addEventListener('change', async (e) => {
+      if (e.target.id !== 'post-file' || !e.target.files[0]) return;
+      const file = e.target.files[0];
+      feed.msg = '';
+      try {
+        const { blob, w, h } = await preparePostImage(file);
+        dropAttach();
+        feed.attach = { kind: 'image', blob, preview: URL.createObjectURL(blob), w, h };
+        feed.gif = null;
+      } catch (err) {
+        feed.msg = err.message;
+      }
+      redrawComposer('post-body');
+    });
     main.addEventListener('input', (e) => {
+      if (e.target.id === 'gif-q') {
+        const q = e.target.value;
+        clearTimeout(gifTimer);
+        if (!feed.gif) return;
+        feed.gif.q = q;
+        const t = q.trim();
+        if (t.length === 1) return; // wait for a second letter
+        gifTimer = setTimeout(() => { if (feed.gif && feed.gif.q === q) runGifSearch(q); }, gifCache.has(t.toLowerCase()) ? 0 : 450);
+        return;
+      }
       if (e.target.id !== 'post-body') return;
       feed.draft = e.target.value;
       const c = e.target.closest('form').querySelector('.post-count');
@@ -451,11 +617,25 @@
       e.preventDefault();
       const body = form.querySelector('textarea').value;
       const btn = form.querySelector('button[type=submit]');
+      if (form.dataset.postAct === 'create' && !body.trim() && !feed.attach) {
+        feed.msg = 'Write something or add a picture first.';
+        return redrawComposer('post-body');
+      }
       btn.disabled = true;
+      let uploaded = null;
       try {
         if (form.dataset.postAct === 'create') {
-          feed = { ...feed, busy: true, msg: '' };
-          await ACCOUNT.write('create_post', { p_body: body });
+          feed = { ...feed, busy: true, msg: '', gif: null };
+          redrawComposer();
+          const a = feed.attach;
+          let media = {};
+          if (a && a.kind === 'image') {
+            uploaded = await ACCOUNT.uploadPostMedia(a.blob);
+            media = { p_media_kind: 'image', p_media: uploaded, p_media_w: a.w, p_media_h: a.h };
+          } else if (a) media = { p_media_kind: 'gif', p_media: a.url, p_media_w: a.w, p_media_h: a.h };
+          await ACCOUNT.write('create_post', { p_body: body, ...media });
+          uploaded = null;
+          dropAttach();
           feed = { ...feed, draft: '', busy: false };
         } else {
           // An edit changes one post in place, keeping the older posts already loaded and the scroll spot.
@@ -468,6 +648,7 @@
         }
         renderFeed(); // a new post: reload the newest and land on it at the bottom
       } catch (err) {
+        if (uploaded) ACCOUNT.removePostMedia(uploaded); // the post didn't save, so its picture shouldn't stay
         if (form.dataset.postAct === 'create') { feed = { ...feed, busy: false, msg: err.message }; drawFeed(); }
         else { btn.disabled = false; alert(err.message); }
       }
@@ -484,11 +665,37 @@
         const mine = p && ACCOUNT.state.me && p.manager_id === ACCOUNT.state.me.manager_id;
         if (!confirm(mine ? 'Delete your post?' : `Delete ${p ? p.name : 'this manager'}’s post? This can’t be undone.`)) return;
         try {
-          await ACCOUNT.write('delete_post', { p_id: card.dataset.post });
+          const file = await ACCOUNT.write('delete_post', { p_id: card.dataset.post });
+          ACCOUNT.removePostMedia(file);
           feed.posts = feed.posts.filter((x) => x.id !== card.dataset.post);
           drawFeed();
         } catch (err) { alert(err.message); }
       } else if (act === 'more') loadOlder();
+      else if (act === 'unattach') { dropAttach(); feed.msg = ''; redrawComposer('post-body'); }
+      else if (act === 'gif') {
+        if (feed.gif) { feed.gif = null; return redrawComposer('post-body'); }
+        feed.gif = { q: '', items: [], loading: true, error: '' };
+        redrawComposer('gif-q');
+        runGifSearch('');
+      } else if (act === 'gif-close') { feed.gif = null; redrawComposer('post-body'); }
+    });
+    main.addEventListener('click', (e) => {
+      const b = e.target.closest('.gif-pick');
+      if (!b || !feed.gif) return;
+      const it = feed.gif.items[Number(b.dataset.gif)];
+      if (!it) return;
+      dropAttach();
+      feed.attach = { kind: 'gif', url: it.url, preview: it.url, w: it.w, h: it.h };
+      feed.gif = null;
+      feed.msg = '';
+      redrawComposer('post-body');
+    });
+    // Enter in the GIF search searches now instead of sending the post
+    main.addEventListener('keydown', (e) => {
+      if (e.target.id !== 'gif-q' || e.key !== 'Enter') return;
+      e.preventDefault();
+      clearTimeout(gifTimer);
+      if (feed.gif) runGifSearch(e.target.value);
     });
     // Signing in or out changes the composer and post tools.
     ACCOUNT.onChange(() => { if (parseHash().parts[0] === 'blog' && (parseHash().parts[1] || 'main') === 'main') drawFeed(); });
