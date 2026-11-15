@@ -5,10 +5,14 @@
 // POST { action } with:
 //   key        → { publicKey }, for the site to subscribe a device. Anyone.
 //   test       → a test notification to the signed-in member's own devices.
-//   post, id   → after a member posts or replies: notifies who it @mentions, and the post's author for a reply.
-//                Only the post's author, within 10 minutes, once.
-//   reminders  → a week's "picks lock soon" reminder when its lock is under 3 hours away, once a week. Anyone
-//                (the Predictions GitHub workflow calls it every 30 minutes); it does nothing until it's due.
+//   post, id   → after a member posts or replies: notifies who it @mentions, the post's author for a reply, and
+//                (for a new post) everyone with new-post notifications on. Only the post's author, within
+//                10 minutes, once.
+//   reminders  → a week's "picks lock in an hour" reminder when its lock is under an hour away, once a week.
+//                Anyone (the database's predictions-reminder timer calls it when it's due; see schema.sql); it
+//                does nothing until then.
+//   recap      → "Week N recap is up", for the newest week in the live site's data/recaps.json, once a week.
+//                Anyone (the "Recap notification" GitHub workflow calls it after a recap is published).
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -101,8 +105,9 @@ Deno.serve(async (req) => {
         const sent = await send(rows.map((r) => ({
           device: r,
           note: {
-            title: r.reason === 'mention' ? `${r.author} mentioned you` : `${r.author} replied to your post`,
-            body: snippet(r.body) || 'Tap to see it on the Main Blog.',
+            title: r.reason === 'mention' ? `${r.author} mentioned you`
+              : r.reason === 'reply' ? `${r.author} replied to your post` : `${r.author} posted on the Blog`,
+            body: snippet(r.body) || (r.reason === 'post' ? 'Shared a picture.' : 'Tap to see it on the Main Blog.'),
             url: `${SITE}#/blog/main`,
             tag: `post-${r.parent_id ?? input.id}`,
           },
@@ -117,13 +122,29 @@ Deno.serve(async (req) => {
         const sent = await send(rows.map((r) => ({
           device: r,
           note: {
-            title: `Week ${r.week} picks lock soon`,
+            title: `Week ${r.week} picks lock in an hour`,
             body: `Predictions lock ${lockTime(r.locks_at)} ET. ${r.picks ? `You've picked ${r.picks} game${r.picks === 1 ? '' : 's'} so far.` : 'You haven’t made any picks yet.'}`,
             url: `${SITE}#/${r.league}/matchups`,
             tag: `picks-${r.week}`,
           },
         })));
         return reply({ sent, due: rows.length > 0 });
+      }
+
+      case 'recap': {
+        // The week comes from the live site, so a recap only goes out once it's actually up.
+        const live = await fetch(`${SITE}data/recaps.json?t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+        if (!live.ok) return reply({ error: `Couldn't read the recaps (${live.status})` }, 502);
+        const weeks = ((await live.json()).weeks ?? []) as { week: number }[];
+        const week = Math.max(0, ...weeks.map((w) => w.week));
+        if (!week) return reply({ sent: 0, due: false });
+        const { data, error } = await db.rpc('push_recap_recipients', { p_week: week });
+        if (error) throw error;
+        const sent = await send((data as Device[]).map((device) => ({
+          device,
+          note: { title: `Week ${week} recap is up`, body: '', url: `${SITE}#/blog/recaps?week=${week}`, tag: `recap-${week}` },
+        })));
+        return reply({ week, sent, due: (data as Device[]).length > 0 });
       }
 
       default:

@@ -651,6 +651,8 @@ revoke all on public.push_devices from anon, authenticated;
 alter table public.profiles add column if not exists push_mentions boolean not null default true;
 alter table public.profiles add column if not exists push_replies boolean not null default true;
 alter table public.profiles add column if not exists push_picks boolean not null default true;
+alter table public.profiles add column if not exists push_posts boolean not null default true;
+alter table public.profiles add column if not exists push_recaps boolean not null default true;
 
 -- What has been sent, so a post or a week's reminder only goes out once.
 create table if not exists public.push_sent (
@@ -661,6 +663,8 @@ create table if not exists public.push_sent (
 );
 alter table public.push_sent enable row level security;
 revoke all on public.push_sent from anon, authenticated;
+-- Recaps already up before recap notifications existed don't send one.
+insert into public.push_sent (kind, key) select 'recap', '2026-' || w from generate_series(1, 9) w on conflict do nothing;
 
 -- Saves this device for the signed-in member (up to 10 devices each; the oldest goes first).
 create or replace function public.save_push_device(p_endpoint text, p_p256dh text, p_auth text) returns void
@@ -679,23 +683,29 @@ language sql security definer set search_path = public as $$
   delete from push_devices where endpoint = p_endpoint and user_id = auth.uid()
 $$;
 
-create or replace function public.push_settings()
-returns table (mentions boolean, replies boolean, picks boolean, devices int)
+drop function if exists public.push_settings();
+create function public.push_settings()
+returns table (mentions boolean, replies boolean, picks boolean, posts boolean, recaps boolean, devices int)
 language sql stable security definer set search_path = public as $$
-  select p.push_mentions, p.push_replies, p.push_picks,
+  select p.push_mentions, p.push_replies, p.push_picks, p.push_posts, p.push_recaps,
     (select count(*)::int from push_devices d where d.user_id = p.user_id)
   from profiles p where p.user_id = auth.uid()
 $$;
 
-create or replace function public.set_push_settings(p_mentions boolean, p_replies boolean, p_picks boolean) returns void
+-- Null leaves a setting as it is.
+drop function if exists public.set_push_settings(boolean, boolean, boolean);
+create or replace function public.set_push_settings(p_mentions boolean default null, p_replies boolean default null,
+  p_picks boolean default null, p_posts boolean default null, p_recaps boolean default null) returns void
 language sql security definer set search_path = public as $$
   update profiles set push_mentions = coalesce(p_mentions, push_mentions), push_replies = coalesce(p_replies, push_replies),
-    push_picks = coalesce(p_picks, push_picks)
+    push_picks = coalesce(p_picks, push_picks), push_posts = coalesce(p_posts, push_posts),
+    push_recaps = coalesce(p_recaps, push_recaps)
   where user_id = auth.uid()
 $$;
 
 -- For the push function only. A new post or reply by p_user (checked: theirs, under 10 minutes old, not sent
--- before): the devices of this season's members it @mentions, and, for a reply, the post's author.
+-- before): the devices of this season's members it @mentions; for a reply, the post's author; for a new post
+-- (not a reply), everyone with new-post notifications on. Each member gets one, the first that applies.
 create or replace function public.push_post_recipients(p_post uuid, p_user uuid)
 returns table (endpoint text, p256dh text, auth text, reason text, author text, body text, parent_id uuid)
 language plpgsql security definer set search_path = public as $$
@@ -710,7 +720,7 @@ begin
   if not found then return; end if;
   return query
   with members as (
-    select pr.user_id, pr.manager_id, pr.push_mentions, pr.push_replies, m.name,
+    select pr.user_id, pr.manager_id, pr.push_mentions, pr.push_replies, pr.push_posts, m.name,
       '(^|[^[:alnum:]_])@' || regexp_replace(m.name, '([^[:alnum:] ])', '\\\1', 'g') || '($|[^[:alnum:]_])' as pattern
     from profiles pr join managers m on m.id = pr.manager_id
     join season_teams s on s.manager_id = pr.manager_id and s.season = current_season()
@@ -720,6 +730,7 @@ begin
       when mb.push_mentions and post.body ~* mb.pattern then 'mention'
       when mb.push_replies and post.parent_id is not null
         and mb.manager_id = (select manager_id from posts where posts.id = post.parent_id) then 'reply'
+      when mb.push_posts and post.parent_id is null then 'post'
     end as reason
     from members mb
   )
@@ -729,7 +740,7 @@ begin
 end
 $$;
 
--- For the push function only. When a week's Predictions lock is under 3 hours away and its reminder hasn't
+-- For the push function only. When a week's Predictions lock is under an hour away and its reminder hasn't
 -- gone out: every member's devices (with pick reminders on), their league and how many picks they've made.
 create or replace function public.push_pick_recipients()
 returns table (endpoint text, p256dh text, auth text, week int, locks_at timestamptz, league text, picks int)
@@ -737,7 +748,7 @@ language plpgsql security definer set search_path = public as $$
 declare lk record;
 begin
   select l.season, l.week, l.locks_at into lk from pick_locks l
-  where l.season = current_season() and l.locks_at > now() and l.locks_at <= now() + interval '3 hours'
+  where l.season = current_season() and l.locks_at > now() and l.locks_at <= now() + interval '1 hour'
   order by l.locks_at limit 1;
   if lk.week is null then return; end if;
   insert into push_sent (kind, key) values ('picks', lk.season || '-' || lk.week) on conflict do nothing;
@@ -749,6 +760,24 @@ begin
   join season_teams s on s.manager_id = pr.manager_id and s.season = lk.season
   join push_devices d on d.user_id = pr.user_id
   where pr.push_picks;
+end
+$$;
+
+-- For the push function only. Once per week: when that week's recap is up, every member's devices (with recap
+-- notifications on). The function reads the week from the live site's data/recaps.json.
+create or replace function public.push_recap_recipients(p_week int)
+returns table (endpoint text, p256dh text, auth text)
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_week is null or p_week not between 1 and 18 then return; end if;
+  insert into push_sent (kind, key) values ('recap', current_season() || '-' || p_week) on conflict do nothing;
+  if not found then return; end if;
+  return query
+  select d.endpoint, d.p256dh, d.auth
+  from profiles pr
+  join season_teams s on s.manager_id = pr.manager_id and s.season = current_season()
+  join push_devices d on d.user_id = pr.user_id
+  where pr.push_recaps;
 end
 $$;
 
@@ -765,10 +794,26 @@ language sql security definer set search_path = public as $$
 $$;
 
 revoke execute on function public.save_push_device(text, text, text), public.remove_push_device(text),
-  public.push_settings(), public.set_push_settings(boolean, boolean, boolean) from public, anon;
+  public.push_settings(), public.set_push_settings(boolean, boolean, boolean, boolean, boolean) from public, anon;
 grant execute on function public.save_push_device(text, text, text), public.remove_push_device(text),
-  public.push_settings(), public.set_push_settings(boolean, boolean, boolean) to authenticated;
-revoke execute on function public.push_post_recipients(uuid, uuid), public.push_pick_recipients(),
+  public.push_settings(), public.set_push_settings(boolean, boolean, boolean, boolean, boolean) to authenticated;
+revoke execute on function public.push_post_recipients(uuid, uuid), public.push_pick_recipients(), public.push_recap_recipients(int),
   public.push_user_devices(uuid), public.forget_push_device(text) from public, anon, authenticated;
-grant execute on function public.push_post_recipients(uuid, uuid), public.push_pick_recipients(),
+grant execute on function public.push_post_recipients(uuid, uuid), public.push_pick_recipients(), public.push_recap_recipients(int),
   public.push_user_devices(uuid), public.forget_push_device(text) to service_role;
+
+-- The Predictions reminder's timer: every 5 minutes, Wednesday through Friday (UTC, when every week's first
+-- game is), the database checks whether a lock is under an hour away with no reminder sent yet. Only then does
+-- it call the push function, which sends the reminder (so it arrives 55-60 minutes before kickoff).
+create extension if not exists pg_cron with schema pg_catalog;
+create extension if not exists pg_net with schema extensions;
+select cron.schedule('predictions-reminder', '*/5 * * * 3,4,5', $cron$
+  select net.http_post(
+    url := 'https://blfbdmrnrwvylvqakgck.supabase.co/functions/v1/push',
+    body := '{"action":"reminders"}'::jsonb,
+    headers := '{"Content-Type":"application/json"}'::jsonb)
+  where exists (
+    select 1 from public.pick_locks l
+    where l.season = public.current_season() and l.locks_at > now() and l.locks_at <= now() + interval '1 hour'
+      and not exists (select 1 from public.push_sent x where x.kind = 'picks' and x.key = l.season || '-' || l.week))
+$cron$);

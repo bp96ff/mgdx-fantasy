@@ -74,8 +74,11 @@ favorites" GitHub workflow saves shortly before each lock (`tools/run-pick-favor
 
 ### 7. App notifications
 The site installs as an app (`manifest.webmanifest`, `sw.js`). Members turn notifications on under **Your
-Account**. The `push` Edge Function (`functions/push/index.ts`) sends them: @mentions, replies to your post,
-and a reminder about 3 hours before Predictions lock (the "Predictions favorites" workflow asks for it).
+Account**. The `push` Edge Function (`functions/push/index.ts`) sends them: new posts, @mentions, replies to
+your post, a reminder an hour before Predictions lock (a database timer in `schema.sql` asks for it),
+and "Week N recap is up" (the "Recap notification" workflow asks for it when `data/recaps.json` changes).
+
+When `functions/push/index.ts` changes, paste it into the `push` function's **Code** tab in the dashboard and deploy.
 
 1. Run the latest `schema.sql`.
 2. Make the notification keys. In a terminal on your computer (needs Node), run

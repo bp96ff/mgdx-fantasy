@@ -1607,7 +1607,8 @@
       const toggles = settings ? `
         <fieldset class="app-prefs"${sub ? '' : ' disabled'}>
           <legend class="sr-only">Send me a notification</legend>
-          ${[['mentions', 'When someone @mentions me'], ['replies', 'When someone replies to my post'], ['picks', 'A few hours before Predictions lock']]
+          ${[['posts', 'Every new post on the Main Blog'], ['mentions', 'When someone @mentions me'], ['replies', 'When someone replies to my post'],
+            ['recaps', 'When the weekly recap is up'], ['picks', 'An hour before Predictions lock']]
             .map(([k, label]) => `<label class="app-pref"><input type="checkbox" data-pref="${k}" ${settings[k] ? 'checked' : ''}><span>${label}</span></label>`).join('')}
         </fieldset>` : '';
       let state;
@@ -1622,7 +1623,7 @@
           <div class="app-actions"><button class="btn" type="button" data-app="test">Send a test</button>
           <button class="btn-quiet" type="button" data-app="off">Turn off on this device</button></div>`;
       } else {
-        state = `<p class="acct-lede">Get a notification when someone @mentions you or replies to your post, and a reminder before Predictions lock.</p>
+        state = `<p class="acct-lede">Get a notification for new posts, @mentions and replies, the weekly recap, and a reminder before Predictions lock.</p>
           <button class="btn" type="button" data-app="on">Turn on notifications</button>`;
       }
       notes = `<h3>Notifications</h3>${state}${toggles}`;
@@ -1677,8 +1678,7 @@
     main.addEventListener('change', async (e) => {
       const box = e.target.closest('#app-panel input[data-pref]');
       if (!box) return;
-      const args = { p_mentions: null, p_replies: null, p_picks: null };
-      args[`p_${box.dataset.pref}`] = box.checked;
+      const args = { [`p_${box.dataset.pref}`]: box.checked }; // the others stay as they are
       try {
         await ACCOUNT.write('set_push_settings', args);
         appMessage('Saved.');
