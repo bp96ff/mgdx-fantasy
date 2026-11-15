@@ -1314,3 +1314,76 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .logo-btn-badge { width: 24px; height: 24px; }
   .logo-preview { flex-direction: column; align-items: flex-start; }
 }
+
+/* ===== Reactions (posts, recaps, matchups, snapshot cards) ===== */
+.react { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.react:empty { display: none; }
+.react-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 7px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--bg-2); color: var(--text); font: 700 13px/1.4 var(--font);
+}
+.react-chip span { font-size: 15px; }
+button.react-chip { cursor: pointer; }
+button.react-chip:hover { border-color: var(--accent); }
+.react-chip.mine { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--bg-2)); }
+.react-add { position: relative; }
+.react-add summary {
+  list-style: none; display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px dashed var(--line); color: var(--muted); font: 700 13px/1.4 var(--font);
+}
+.react-add summary::-webkit-details-marker { display: none; }
+.react-add summary:hover, .react-add[open] summary { border-color: var(--accent); color: var(--text); }
+.react-menu {
+  position: absolute; z-index: 4; bottom: calc(100% + 6px); left: 0; display: grid; grid-template-columns: repeat(4, 40px); gap: 4px;
+  padding: 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); box-shadow: var(--shadow);
+}
+.react-menu button { width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; font-size: 22px; cursor: pointer; }
+.react-menu button:hover, .react-menu button:focus-visible { background: var(--surface-3); }
+.matchup > .react { margin: 12px 0 0; justify-content: center; }
+.tw-card > .react { margin-top: 10px; }
+.rc-react { margin: 18px 0 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.rc-react .react { margin-top: 8px; }
+.rc-react .react:empty { display: flex; } /* keep the box from looking broken before reactions load */
+
+/* ===== Main Blog: posts ===== */
+.feed-body { max-width: 720px; margin: 0 auto; }
+.post-gate { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; }
+.post-gate p { margin: 0; color: var(--muted); }
+.post-form { padding: 14px; margin-bottom: 0; overflow: visible; }
+.post-form textarea {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 84px; padding: 11px 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg-2); color: var(--text); font: inherit; font-size: 16px; line-height: 1.5;
+}
+.post-form textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.post-form-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.post-form .btn { border: 0; cursor: pointer; font-size: 15px; }
+.post-form .btn:disabled { opacity: .6; cursor: progress; }
+.post-count { color: var(--muted); }
+.post-count.near { color: var(--rr); }
+.post-list { display: flex; flex-direction: column; gap: 14px; }
+.post { padding: 16px 18px; overflow: visible; border-left: 3px solid var(--lc, var(--line)); }
+.post-head { display: flex; align-items: center; gap: 12px; }
+.post-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.post-who b { font-size: 16px; }
+.post-who small { color: var(--muted); }
+.post-who a { color: inherit; }
+.post-tools { display: flex; gap: 10px; }
+.btn-quiet.danger { color: var(--loss); }
+.post-body { margin-top: 10px; line-height: 1.55; overflow-wrap: anywhere; }
+.post-body p { margin: 0 0 8px; }
+.post-body p:last-child { margin-bottom: 0; }
+.post-body a { color: var(--accent); }
+.post .post-form { padding: 0; margin: 12px 0 0; }
+/* The posts scroll in their own box, newest at the bottom above the post box */
+.post-scroll {
+  max-height: min(68vh, 760px); overflow-y: auto; overscroll-behavior: contain; padding: 4px 6px 4px 2px; margin-bottom: 14px;
+  scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent;
+}
+.post-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+.post-more { display: flex; justify-content: center; margin: 2px 0 12px; }
+.post-start { margin: 2px 0 12px; text-align: center; color: var(--muted); font-size: 13px; }
+.react-add.down .react-menu { bottom: auto; top: calc(100% + 6px); }
+@media (max-width: 600px) {
+  .post { padding: 14px; }
+  .post-tools { flex-direction: column; gap: 0; align-items: flex-end; }
+}

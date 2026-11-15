@@ -118,8 +118,29 @@
   const logosChanged = () => logoListeners.forEach((fn) => fn());
   const removeFile = (p) => p && client.storage.from(BUCKET).remove([p]).then(({ error }) => { if (error) console.error(error); });
 
+  // Public database functions (posts, reactions) by plain request, so reading needs no sign-in or SDK.
+  async function read(fn, args = {}) {
+    if (!enabled) return [];
+    const r = await fetch(`${cfg.url}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args),
+    });
+    if (!r.ok) throw new Error(`Couldn’t load (${r.status})`);
+    return r.json();
+  }
+  // Signed-in changes go through the SDK, which sends the member's session. Errors come back as readable text.
+  async function write(fn, args) {
+    if (!client || !state.me) throw new Error('Sign in first.');
+    const { data, error } = await client.rpc(fn, args);
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
   window.MGDX_ACCOUNT = {
     enabled,
+    read,
+    write,
     get state() { return state; },
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     clearError() { state = { ...state, error: null }; },

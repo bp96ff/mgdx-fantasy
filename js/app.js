@@ -6,6 +6,8 @@
   const { loadAllLeagues, resolveWeek, overallRecords, crossSchedules, applyOverall } = window.SEASON_DATA;
   const { thisWeekGames, thisWeekAwards, stillPlaying } = window.THIS_WEEK;
   const main = document.getElementById('main');
+  // Sign-in, posts, reactions and custom logos (js/account.js). Only the current season's page loads it.
+  const ACCOUNT = window.MGDX_ACCOUNT;
   const PLACEHOLDERS = {
     blog: { title: 'Blog', kicker: 'Takes, recaps and trash talk', art: 'assets/img/mgdx-shield.png?v=3' },
     archives: { title: 'Archives', kicker: 'Seasons past', art: 'assets/img/mgdx-shield.png?v=3' },
@@ -153,7 +155,8 @@
       <nav class="subtabs four" aria-label="Blog sections">
         ${BLOG_TABS.map((s) => `<a href="#/blog/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${BLOG_TAB_NAMES[s]}</a>`).join('')}
       </nav>
-      ${sub === 'recaps' ? `<div id="league-body">${loading('Loading recaps')}</div>` : `
+      ${sub === 'recaps' ? `<div id="league-body">${loading('Loading recaps')}</div>`
+        : sub === 'main' && ACCOUNT && ACCOUNT.enabled && !ARCHIVE ? `<div id="league-body">${loading('Loading posts')}</div>` : `
       <section class="placeholder">
         <img class="placeholder-art" src="${p.art}" alt="" width="220" height="220">
         <p class="eyebrow">${esc(BLOG_KICKERS[sub])}</p>
@@ -161,12 +164,323 @@
         <p class="placeholder-badge">In progress</p>
       </section>`}`;
     if (sub === 'recaps') renderRecaps(params);
+    else if (sub === 'main' && ACCOUNT && ACCOUNT.enabled && !ARCHIVE) renderFeed();
+  }
+
+  // ---------- reactions ----------
+  // Members react to posts, recaps, matchup cards and Weekly Snapshot cards. A bar shows each reaction used so
+  // far with its count (hover for who); members toggle one by tapping it, or add another from the + menu.
+  const REACTIONS = [
+    ['like', '👍', 'Like'], ['laugh', '😂', 'Funny'], ['fire', '🔥', 'Fire'], ['goat', '🐐', 'GOAT'],
+    ['skull', '💀', 'Dead'], ['salt', '🧂', 'Salty'], ['cry', '😭', 'Crying'], ['trash', '🗑️', 'Trash'],
+  ];
+  const reactCache = new Map(); // target -> [{ emoji, manager_id, name }]
+  const canReact = () => Boolean(ACCOUNT && !ARCHIVE && ACCOUNT.state.me && ACCOUNT.state.me.league);
+  const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  function reactInner(target) {
+    const rows = reactCache.get(target);
+    if (!rows) return '';
+    const me = canReact() ? ACCOUNT.state.me.manager_id : null;
+    const chips = REACTIONS.map(([key, icon, word]) => {
+      const who = rows.filter((r) => r.emoji === key);
+      if (!who.length) return '';
+      const mine = who.some((r) => r.manager_id === me);
+      const names = who.map((r) => r.name).join(', ');
+      const tip = `${word}: ${names}`;
+      return me
+        ? `<button type="button" class="react-chip${mine ? ' mine' : ''}" data-react-emoji="${key}" aria-pressed="${mine}" title="${esc(tip)}" aria-label="${esc(`${word}, ${who.length}. ${names}`)}"><span aria-hidden="true">${icon}</span><b>${who.length}</b></button>`
+        : `<span class="react-chip" title="${esc(tip)}" aria-label="${esc(`${word}, ${who.length}. ${names}`)}"><span aria-hidden="true">${icon}</span><b>${who.length}</b></span>`;
+    }).join('');
+    const add = me ? `
+      <details class="react-add">
+        <summary title="Add a reaction" aria-label="Add a reaction"><span aria-hidden="true">☺+</span></summary>
+        <div class="react-menu">${REACTIONS.map(([key, icon, word]) => `<button type="button" data-react-emoji="${key}" title="${word}" aria-label="${word}">${icon}</button>`).join('')}</div>
+      </details>` : '';
+    return chips + add;
+  }
+  const reactBar = (target) => `<div class="react" data-react="${esc(target)}">${reactInner(target)}</div>`;
+  const redrawReactions = (target) => {
+    // A redraw can change a post's height; keep the Main Blog's scroll box the same distance from the bottom.
+    const box = document.querySelector('.post-scroll');
+    const fromBottom = box && box.scrollHeight - box.scrollTop;
+    document.querySelectorAll('.react[data-react]').forEach((el) => {
+      if (!target || el.dataset.react === target) el.innerHTML = reactInner(el.dataset.react);
+    });
+    if (box) box.scrollTop = box.scrollHeight - fromBottom;
+  };
+
+  // Loads reactions for every bar under root that hasn't loaded yet, in one request.
+  async function hydrateReactions(root) {
+    const want = [...root.querySelectorAll('.react[data-react]')].map((el) => el.dataset.react).filter((t) => !reactCache.has(t));
+    if (!want.length || !ACCOUNT) return;
+    try {
+      const rows = await ACCOUNT.read('get_reactions', { p_targets: [...new Set(want)] });
+      for (const t of want) reactCache.set(t, []);
+      for (const r of rows) reactCache.get(r.target).push(r);
+    } catch (err) {
+      console.warn('Reactions unavailable', err);
+      return;
+    }
+    for (const t of new Set(want)) redrawReactions(t);
+  }
+
+  // Adds a reaction bar to each item (once; a redraw keeps it from the cache), then loads what's missing.
+  // On a past season's page there's nothing to react to.
+  function attachReactions(root, items) {
+    if (!ACCOUNT || !ACCOUNT.enabled || ARCHIVE) return;
+    for (const { el, target, before } of items) {
+      if (!el || el.querySelector(':scope > .react')) continue;
+      const spot = before && el.querySelector(`:scope > ${before}`);
+      if (spot) spot.insertAdjacentHTML('beforebegin', reactBar(target));
+      else el.insertAdjacentHTML('beforeend', reactBar(target));
+    }
+    hydrateReactions(root);
+  }
+
+  if (ACCOUNT && !ARCHIVE) {
+    document.addEventListener('click', async (e) => {
+      // Close an open + menu when tapping anywhere else
+      document.querySelectorAll('.react-add[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; });
+      // The menu opens upward; where that would be cut off (top of the Main Blog's scroll box), open it downward.
+      const sum = e.target.closest('.react-add summary');
+      if (sum) {
+        requestAnimationFrame(() => {
+          const d = sum.parentElement;
+          const box = d.closest('.post-scroll');
+          d.classList.remove('down');
+          const menu = d.querySelector('.react-menu');
+          if (d.open && menu && menu.getBoundingClientRect().top < Math.max(box ? box.getBoundingClientRect().top : 0, 90)) d.classList.add('down');
+        });
+      }
+      const b = e.target.closest('.react [data-react-emoji]');
+      if (!b || !canReact()) return;
+      const bar = b.closest('.react');
+      const target = bar.dataset.react;
+      const emoji = b.dataset.reactEmoji;
+      const me = ACCOUNT.state.me;
+      const rows = reactCache.get(target) || [];
+      const had = rows.some((r) => r.emoji === emoji && r.manager_id === me.manager_id);
+      // Show it right away; undo if the database says no.
+      const next = had ? rows.filter((r) => !(r.emoji === emoji && r.manager_id === me.manager_id))
+        : rows.concat({ emoji, manager_id: me.manager_id, name: me.name });
+      reactCache.set(target, next);
+      redrawReactions(target);
+      try {
+        await ACCOUNT.write('toggle_reaction', { p_target: target, p_emoji: emoji });
+      } catch (err) {
+        reactCache.set(target, rows);
+        redrawReactions(target);
+        alert(err.message);
+      }
+    });
+    // Signing in or out changes who can react; redraw every bar.
+    ACCOUNT.onChange(() => redrawReactions());
+  }
+
+  // ---------- Main Blog: posts ----------
+  let feed = { posts: [], done: false, draft: '', editing: null, busy: false, msg: '' };
+  const relTime = (iso) => {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    if (s < 7 * 86400) return `${Math.floor(s / 86400)}d ago`;
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: new Date(iso).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  };
+  // Text as written: line breaks kept, links clickable, nothing else interpreted.
+  const postText = (s) => esc(s).replace(/(https?:\/\/[^\s<]+[^\s<.,!?)'"])/g, '<a href="$1" target="_blank" rel="noopener noreferrer nofollow">$1</a>')
+    .split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+
+  function postCard(p) {
+    const me = canReact() ? ACCOUNT.state.me : null;
+    const league = LEAGUES.find((l) => l.slug === p.league);
+    const mine = me && me.manager_id === p.manager_id;
+    const mod = me && me.moderator;
+    const editing = feed.editing === p.id;
+    const logo = league ? teamLogo({ id: p.team_id, logo: (feedTeams.get(`${p.league}:${p.team_id}`) || {}).logo }, league) : '<img class="avatar" src="assets/img/mgdx-shield.png?v=3" alt="">';
+    return `
+      <article class="panel post" data-post="${p.id}" style="${league ? `--lc:var(--${league.theme})` : ''}">
+        <header class="post-head">
+          ${logo}
+          <div class="post-who">
+            <b>${esc(p.name)}</b>
+            <small>${league ? `<a href="#/${league.slug}/rosters?team=${p.team_id}">${esc(p.team_name)}</a> · ${esc(league.name)} · ` : ''}<time datetime="${esc(p.created_at)}" title="${esc(new Date(p.created_at).toLocaleString())}">${relTime(p.created_at)}</time>${p.edited_at ? ' · edited' : ''}</small>
+          </div>
+          ${mine || mod ? `<div class="post-tools">
+            ${mine && !editing ? '<button type="button" class="btn-quiet" data-post-act="edit">Edit</button>' : ''}
+            <button type="button" class="btn-quiet danger" data-post-act="delete">Delete</button>
+          </div>` : ''}
+        </header>
+        ${editing ? `
+          <form class="post-form" data-post-act="save">
+            <label class="sr-only" for="edit-${p.id}">Edit your post</label>
+            <textarea id="edit-${p.id}" name="body" maxlength="2000" rows="4" required>${esc(p.body)}</textarea>
+            <div class="post-form-row"><span></span><div class="logo-actions">
+              <button type="button" class="btn-quiet" data-post-act="cancel">Cancel</button>
+              <button type="submit" class="btn">Save</button></div></div>
+          </form>` : `<div class="post-body">${postText(p.body)}</div>`}
+        ${reactBar(`post:${p.id}`)}
+      </article>`;
+  }
+
+  let feedTeams = new Map(); // 'league:teamId' -> this season's team (for ESPN logos)
+  function composer() {
+    if (!canReact()) {
+      const s = ACCOUNT.state;
+      return `<div class="panel post-gate"><p>${!s.user ? 'Managers can post here and react to posts, recaps and matchups.' : 'Link your team to post and react.'}</p>
+        <a class="btn" href="#/account">${!s.user ? 'Sign in' : 'Link your team'}</a></div>`;
+    }
+    const n = feed.draft.length;
+    return `<form class="panel post-form composer" data-post-act="create">
+      <label class="sr-only" for="post-body">Write a post</label>
+      <textarea id="post-body" name="body" maxlength="2000" rows="3" placeholder="Takes, trash talk, trade offers…" required>${esc(feed.draft)}</textarea>
+      <div class="post-form-row">
+        <small class="post-count${n > 1800 ? ' near' : ''}">${n ? `${n} / 2,000` : ''}</small>
+        <button type="submit" class="btn"${feed.busy ? ' disabled' : ''}>${feed.busy ? 'Posting…' : 'Post'}</button>
+      </div>
+      ${feed.msg ? `<p class="acct-msg error" role="alert">${esc(feed.msg)}</p>` : ''}
+    </form>`;
+  }
+
+  // Like a chat: oldest at the top, newest at the bottom right above the post box. The posts scroll in their
+  // own box, which opens at the bottom; scrolling to its top loads the next 20 older posts.
+  // Each redraw keeps the same distance from the bottom, so older posts appear above without a jump.
+  function drawFeed(toBottom) {
+    const el = document.getElementById('league-body');
+    if (!el || !el.classList.contains('feed-body')) return;
+    const old = el.querySelector('.post-scroll');
+    const fromBottom = toBottom || !old ? 0 : old.scrollHeight - old.scrollTop;
+    const active = document.activeElement && document.activeElement.id === 'post-body';
+    const top = !feed.posts.length ? ''
+      : feed.done ? '<p class="post-start">The beginning of the blog</p>'
+      : `<div class="post-more"><button type="button" class="btn-quiet" data-post-act="more"${feed.loadingOlder ? ' disabled' : ''}>${feed.loadingOlder ? 'Loading older posts…' : 'Load older posts'}</button></div>`;
+    el.innerHTML = `
+      <div class="post-scroll" tabindex="0" aria-label="Posts, oldest first">
+        ${top}
+        <div class="post-list">${feed.posts.length ? feed.posts.slice().reverse().map(postCard).join('')
+          : '<div class="state"><strong>No posts yet.</strong><span>Be the first to talk some trash.</span></div>'}</div>
+      </div>
+      ${composer()}`;
+    const box = el.querySelector('.post-scroll');
+    box.scrollTop = fromBottom ? box.scrollHeight - fromBottom : box.scrollHeight;
+    box.addEventListener('scroll', () => { if (box.scrollTop < 120) loadOlder(); }, { passive: true });
+    if (active) {
+      const t = document.getElementById('post-body');
+      t.focus();
+      t.setSelectionRange(t.value.length, t.value.length);
+    }
+    hydrateReactions(el);
+    // Fewer posts than fill the box: keep loading until it scrolls (or there are no more).
+    if (!feed.done && box.scrollHeight <= box.clientHeight) loadOlder();
+  }
+
+  async function loadOlder() {
+    if (feed.done || feed.loadingOlder || !feed.posts.length) return;
+    feed.loadingOlder = true;
+    const token = renderToken;
+    const btn = document.querySelector('.post-more button');
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading older posts…'; }
+    try {
+      const older = await ACCOUNT.read('list_posts', { p_before: feed.posts[feed.posts.length - 1].created_at, p_limit: 20 });
+      if (token !== renderToken) return;
+      feed = { ...feed, posts: feed.posts.concat(older), done: older.length < 20, loadingOlder: false };
+      // Slot them in above the posts already shown, keeping the box (and a swipe in progress) where it is.
+      const box = document.querySelector('.post-scroll');
+      const list = box && box.querySelector('.post-list');
+      if (!list) return drawFeed();
+      const fromBottom = box.scrollHeight - box.scrollTop;
+      list.insertAdjacentHTML('afterbegin', older.slice().reverse().map(postCard).join(''));
+      box.querySelector('.post-more, .post-start').outerHTML = feed.done ? '<p class="post-start">The beginning of the blog</p>'
+        : '<div class="post-more"><button type="button" class="btn-quiet" data-post-act="more">Load older posts</button></div>';
+      box.scrollTop = box.scrollHeight - fromBottom;
+      hydrateReactions(box);
+      if (!feed.done && box.scrollHeight <= box.clientHeight) loadOlder();
+    } catch (err) {
+      console.error(err);
+      feed.loadingOlder = false;
+    }
+  }
+
+  async function renderFeed() {
+    const token = renderToken;
+    const el = document.getElementById('league-body');
+    el.classList.add('feed-body');
+    try {
+      const [posts, standings] = await Promise.all([
+        ACCOUNT.read('list_posts', { p_limit: 20 }),
+        fetch('data/standings.json').then((r) => r.json()).catch(() => null),
+      ]);
+      if (token !== renderToken) return;
+      feedTeams = new Map();
+      for (const [slug, l] of Object.entries((standings && standings.leagues) || {})) for (const t of l.teams) feedTeams.set(`${slug}:${t.id}`, t);
+      feed = { ...feed, posts, done: posts.length < 20, editing: null, msg: '', loadingOlder: false };
+      drawFeed(true);
+    } catch (err) {
+      console.error(err);
+      if (token === renderToken) el.innerHTML = '<div class="state state-error" role="alert"><strong>Couldn’t load the posts.</strong><span>Try again in a moment.</span></div>';
+    }
+  }
+
+  if (ACCOUNT && !ARCHIVE) {
+    main.addEventListener('input', (e) => {
+      if (e.target.id !== 'post-body') return;
+      feed.draft = e.target.value;
+      const c = e.target.closest('form').querySelector('.post-count');
+      if (c) { c.textContent = feed.draft.length ? `${feed.draft.length} / 2,000` : ''; c.classList.toggle('near', feed.draft.length > 1800); }
+    });
+    main.addEventListener('submit', async (e) => {
+      const form = e.target.closest('form[data-post-act]');
+      if (!form) return;
+      e.preventDefault();
+      const body = form.querySelector('textarea').value;
+      const btn = form.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try {
+        if (form.dataset.postAct === 'create') {
+          feed = { ...feed, busy: true, msg: '' };
+          await ACCOUNT.write('create_post', { p_body: body });
+          feed = { ...feed, draft: '', busy: false };
+        } else {
+          // An edit changes one post in place, keeping the older posts already loaded and the scroll spot.
+          const id = form.closest('[data-post]').dataset.post;
+          await ACCOUNT.write('edit_post', { p_id: id, p_body: body });
+          feed.posts = feed.posts.map((p) => (p.id === id ? { ...p, body: body.trim(), edited_at: new Date().toISOString() } : p));
+          feed.editing = null;
+          drawFeed();
+          return;
+        }
+        renderFeed(); // a new post: reload the newest and land on it at the bottom
+      } catch (err) {
+        if (form.dataset.postAct === 'create') { feed = { ...feed, busy: false, msg: err.message }; drawFeed(); }
+        else { btn.disabled = false; alert(err.message); }
+      }
+    });
+    main.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-post-act]');
+      if (!b || b.tagName === 'FORM') return;
+      const act = b.dataset.postAct;
+      const card = b.closest('[data-post]');
+      if (act === 'edit') { feed.editing = card.dataset.post; drawFeed(); card && document.getElementById(`edit-${feed.editing}`)?.focus(); }
+      else if (act === 'cancel') { feed.editing = null; drawFeed(); }
+      else if (act === 'delete') {
+        const p = feed.posts.find((x) => x.id === card.dataset.post);
+        const mine = p && ACCOUNT.state.me && p.manager_id === ACCOUNT.state.me.manager_id;
+        if (!confirm(mine ? 'Delete your post?' : `Delete ${p ? p.name : 'this manager'}’s post? This can’t be undone.`)) return;
+        try {
+          await ACCOUNT.write('delete_post', { p_id: card.dataset.post });
+          feed.posts = feed.posts.filter((x) => x.id !== card.dataset.post);
+          drawFeed();
+        } catch (err) { alert(err.message); }
+      } else if (act === 'more') loadOlder();
+    });
+    // Signing in or out changes the composer and post tools.
+    ACCOUNT.onChange(() => { if (parseHash().parts[0] === 'blog' && (parseHash().parts[1] || 'main') === 'main') drawFeed(); });
   }
 
   // ---------- account ----------
   // Sign in (Google or email and password), then link the account to a manager with a claim code.
   // window.MGDX_ACCOUNT comes from js/account.js, which only the current season's page loads.
-  const ACCOUNT = window.MGDX_ACCOUNT;
   const CLAIM_ERRORS = {
     'bad-code': 'That code doesn’t match any manager. Check it and try again.',
     used: 'That code has already been used. If it’s yours, ask a moderator to reset it.',
@@ -1020,6 +1334,9 @@
     body().querySelector('#week-select').addEventListener('change', (e) => {
       location.hash = `#/blog/recaps?week=${e.target.value}`;
     });
+    const rc = body().querySelector('.recap');
+    rc.insertAdjacentHTML('beforeend', '<div class="rc-react"><p class="rc-hm-tag">React to this recap</p></div>');
+    attachReactions(body(), [{ el: rc.querySelector('.rc-react'), target: `recap:${SEASON}:w${recap.week}` }]);
   }
 
   // ---------- league shell ----------
@@ -2476,6 +2793,9 @@
       </div>
       <p class="fineprint">Covers in-league and cross-league games across all four leagues${crossOk ? '' : ' (cross-league games are unavailable right now, so only in-league games are shown)'}. While games are in progress, teams are ranked by ESPN's live projected final score, which counts points already scored plus projections for players yet to finish. The biggest upset compares that with what each team's starters were projected to score before the week began. Gold tags mark a final result that made one of the all-time lists on Archives &gt; Records, ranked as of that week.</p>`;
     bindWeekSelect();
+    attachReactions(body(), [...body().querySelectorAll('.tw-card[data-card]')].map((el) => ({
+      el, target: `snap:${SEASON}:w${week}:${slugify(el.dataset.card)}`,
+    })));
     // Final scores only: a live score is still moving.
     if (!live) tagAllTime(body(), a, week, token);
     if (live && LIVE_REFRESH_MS) {
@@ -3333,6 +3653,11 @@
       location.hash = `#/${league.slug}/matchups?week=${e.target.value}`;
     });
     bindToggles(body());
+    attachReactions(body(), data.games.filter((g) => !g.bye).map((g) => ({
+      el: body().querySelector(`.matchup[data-id="${g.id}"]`),
+      target: `match:${SEASON}:${league.slug}:w${week}:${g.home.team.id}-${g.away.team.id}`,
+      before: '.toggle',
+    })));
     // A recap links by team: find that team's game this week
     const teamId = params.get('team');
     const teamGame = teamId && data.games.find((g) => !g.bye && [g.home, g.away].some((s) => s && s.team && String(s.team.id) === teamId));
@@ -3749,6 +4074,11 @@
         location.hash = `#/cross-league?week=${e.target.value}`;
       });
       bindToggles(body());
+      attachReactions(body(), allGames.filter((g) => !g.home.missing && !g.away.missing).map((g) => ({
+        el: body().querySelector(`.matchup[data-id="${g.id}"]`),
+        target: `xmatch:${SEASON}:w${week}:${g.home.league.slug}.${g.home.team.id}-${g.away.league.slug}.${g.away.team.id}`,
+        before: '.toggle',
+      })));
       const setSection = (section, open) => {
         const si = Number(section.dataset.sec);
         const btn = section.querySelector('.xl-toggle');

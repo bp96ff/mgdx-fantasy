@@ -271,3 +271,126 @@ create policy "managers and moderators see logo files" on storage.objects for se
 drop policy if exists "managers and moderators delete logo files" on storage.objects;
 create policy "managers and moderators delete logo files" on storage.objects for delete to authenticated
   using (bucket_id = 'team-logos' and ((storage.foldername(name))[1] = public.my_manager_id() or public.is_moderator()));
+
+-- ---------- blog posts and reactions ----------
+-- Members (this season's managers) write posts on the Main Blog and react to posts, recaps, matchup cards
+-- and Weekly Snapshot cards. Anyone can read both. Every change goes through the functions below.
+create table if not exists public.posts (
+  id uuid primary key default gen_random_uuid(),
+  manager_id text not null references public.managers (id) on update cascade on delete cascade,
+  body text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz not null default now(),
+  edited_at timestamptz
+);
+create index if not exists posts_created_at on public.posts (created_at desc);
+
+-- One row per manager, thing and reaction. target names what was reacted to, e.g. 'post:<id>',
+-- 'recap:2026:w9', 'match:2026:lab-rats:w10:1-12', 'xmatch:2026:w10:lab-rats.1-genomic-gerbils.8',
+-- 'snap:2026:w10:top-scores'.
+create table if not exists public.reactions (
+  target text not null check (char_length(target) <= 120),
+  manager_id text not null references public.managers (id) on update cascade on delete cascade,
+  emoji text not null,
+  created_at timestamptz not null default now(),
+  primary key (target, manager_id, emoji)
+);
+alter table public.posts enable row level security;
+alter table public.reactions enable row level security;
+revoke all on public.posts, public.reactions from anon, authenticated;
+
+-- Newest first; pass the oldest created_at shown so far to get the next page. The author's league and team
+-- are this season's (null for a manager who has left).
+create or replace function public.list_posts(p_before timestamptz default null, p_limit int default 20)
+returns table (id uuid, manager_id text, name text, league text, team_id int, team_name text,
+  body text, created_at timestamptz, edited_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.manager_id, m.name, s.league, s.team_id, s.team_name, p.body, p.created_at, p.edited_at
+  from posts p
+  join managers m on m.id = p.manager_id
+  left join season_teams s on s.manager_id = p.manager_id and s.season = current_season()
+  where p_before is null or p.created_at < p_before
+  order by p.created_at desc
+  limit least(greatest(coalesce(p_limit, 20), 1), 50)
+$$;
+
+create or replace function public.create_post(p_body text) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  mid text := my_manager_id();
+  clean text := btrim(coalesce(p_body, ''));
+  new_id uuid;
+begin
+  if mid is null then raise exception 'Only this season''s managers can post'; end if;
+  if char_length(clean) = 0 then raise exception 'Write something first'; end if;
+  if char_length(clean) > 2000 then raise exception 'Posts can be up to 2,000 characters'; end if;
+  if (select count(*) from posts where manager_id = mid and created_at > now() - interval '10 minutes') >= 5 then
+    raise exception 'That''s a lot of posts. Wait a few minutes, then try again';
+  end if;
+  insert into posts (manager_id, body) values (mid, clean) returning posts.id into new_id;
+  return new_id;
+end
+$$;
+
+create or replace function public.edit_post(p_id uuid, p_body text) returns void
+language plpgsql security definer set search_path = public as $$
+declare clean text := btrim(coalesce(p_body, ''));
+begin
+  if char_length(clean) not between 1 and 2000 then raise exception 'Posts need 1 to 2,000 characters'; end if;
+  update posts set body = clean, edited_at = now() where posts.id = p_id and manager_id = my_manager_id();
+  if not found then raise exception 'You can only edit your own posts'; end if;
+end
+$$;
+
+-- The author or any moderator. Its reactions go with it.
+create or replace function public.delete_post(p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from posts where posts.id = p_id and (manager_id = my_manager_id() or is_moderator());
+  if not found then raise exception 'Only the author or a moderator can delete this post'; end if;
+  delete from reactions where target = 'post:' || p_id::text;
+end
+$$;
+
+-- Every reaction on the given things (up to 300 at once), with the reacting manager's name.
+create or replace function public.get_reactions(p_targets text[])
+returns table (target text, emoji text, manager_id text, name text)
+language sql stable security definer set search_path = public as $$
+  select r.target, r.emoji, r.manager_id, m.name
+  from reactions r join managers m on m.id = r.manager_id
+  where r.target = any (p_targets[1:300])
+  order by r.created_at
+$$;
+
+-- Adds the signed-in member's reaction, or takes it back if it's already there. Returns true when added.
+create or replace function public.toggle_reaction(p_target text, p_emoji text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare mid text := my_manager_id();
+begin
+  if mid is null then raise exception 'Only this season''s managers can react'; end if;
+  if p_emoji is null or not (p_emoji = any (array['like', 'laugh', 'fire', 'goat', 'skull', 'salt', 'cry', 'trash'])) then
+    raise exception 'Unknown reaction';
+  end if;
+  if p_target is null or p_target !~ ('^(post:[0-9a-f-]{36}|recap:[0-9]{4}:w[0-9]{1,2}'
+      || '|match:[0-9]{4}:[a-z-]+:w[0-9]{1,2}:[0-9]+-[0-9]+'
+      || '|xmatch:[0-9]{4}:w[0-9]{1,2}:[a-z-]+\.[0-9]+-[a-z-]+\.[0-9]+'
+      || '|snap:[0-9]{4}:w[0-9]{1,2}:[a-z0-9-]+)$') then
+    raise exception 'Can''t react to that';
+  end if;
+  if p_target like 'post:%' and not exists (select 1 from posts where posts.id::text = substr(p_target, 6)) then
+    raise exception 'That post is gone';
+  end if;
+  delete from reactions r where r.target = p_target and r.manager_id = mid and r.emoji = p_emoji;
+  if found then return false; end if;
+  if (select count(*) from reactions r where r.manager_id = mid and r.created_at > now() - interval '1 minute') >= 60 then
+    raise exception 'Slow down a little, then try again';
+  end if;
+  insert into reactions (target, manager_id, emoji) values (p_target, mid, p_emoji);
+  return true;
+end
+$$;
+
+revoke execute on function public.create_post(text), public.edit_post(uuid, text), public.delete_post(uuid),
+  public.toggle_reaction(text, text) from public, anon;
+grant execute on function public.create_post(text), public.edit_post(uuid, text), public.delete_post(uuid),
+  public.toggle_reaction(text, text) to authenticated;
+grant execute on function public.list_posts(timestamptz, int), public.get_reactions(text[]) to anon, authenticated;
