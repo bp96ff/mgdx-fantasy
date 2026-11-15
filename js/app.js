@@ -170,7 +170,7 @@
   }
 
   // ---------- reactions ----------
-  // Members react to posts, recaps, matchup cards and Weekly Snapshot cards. A bar shows each reaction used so
+  // Members react to posts, recaps and Weekly Snapshot cards. A bar shows each reaction used so
   // far with its count (hover for who); members toggle one by tapping it, or add another from the + menu.
   // Keys must match toggle_reaction() in supabase/schema.sql.
   const REACTIONS = [
@@ -4293,11 +4293,6 @@
       const a = pickSide(g.home, league), b = pickSide(g.away, league);
       return { el: body().querySelector(`.matchup[data-id="${g.id}"]`), a, b, winner: pickResult(g, a, b) };
     }));
-    attachReactions(body(), data.games.filter((g) => !g.bye).map((g) => ({
-      el: body().querySelector(`.matchup[data-id="${g.id}"]`),
-      target: `match:${SEASON}:${league.slug}:w${week}:${g.home.team.id}-${g.away.team.id}`,
-      before: '.toggle',
-    })));
     // A recap links by team: find that team's game this week
     const teamId = params.get('team');
     const teamGame = teamId && data.games.find((g) => !g.bye && [g.home, g.away].some((s) => s && s.team && String(s.team.id) === teamId));
@@ -4718,11 +4713,6 @@
         const a = pickSide(g.home, g.home.league), b = pickSide(g.away, g.away.league);
         return { el: body().querySelector(`.matchup[data-id="${g.id}"]`), a, b, cross: true, winner: pickResult(g, a, b) };
       }));
-      attachReactions(body(), allGames.filter((g) => !g.home.missing && !g.away.missing).map((g) => ({
-        el: body().querySelector(`.matchup[data-id="${g.id}"]`),
-        target: `xmatch:${SEASON}:w${week}:${g.home.league.slug}.${g.home.team.id}-${g.away.league.slug}.${g.away.team.id}`,
-        before: '.toggle',
-      })));
       const setSection = (section, open) => {
         const si = Number(section.dataset.sec);
         const btn = section.querySelector('.xl-toggle');
