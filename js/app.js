@@ -47,9 +47,16 @@
     return { parts, params: new URLSearchParams(query || '') };
   }
 
+  // A manager's uploaded logo (js/account.js) replaces ESPN's for this season's teams. It needs the team's id;
+  // callers drawing a past season's team leave the id out so a reused id doesn't pick up today's logo.
+  const customLogo = (team, league) => {
+    const acct = window.MGDX_ACCOUNT;
+    return !ARCHIVE && acct && acct.logos && team && team.id != null && league ? acct.logos.get(`${league.slug}:${team.id}`) : null;
+  };
+
   function teamLogo(team, league, cls = 'avatar') {
     const fallback = league.logo;
-    const src = team && team.logo ? team.logo : fallback;
+    const src = customLogo(team, league) || (team && team.logo ? team.logo : fallback);
     return `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${esc(fallback)}'">`;
   }
 
@@ -260,7 +267,8 @@
         fetch(`${DATA}standings.json`).then((r) => r.json()).then((st) => {
           const t = ((st.leagues[league.slug] || {}).teams || []).find((x) => x.id === me.team_id);
           const img = document.getElementById('acct-logo');
-          if (t && t.logo && img) img.src = t.logo;
+          const src = customLogo({ id: me.team_id }, league) || (t && t.logo);
+          if (src && img) img.src = src;
         }).catch(() => {});
       }
     }
@@ -755,7 +763,7 @@
     const leagueOf = (slug) => LEAGUES.find((l) => l.slug === slug);
     const logo = (t) => {
       const league = leagueOf(t.league);
-      if (saved) return teamLogo(thatYear.get(`${t.league}:${t.owner}`), league);
+      if (saved) return teamLogo({ logo: (thatYear.get(`${t.league}:${t.owner}`) || {}).logo }, league); // that year's logo, not a custom one
       return teamLogo(t.former ? null : current.get(t.owner), league);
     };
     const byOwner = new Map(season.teams.map((t) => [t.owner, t]));
@@ -1640,7 +1648,7 @@
               <th class="dr-rd">Rd</th>
               ${board.columns.map((id) => {
                 const t = board.teams[id];
-                return `<th><a href="#/${league.slug}/rosters?team=${id}" title="${esc(t ? t.name : '')}">${t ? teamLogo(t, league) : ''}<span>${esc(t ? t.owner : '')}</span></a></th>`;
+                return `<th><a href="#/${league.slug}/rosters?team=${id}" title="${esc(t ? t.name : '')}">${t ? teamLogo({ ...t, id: Number(id) }, league) : ''}<span>${esc(t ? t.owner : '')}</span></a></th>`;
               }).join('')}
             </tr></thead>
             <tbody>${rounds.map((r) => `
@@ -2816,6 +2824,146 @@
     }
   }
 
+  // ---------- custom team logo controls (Rosters) ----------
+  // A team's manager can upload a logo for this season; a moderator can put any team back on ESPN's.
+  // logoEdit survives the live refresh, so a picked image isn't lost while a game is on.
+  let logoEdit = { key: '', open: false, blob: null, preview: '', busy: false, msg: '', error: false };
+  const logoRights = (team, league) => {
+    const me = ACCOUNT && !ARCHIVE && ACCOUNT.state.me;
+    if (!me || !me.league) return { mine: false, mod: false };
+    return { mine: me.league === league.slug && me.team_id === team.id, mod: Boolean(me.moderator) };
+  };
+
+  function logoControl(team, league) {
+    const img = teamLogo(team, league, 'avatar xl');
+    const { mine, mod } = logoRights(team, league);
+    const custom = Boolean(customLogo(team, league));
+    if (!mine && !(mod && custom)) return img;
+    const label = mine ? 'Change your team logo' : `Logo options for ${team.name}`;
+    return `<button type="button" class="logo-btn" data-logo="toggle" data-key="${league.slug}:${team.id}" aria-expanded="${logoEdit.open && logoEdit.key === `${league.slug}:${team.id}`}" title="${esc(label)}" aria-label="${esc(label)}">
+      ${img}<span class="logo-btn-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 20h4L19 9l-4-4L4 16v4z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg></span>
+    </button>`;
+  }
+
+  function logoPanel(team, league) {
+    const key = `${league.slug}:${team.id}`;
+    if (!logoEdit.open || logoEdit.key !== key) return '';
+    const { mine, mod } = logoRights(team, league);
+    const custom = Boolean(customLogo(team, league));
+    const msg = logoEdit.msg ? `<p class="acct-msg${logoEdit.error ? ' error' : ''}" role="status">${esc(logoEdit.msg)}</p>` : '';
+    const dis = logoEdit.busy ? ' disabled' : '';
+    let inner = '';
+    if (mine) {
+      inner = logoEdit.preview ? `
+        <div class="logo-preview">
+          <img class="avatar xl" src="${logoEdit.preview}" alt="Your new logo">
+          <div>
+            <p>Here’s how it will look. It’s shown as a circle everywhere on the site.</p>
+            <div class="logo-actions">
+              <button type="button" class="btn" data-logo="save"${dis}>${logoEdit.busy ? 'Saving…' : 'Save logo'}</button>
+              <button type="button" class="btn-quiet" data-logo="discard"${dis}>Choose another</button>
+            </div>
+          </div>
+        </div>` : `
+        <p>Upload an image to use as your team’s logo on this site. A square picture works best; it’s cropped to a circle.</p>
+        <div class="logo-actions">
+          <label class="btn logo-file">Upload an image<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-logo="file"></label>
+          ${custom ? `<button type="button" class="btn-quiet" data-logo="revert"${dis}>Use the ESPN logo</button>` : ''}
+        </div>`;
+    } else if (mod && custom) {
+      inner = `
+        <p>${esc(team.owner)} uploaded this logo. As a moderator, you can remove it and go back to the team’s ESPN logo.</p>
+        <div class="logo-actions"><button type="button" class="btn btn-danger" data-logo="revert"${dis}>${logoEdit.busy ? 'Reverting…' : 'Revert to the ESPN logo'}</button></div>`;
+    } else return '';
+    return `<section class="panel logo-panel" aria-label="Team logo">
+      <div class="logo-panel-head"><h3>${mine ? 'Your team logo' : 'Team logo'}</h3>
+        <button type="button" class="btn-quiet" data-logo="close"${dis}>Close</button></div>
+      ${inner}${msg}</section>`;
+  }
+
+  // Square-crops and shrinks a picked image to 256px, as WebP where the browser can make it (PNG otherwise).
+  async function shrinkLogo(file) {
+    if (file.size > 15 * 1024 * 1024) throw new Error('That image is over 15 MB. Try a smaller one.');
+    const url = URL.createObjectURL(file);
+    try {
+      const im = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error('That file couldn’t be opened as an image.'));
+        i.src = url;
+      });
+      const side = Math.min(im.naturalWidth, im.naturalHeight);
+      const c = document.createElement('canvas');
+      c.width = c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(im, (im.naturalWidth - side) / 2, (im.naturalHeight - side) / 2, side, side, 0, 0, 256, 256);
+      const blob = await new Promise((r) => c.toBlob(r, 'image/webp', 0.9));
+      return blob && blob.type === 'image/webp' ? blob : new Promise((r) => c.toBlob(r, 'image/png'));
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  // Redraws only the logo and its panel, so the roster below (and any live scores) stay put.
+  let shownRoster = null; // { team, league } on the Rosters tab, set by renderRosters
+  function redrawLogo() {
+    const head = document.querySelector('.team-head');
+    const btn = head && head.querySelector('[data-logo="toggle"], .avatar.xl'); // the button, or the bare logo
+    if (!head || !btn || !shownRoster) return;
+    const { team, league } = shownRoster;
+    btn.outerHTML = logoControl(team, league);
+    const old = document.querySelector('.logo-panel');
+    const html = logoPanel(team, league);
+    if (old) old.outerHTML = html;
+    else if (html) head.insertAdjacentHTML('afterend', html);
+  }
+
+  if (ACCOUNT && !ARCHIVE) {
+    main.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-logo]');
+      if (!b || b.tagName === 'INPUT') return;
+      const act = b.dataset.logo;
+      if (act === 'toggle') {
+        const key = b.dataset.key;
+        const open = !(logoEdit.open && logoEdit.key === key);
+        if (logoEdit.preview) URL.revokeObjectURL(logoEdit.preview);
+        logoEdit = { key, open, blob: null, preview: '', busy: false, msg: '', error: false };
+      } else if (act === 'close' || act === 'discard') {
+        if (logoEdit.preview) URL.revokeObjectURL(logoEdit.preview);
+        logoEdit = { ...logoEdit, open: act !== 'close', blob: null, preview: '', msg: '', error: false };
+      } else if (act === 'save' || act === 'revert') {
+        if (act === 'revert' && !confirm('Go back to this team’s ESPN logo?')) return;
+        logoEdit = { ...logoEdit, busy: true, msg: '', error: false };
+        redrawLogo();
+        try {
+          const [slug, id] = logoEdit.key.split(':');
+          if (act === 'save') await ACCOUNT.uploadLogo(logoEdit.blob);
+          else await ACCOUNT.revertLogo(slug, Number(id));
+          if (logoEdit.preview) URL.revokeObjectURL(logoEdit.preview);
+          logoEdit = { ...logoEdit, open: false, blob: null, preview: '', busy: false };
+          return; // the logo change redraws the page
+        } catch (err) {
+          logoEdit = { ...logoEdit, busy: false, msg: err.message || String(err), error: true };
+        }
+      } else return;
+      redrawLogo();
+    });
+    main.addEventListener('change', async (e) => {
+      const input = e.target.closest('input[data-logo="file"]');
+      if (!input || !input.files[0]) return;
+      try {
+        const blob = await shrinkLogo(input.files[0]);
+        logoEdit = { ...logoEdit, blob, preview: URL.createObjectURL(blob), msg: '', error: false };
+      } catch (err) {
+        logoEdit = { ...logoEdit, msg: err.message || String(err), error: true };
+      }
+      redrawLogo();
+    });
+    // Signing in or out changes who can edit; redraw the logo controls in place.
+    ACCOUNT.onChange(() => { if (shownRoster && parseHash().parts[1] === 'rosters') redrawLogo(); });
+  }
+
   async function renderRosters(league, body, params, token) {
     const week = clampWeek(league, params.get('week'));
     const [rosters, results, cross] = await Promise.all([
@@ -2882,10 +3030,13 @@
     const head = `<thead><tr><th class="c-slot"></th><th>Player</th><th class="c-score">Wk ${week}</th>
       <th class="c-num hide-sm">Rank</th><th class="c-num hide-sm">GP</th><th class="c-num hide-xs">FPTS</th><th class="c-num">PPG</th></tr></thead>`;
 
+    shownRoster = { team, league };
+    if (logoEdit.open && logoEdit.key !== `${league.slug}:${team.id}`) logoEdit = { ...logoEdit, open: false }; // another team: close the panel
+
     body().innerHTML = `
       <div class="picker" role="list">${picker}</div>
       <section class="team-head">
-        ${teamLogo(team, league, 'avatar xl')}
+        ${logoControl(team, league)}
         <div>
           <h2>${esc(team.name)}</h2>
           <p class="team-stats">
@@ -2901,6 +3052,7 @@
           <select id="week-select">${weekOptions(league, week)}</select>
         </label>
       </section>
+      ${logoPanel(team, league)}
       ${note ? `<p class="fineprint week-note">${esc(note)}</p>` : ''}
       <section class="panel week-panel">
         ${weekScores(league, team, week, results, cross)}
@@ -3681,5 +3833,12 @@
     route();
   });
   lastLeagueKey = parseHash().parts.slice(0, 2).join('/');
-  route();
+  // Custom logos usually arrive in well under a second; wait for them (up to 1.5s) so the first page doesn't
+  // flash ESPN's. If they come later, or a logo changes, the page redraws.
+  if (ACCOUNT && ACCOUNT.enabled && !ARCHIVE) {
+    let first = true;
+    const late = ACCOUNT.logosReady.then(() => { if (!first && ACCOUNT.logos.size) route(); });
+    Promise.race([late, new Promise((r) => setTimeout(r, 1500))]).then(() => { first = false; route(); });
+    ACCOUNT.onLogosChange(route);
+  } else route();
 })();

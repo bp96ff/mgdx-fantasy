@@ -182,3 +182,92 @@ revoke execute on function public.claim_code(text) from public, anon;
 grant execute on function public.claim_code(text) to authenticated;
 revoke execute on function public.me() from public, anon;
 grant execute on function public.me() to authenticated;
+
+-- ---------- custom team logos ----------
+-- A manager can upload their own logo; it replaces the ESPN one wherever this season's team appears.
+-- The file lives in the public team-logos bucket under <manager id>/; team_logos says which file is current.
+-- A moderator (or the manager) can clear it, which brings back the ESPN logo.
+create table if not exists public.team_logos (
+  manager_id text primary key references public.managers (id) on update cascade on delete cascade,
+  path text not null,                  -- inside the team-logos bucket, e.g. 'bryce/1763251200000.webp'
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users (id) on delete set null
+);
+alter table public.team_logos enable row level security;  -- no policies: read and change through the functions below
+revoke all on public.team_logos from anon, authenticated;
+
+-- The signed-in member's manager id, or null for anyone who isn't a manager this season.
+create or replace function public.my_manager_id() returns text
+language sql stable security definer set search_path = public as $$
+  select p.manager_id from profiles p
+  join season_teams s on s.manager_id = p.manager_id and s.season = current_season()
+  where p.user_id = auth.uid()
+$$;
+
+-- Every custom logo for this season's teams. Public: the site draws them for every visitor.
+create or replace function public.current_team_logos()
+returns table (league text, team_id int, path text)
+language sql stable security definer set search_path = public as $$
+  select s.league, s.team_id, l.path
+  from team_logos l
+  join season_teams s on s.manager_id = l.manager_id and s.season = current_season()
+$$;
+
+-- Makes an uploaded file the signed-in manager's logo. Returns the file it replaced (or null) so the
+-- site can delete it.
+create or replace function public.set_team_logo(p_path text) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  mid text := my_manager_id();
+  old text;
+begin
+  if mid is null then raise exception 'Only this season''s managers can set a logo'; end if;
+  if p_path is null or left(p_path, length(mid) + 1) <> mid || '/' or p_path like '%..%' then
+    raise exception 'That isn''t your logo file';
+  end if;
+  select path into old from team_logos where manager_id = mid;
+  insert into team_logos (manager_id, path, updated_by) values (mid, p_path, auth.uid())
+  on conflict (manager_id) do update set path = excluded.path, updated_at = now(), updated_by = excluded.updated_by;
+  return old;
+end
+$$;
+
+-- Goes back to the ESPN logo for a team this season. Its manager or any moderator can. Returns the file that
+-- was in use (or null) so the site can delete it.
+create or replace function public.clear_team_logo(p_league text, p_team_id int) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  mid text;
+  old text;
+begin
+  select manager_id into mid from season_teams
+  where season = current_season() and league = p_league and team_id = p_team_id;
+  if mid is null then raise exception 'No such team this season'; end if;
+  if not (is_moderator() or mid = my_manager_id()) then
+    raise exception 'Only the team''s manager or a moderator can do that';
+  end if;
+  delete from team_logos where manager_id = mid returning path into old;
+  return old;
+end
+$$;
+
+revoke execute on function public.my_manager_id(), public.set_team_logo(text), public.clear_team_logo(text, int) from public, anon;
+grant execute on function public.my_manager_id(), public.set_team_logo(text), public.clear_team_logo(text, int) to authenticated;
+grant execute on function public.current_team_logos() to anon, authenticated;
+
+-- The bucket: anyone can view the images; the site shrinks uploads to 256px squares well under the limit.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('team-logos', 'team-logos', true, 524288, array['image/webp', 'image/png', 'image/jpeg'])
+on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+-- Managers add files only in their own folder; they and moderators can list and delete them.
+drop policy if exists "managers upload their own logo" on storage.objects;
+create policy "managers upload their own logo" on storage.objects for insert to authenticated
+  with check (bucket_id = 'team-logos' and (storage.foldername(name))[1] = public.my_manager_id());
+drop policy if exists "managers and moderators see logo files" on storage.objects;
+create policy "managers and moderators see logo files" on storage.objects for select to authenticated
+  using (bucket_id = 'team-logos' and ((storage.foldername(name))[1] = public.my_manager_id() or public.is_moderator()));
+drop policy if exists "managers and moderators delete logo files" on storage.objects;
+create policy "managers and moderators delete logo files" on storage.objects for delete to authenticated
+  using (bucket_id = 'team-logos' and ((storage.foldername(name))[1] = public.my_manager_id() or public.is_moderator()));

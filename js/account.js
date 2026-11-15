@@ -101,6 +101,23 @@
   const back = () => `${location.origin}${location.pathname}`;
   const check = ({ error }) => { if (error) throw error; };
 
+  // ---------- custom team logos ----------
+  // 'league:teamId' -> image URL, for this season's teams whose manager uploaded a logo. Loaded with a plain
+  // request (no sign-in needed) so every visitor sees them; app.js waits briefly for it before the first page.
+  const BUCKET = 'team-logos';
+  const logos = new Map();
+  const logoListeners = new Set();
+  const logoUrl = (p) => `${cfg.url}/storage/v1/object/public/${BUCKET}/${p.split('/').map(encodeURIComponent).join('/')}`;
+  const logosReady = !enabled ? Promise.resolve() : fetch(`${cfg.url}/rest/v1/rpc/current_team_logos`, {
+    method: 'POST',
+    headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' },
+    body: '{}',
+  }).then((r) => (r.ok ? r.json() : []))
+    .then((rows) => { for (const r of rows) logos.set(`${r.league}:${r.team_id}`, logoUrl(r.path)); })
+    .catch((err) => console.error('Couldn’t load team logos', err));
+  const logosChanged = () => logoListeners.forEach((fn) => fn());
+  const removeFile = (p) => p && client.storage.from(BUCKET).remove([p]).then(({ error }) => { if (error) console.error(error); });
+
   window.MGDX_ACCOUNT = {
     enabled,
     get state() { return state; },
@@ -130,6 +147,32 @@
       }
       set({ me: data });
       return null;
+    },
+
+    logos,
+    logosReady,
+    onLogosChange(fn) { logoListeners.add(fn); return () => logoListeners.delete(fn); },
+    // Uploads an image (already shrunk by the page) as the signed-in manager's logo.
+    async uploadLogo(blob) {
+      const me = state.me;
+      if (!me || !me.league) throw new Error('Only this season’s managers can change a logo.');
+      const ext = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg' }[blob.type] || 'png';
+      const path = `${me.manager_id}/${Date.now()}.${ext}`;
+      const { error } = await client.storage.from(BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: '31536000' });
+      if (error) throw error;
+      const { data: old, error: err } = await client.rpc('set_team_logo', { p_path: path });
+      if (err) { removeFile(path); throw err; }
+      removeFile(old);
+      logos.set(`${me.league}:${me.team_id}`, logoUrl(path));
+      logosChanged();
+    },
+    // Back to the ESPN logo: the team's own manager, or any moderator.
+    async revertLogo(league, teamId) {
+      const { data: old, error } = await client.rpc('clear_team_logo', { p_league: league, p_team_id: teamId });
+      if (error) throw error;
+      removeFile(old);
+      logos.delete(`${league}:${teamId}`);
+      logosChanged();
     },
   };
 })();

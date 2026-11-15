@@ -1284,3 +1284,33 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .legal b { color: var(--text); }
 .footer-note a { color: inherit; }
 @media (max-width: 600px) { .legal { padding: 20px 16px 22px; } }
+
+/* ===== Custom team logos (Rosters) ===== */
+.logo-btn { position: relative; flex: none; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; }
+.logo-btn .avatar { display: block; }
+.logo-btn:hover .avatar, .logo-btn:focus-visible .avatar, .logo-btn[aria-expanded="true"] .avatar { border-color: #fff; }
+.logo-btn-badge {
+  position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink); border: 2px solid var(--bg);
+}
+.logo-panel { margin: 0 4px 18px; padding: 16px 18px; overflow: visible; }
+.logo-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.logo-panel h3 { margin: 0; font: 800 20px/1.1 var(--display); text-transform: uppercase; }
+.logo-panel p { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
+.logo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.logo-actions .btn { border: 0; font-size: 15px; cursor: pointer; }
+.logo-actions .btn:disabled, .btn-quiet:disabled { opacity: .6; cursor: progress; }
+.logo-file { position: relative; overflow: hidden; }
+.logo-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.logo-file:focus-within { outline: 2px solid #fff; outline-offset: 2px; }
+.btn-quiet { padding: 6px 2px; border: 0; background: none; color: var(--accent); font-weight: 700; cursor: pointer; }
+.btn-quiet:hover { text-decoration: underline; }
+.btn.btn-danger { background: var(--loss); color: #fff; }
+.logo-preview { display: flex; align-items: center; gap: 18px; }
+.logo-preview > div { flex: 1; min-width: 0; }
+.logo-panel .acct-msg { margin: 12px 0 0; }
+@media (max-width: 600px) {
+  .team-head .logo-btn .avatar.xl { width: 64px; height: 64px; }
+  .logo-btn-badge { width: 24px; height: 24px; }
+  .logo-preview { flex-direction: column; align-items: flex-start; }
+}
