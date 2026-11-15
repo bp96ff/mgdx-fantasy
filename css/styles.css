@@ -1222,3 +1222,60 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .career-table th { white-space: nowrap; }
 .career-table td.c-num { white-space: nowrap; }
 @media (max-width: 680px) { .career-table td.c-team { min-width: 170px; } }
+
+/* ===== Account: sign in and link a team ===== */
+.account-link {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text); font-weight: 700; font-size: 14px;
+  text-decoration: none; white-space: nowrap;
+}
+.account-link[hidden] { display: none; }
+.account-link svg { color: var(--accent); flex: none; }
+.account-link:hover { border-color: var(--accent); }
+.account-link.signed-in { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.acct-card { max-width: 460px; margin: 0 auto; padding: 24px 22px; overflow: visible; }
+.acct-card h2 { margin: 0 0 6px; font: 800 26px/1.1 var(--display); text-transform: uppercase; }
+.acct-lede { margin: 0 0 18px; color: var(--muted); line-height: 1.5; }
+.acct-google {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 11px 14px; border-radius: 8px;
+  border: 1px solid #dadce0; background: #fff; color: #1f1f1f; font-weight: 700; cursor: pointer;
+}
+.acct-google:hover { background: #f2f4f6; }
+.acct-or { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--muted); font-size: 13px; }
+.acct-or::before, .acct-or::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
+.acct-form { display: flex; flex-direction: column; gap: 14px; }
+.acct-form label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 14px; }
+.acct-form input {
+  font: inherit; font-size: 16px; color: var(--text); background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 11px 12px;
+}
+.acct-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.acct-form input.acct-code { text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+.acct-form .btn { border: 0; padding: 11px 14px; font-size: 16px; cursor: pointer; }
+.acct-form .btn:disabled, .acct-google:disabled { opacity: .6; cursor: progress; }
+.acct-msg { margin: 14px 0 0; font-size: 14px; color: var(--win); }
+.acct-msg:empty { display: none; }
+.acct-msg.error { color: var(--loss); }
+.acct-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin: 18px 0 0; font-size: 14px; color: var(--muted); }
+.acct-links button { padding: 0; border: 0; background: none; color: var(--accent); font-weight: 700; cursor: pointer; }
+.acct-links button:hover { text-decoration: underline; }
+.acct-who { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.acct-who p { margin: 4px 0 0; color: var(--muted); }
+.acct-who a { color: var(--text); font-weight: 700; }
+.acct-badge { display: inline-block; margin-left: 6px; padding: 3px 8px; border-radius: 6px; vertical-align: 4px; background: var(--accent); color: var(--accent-ink); font: 700 11px/1.2 var(--font); letter-spacing: .1em; }
+@media (max-width: 600px) {
+  .account-link { padding: 8px 10px; }
+  .account-link span { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; }
+  .acct-card { padding: 20px 16px; }
+}
+
+/* ===== Privacy policy ===== */
+.legal { max-width: 760px; margin: 22px auto 0; padding: 26px 28px 30px; line-height: 1.6; overflow: visible; }
+.legal-lede { margin: 0; font-size: 17px; }
+.legal h2 { margin: 26px 0 8px; font: 800 22px/1.15 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.legal p { margin: 0 0 10px; color: #c3d2e1; }
+.legal ul { margin: 0 0 10px; padding-left: 20px; color: #c3d2e1; }
+.legal li { margin-bottom: 6px; }
+.legal b { color: var(--text); }
+.footer-note a { color: inherit; }
+@media (max-width: 600px) { .legal { padding: 20px 16px 22px; } }

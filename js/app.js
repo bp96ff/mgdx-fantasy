@@ -156,6 +156,168 @@
     if (sub === 'recaps') renderRecaps(params);
   }
 
+  // ---------- account ----------
+  // Sign in (Google or email and password), then link the account to a manager with a claim code.
+  // window.MGDX_ACCOUNT comes from js/account.js, which only the current season's page loads.
+  const ACCOUNT = window.MGDX_ACCOUNT;
+  const CLAIM_ERRORS = {
+    'bad-code': 'That code doesn’t match any manager. Check it and try again.',
+    used: 'That code has already been used. If it’s yours, ask a moderator to reset it.',
+    'not-current': `That code is for a manager who isn’t playing in ${SEASON}.`,
+    'too-many': 'Too many tries. Wait an hour, then try again.',
+    'signed-out': 'Sign in first, then enter your code.',
+  };
+  let accountMode = 'sign-in'; // or 'sign-up'
+  let accountView = '';
+  const GOOGLE_G = '<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+
+  function renderAccount() {
+    renderToken++;
+    document.body.dataset.theme = 'home';
+    document.title = 'Your Account · Microgen Fantasy Football';
+    main.innerHTML = `
+      <section class="league-hero cross-hero">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <div class="league-hero-text">
+          <p class="eyebrow">Managers only</p>
+          <h1 class="page-title">Your Account</h1>
+        </div>
+      </section>
+      <div id="account-body"></div>`;
+    accountView = '';
+    drawAccount();
+  }
+
+  function drawAccount() {
+    const el = document.getElementById('account-body');
+    if (!el) return;
+    const s = ACCOUNT ? ACCOUNT.state : { ready: true };
+    // Only redraw when something shown changes, so a background token refresh doesn't wipe a half-typed form.
+    const view = JSON.stringify([ACCOUNT && ACCOUNT.enabled, s.ready, s.user && s.user.id, s.me, s.recovery, s.error, accountMode]);
+    if (view === accountView) return;
+    accountView = view;
+    const msg = s.error ? `<p class="acct-msg error" role="alert">${esc(s.error)}</p>` : '<p class="acct-msg" role="status"></p>';
+    if (ACCOUNT) ACCOUNT.clearError();
+
+    if (!ACCOUNT || !ACCOUNT.enabled) {
+      el.innerHTML = `<section class="placeholder"><img class="placeholder-art" src="assets/img/mgdx-shield.png?v=3" alt="" width="220" height="220">
+        <p class="eyebrow">Sign-in for managers</p><h2 class="page-title">Accounts</h2><p class="placeholder-badge">Coming soon</p></section>`;
+      return;
+    }
+    if (!s.ready) { el.innerHTML = loading('Checking your account'); return; }
+
+    if (s.recovery) {
+      el.innerHTML = `<div class="panel acct-card">
+        <h2>Choose a new password</h2>
+        <form class="acct-form" data-act="new-password">
+          <label>New password<input type="password" name="password" autocomplete="new-password" minlength="8" required></label>
+          <button class="btn" type="submit">Save password</button>
+        </form>${msg}</div>`;
+    } else if (!s.user) {
+      const up = accountMode === 'sign-up';
+      el.innerHTML = `<div class="panel acct-card">
+        <h2>${up ? 'Create your account' : 'Sign in'}</h2>
+        <p class="acct-lede">For ${SEASON} MGDX managers. After signing in, you’ll enter the code you got from the league to link your account to your team.</p>
+        <button class="acct-google" type="button" data-act="google">${GOOGLE_G}<span>Continue with Google</span></button>
+        <p class="acct-or"><span>or with email</span></p>
+        <form class="acct-form" data-act="${up ? 'sign-up' : 'sign-in'}">
+          <label>Email<input type="email" name="email" autocomplete="email" required></label>
+          <label>Password<input type="password" name="password" autocomplete="${up ? 'new-password' : 'current-password'}" minlength="${up ? 8 : 1}" required></label>
+          <button class="btn" type="submit">${up ? 'Create account' : 'Sign in'}</button>
+        </form>
+        ${msg}
+        <p class="acct-links">
+          ${up ? '<button type="button" data-act="mode">Already have an account? Sign in</button>'
+            : '<button type="button" data-act="mode">New here? Create an account</button><button type="button" data-act="forgot">Forgot your password?</button>'}
+        </p></div>`;
+    } else if (!s.me) {
+      el.innerHTML = `<div class="panel acct-card">
+        <h2>Link your team</h2>
+        <p class="acct-lede">Enter the code you got from the league. It links this account to your team, and only works once.</p>
+        <form class="acct-form" data-act="claim">
+          <label>Claim code<input name="code" class="acct-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="LR-XXXXXX" required></label>
+          <button class="btn" type="submit">Link my team</button>
+        </form>
+        ${msg}
+        <p class="acct-links"><span>Signed in as ${esc(s.user.email)}</span><button type="button" data-act="sign-out">Sign out</button></p></div>`;
+    } else {
+      const me = s.me;
+      const league = LEAGUES.find((l) => l.slug === me.league);
+      el.innerHTML = `<div class="panel acct-card">
+        <div class="acct-who">
+          ${league ? `<img class="avatar xl" id="acct-logo" src="${esc(league.logo)}" alt="">` : ''}
+          <div>
+            <h2>${esc(me.name)}${me.moderator ? ' <span class="acct-badge">Moderator</span>' : ''}</h2>
+            ${league ? `<p><a href="#/${league.slug}/rosters?team=${me.team_id}">${esc(me.team_name)}</a> · ${esc(league.name)}</p>`
+              : `<p>Not a manager in ${me.season}, so members-only features are off for this account.</p>`}
+          </div>
+        </div>
+        ${league ? '<p class="acct-lede">You’re all set. Members-only features on the Blog are on the way.</p>' : ''}
+        ${msg}
+        <p class="acct-links"><span>Signed in as ${esc(s.user.email)}</span><button type="button" data-act="sign-out">Sign out</button></p></div>`;
+      // The team's own logo, from the saved standings
+      if (league) {
+        fetch(`${DATA}standings.json`).then((r) => r.json()).then((st) => {
+          const t = ((st.leagues[league.slug] || {}).teams || []).find((x) => x.id === me.team_id);
+          const img = document.getElementById('acct-logo');
+          if (t && t.logo && img) img.src = t.logo;
+        }).catch(() => {});
+      }
+    }
+  }
+
+  function accountMessage(text, error) {
+    const p = document.querySelector('#account-body .acct-msg');
+    if (!p) return;
+    p.textContent = text;
+    p.classList.toggle('error', Boolean(error));
+  }
+
+  if (ACCOUNT && !ARCHIVE) {
+    ACCOUNT.onChange(() => { if (parseHash().parts[0] === 'account') drawAccount(); });
+    main.addEventListener('click', async (e) => {
+      const b = e.target.closest('#account-body button[data-act]');
+      if (!b) return;
+      const act = b.dataset.act;
+      try {
+        if (act === 'mode') { accountMode = accountMode === 'sign-up' ? 'sign-in' : 'sign-up'; drawAccount(); }
+        else if (act === 'google') { b.disabled = true; await ACCOUNT.google(); }
+        else if (act === 'sign-out') await ACCOUNT.signOut();
+        else if (act === 'forgot') {
+          const email = document.querySelector('#account-body input[name=email]').value.trim();
+          if (!email) return accountMessage('Enter your email above, then choose Forgot your password again.', true);
+          await ACCOUNT.resetPassword(email);
+          accountMessage(`If ${email} has an account, a link to reset the password is on its way.`);
+        }
+      } catch (err) {
+        b.disabled = false;
+        accountMessage(err.message || String(err), true);
+      }
+    });
+    main.addEventListener('submit', async (e) => {
+      const form = e.target.closest('#account-body form[data-act]');
+      if (!form) return;
+      e.preventDefault();
+      const f = Object.fromEntries(new FormData(form));
+      const btn = form.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try {
+        const act = form.dataset.act;
+        if (act === 'sign-in') await ACCOUNT.signIn(f.email.trim(), f.password);
+        else if (act === 'sign-up') {
+          if (await ACCOUNT.signUp(f.email.trim(), f.password)) accountMessage(`Check ${f.email.trim()} for a link to confirm your account, then sign in.`);
+        } else if (act === 'new-password') await ACCOUNT.updatePassword(f.password);
+        else if (act === 'claim') {
+          const err = await ACCOUNT.claim(f.code);
+          if (err) accountMessage(CLAIM_ERRORS[err] || 'Something went wrong. Try again.', true);
+        }
+      } catch (err) {
+        accountMessage(err.message || String(err), true);
+      }
+      btn.disabled = false;
+    });
+  }
+
   // ---------- archives ----------
   const ARCHIVE_TABS = ['records', 'career', 'history'];
   const ARCHIVE_TAB_NAMES = { records: 'Records', career: 'Careers', history: 'League History' };
@@ -3497,6 +3659,9 @@
       renderToken++;
       setActiveNav('archives');
       renderArchives(ARCHIVE_TABS.includes(parts[1]) ? parts[1] : 'records', params);
+    } else if (key === 'account' && ACCOUNT && !ARCHIVE) {
+      setActiveNav('');
+      renderAccount();
     } else if (PLACEHOLDERS[key]) {
       renderToken++;
       setActiveNav(key);

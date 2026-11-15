@@ -14,6 +14,13 @@ window.MGDX = {
       11: 390406565, 12: 1772889291, 13: 764862361, 14: 1110700489,
     },
   },
+  // Manager accounts (js/account.js). From Supabase: the Project URL and the publishable key
+  // (sb_publishable_...). That key is meant to be public; what it can do is limited by supabase/schema.sql.
+  // Leave both blank to turn sign-in off.
+  SUPABASE: {
+    url: 'https://blfbdmrnrwvylvqakgck.supabase.co',
+    anonKey: 'sb_publishable_YgYOVZ69vU8LUPqhHvN7YQ_RJdv64e_',
+  },
   LEAGUES: [
     {
       slug: 'lab-rats',
