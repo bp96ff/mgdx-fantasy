@@ -367,7 +367,9 @@ language plpgsql security definer set search_path = public as $$
 declare mid text := my_manager_id();
 begin
   if mid is null then raise exception 'Only this season''s managers can react'; end if;
-  if p_emoji is null or not (p_emoji = any (array['like', 'laugh', 'fire', 'goat', 'skull', 'salt', 'cry', 'trash'])) then
+  -- The same keys as REACTIONS in js/app.js
+  if p_emoji is null or not (p_emoji = any (array['like', 'dislike', 'love', 'laugh', 'fire', 'goat', 'king', 'hundred',
+      'cool', 'eyes', 'shocked', 'skull', 'clown', 'salt', 'fuming', 'cry', 'pray', 'lucky', 'trash'])) then
     raise exception 'Unknown reaction';
   end if;
   if p_target is null or p_target !~ ('^(post:[0-9a-f-]{36}|recap:[0-9]{4}:w[0-9]{1,2}'

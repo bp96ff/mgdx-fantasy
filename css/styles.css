@@ -1334,9 +1334,10 @@ button.react-chip:hover { border-color: var(--accent); }
 .react-add summary::-webkit-details-marker { display: none; }
 .react-add summary:hover, .react-add[open] summary { border-color: var(--accent); color: var(--text); }
 .react-menu {
-  position: absolute; z-index: 4; bottom: calc(100% + 6px); left: 0; display: grid; grid-template-columns: repeat(4, 40px); gap: 4px;
+  position: fixed; z-index: 40; top: 0; left: 0; display: grid; grid-template-columns: repeat(5, 40px); gap: 4px; /* placed by app.js */
   padding: 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); box-shadow: var(--shadow);
 }
+.react-menu:not(.placed) { visibility: hidden; }
 .react-menu button { width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; font-size: 22px; cursor: pointer; }
 .react-menu button:hover, .react-menu button:focus-visible { background: var(--surface-3); }
 .matchup > .react { margin: 12px 0 0; justify-content: center; }
@@ -1382,7 +1383,6 @@ button.react-chip:hover { border-color: var(--accent); }
 .post-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
 .post-more { display: flex; justify-content: center; margin: 2px 0 12px; }
 .post-start { margin: 2px 0 12px; text-align: center; color: var(--muted); font-size: 13px; }
-.react-add.down .react-menu { bottom: auto; top: calc(100% + 6px); }
 @media (max-width: 600px) {
   .post { padding: 14px; }
   .post-tools { flex-direction: column; gap: 0; align-items: flex-end; }

@@ -170,9 +170,12 @@
   // ---------- reactions ----------
   // Members react to posts, recaps, matchup cards and Weekly Snapshot cards. A bar shows each reaction used so
   // far with its count (hover for who); members toggle one by tapping it, or add another from the + menu.
+  // Keys must match toggle_reaction() in supabase/schema.sql.
   const REACTIONS = [
-    ['like', '👍', 'Like'], ['laugh', '😂', 'Funny'], ['fire', '🔥', 'Fire'], ['goat', '🐐', 'GOAT'],
-    ['skull', '💀', 'Dead'], ['salt', '🧂', 'Salty'], ['cry', '😭', 'Crying'], ['trash', '🗑️', 'Trash'],
+    ['like', '👍', 'Like'], ['dislike', '👎', 'Dislike'], ['love', '❤️', 'Love'], ['laugh', '😂', 'Funny'], ['fire', '🔥', 'Fire'],
+    ['goat', '🐐', 'GOAT'], ['king', '👑', 'King'], ['hundred', '💯', '100'], ['cool', '😎', 'Cool'], ['eyes', '👀', 'Eyes'],
+    ['shocked', '😱', 'Shocked'], ['skull', '💀', 'Dead'], ['clown', '🤡', 'Clown'], ['salt', '🧂', 'Salty'], ['fuming', '😤', 'Fuming'],
+    ['cry', '😭', 'Crying'], ['pray', '🙏', 'Pray'], ['lucky', '🍀', 'Lucky'], ['trash', '🗑️', 'Trash'],
   ];
   const reactCache = new Map(); // target -> [{ emoji, manager_id, name }]
   const canReact = () => Boolean(ACCOUNT && !ARCHIVE && ACCOUNT.state.me && ACCOUNT.state.me.league);
@@ -242,15 +245,23 @@
     document.addEventListener('click', async (e) => {
       // Close an open + menu when tapping anywhere else
       document.querySelectorAll('.react-add[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; });
-      // The menu opens upward; where that would be cut off (top of the Main Blog's scroll box), open it downward.
+      // The menu floats over the page (so no card or scroll box cuts it off): above its button where there's
+      // room below the sticky header, otherwise below, and kept inside the screen's width.
       const sum = e.target.closest('.react-add summary');
       if (sum) {
+        const m0 = sum.parentElement.querySelector('.react-menu');
+        if (m0) m0.classList.remove('placed'); // hidden until it's in place, so it doesn't flash in the corner
         requestAnimationFrame(() => {
           const d = sum.parentElement;
-          const box = d.closest('.post-scroll');
-          d.classList.remove('down');
           const menu = d.querySelector('.react-menu');
-          if (d.open && menu && menu.getBoundingClientRect().top < Math.max(box ? box.getBoundingClientRect().top : 0, 90)) d.classList.add('down');
+          if (!d.open || !menu) return;
+          const r = sum.getBoundingClientRect();
+          const header = document.querySelector('.site-header');
+          const minTop = (header ? header.getBoundingClientRect().bottom : 0) + 6;
+          const h = menu.offsetHeight, w = menu.offsetWidth;
+          menu.style.top = `${r.top - h - 6 >= minTop ? r.top - h - 6 : r.bottom + 6}px`;
+          menu.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
+          menu.classList.add('placed');
         });
       }
       const b = e.target.closest('.react [data-react-emoji]');
@@ -276,6 +287,11 @@
     });
     // Signing in or out changes who can react; redraw every bar.
     ACCOUNT.onChange(() => redrawReactions());
+    // A floating menu would drift from its button on scroll, so scrolling closes it.
+    document.addEventListener('scroll', (e) => {
+      if (e.target.closest && e.target.closest('.react-menu')) return;
+      document.querySelectorAll('.react-add[open]').forEach((d) => { d.open = false; });
+    }, { capture: true, passive: true });
   }
 
   // ---------- Main Blog: posts ----------
