@@ -1216,13 +1216,13 @@
             uploaded = await ACCOUNT.uploadPostMedia(a.blob);
             media = { p_media_kind: 'image', p_media: uploaded, p_media_w: a.w, p_media_h: a.h };
           } else if (a) media = { p_media_kind: 'gif', p_media: a.url, p_media_w: a.w, p_media_h: a.h };
-          await ACCOUNT.write('create_post', { p_body: body, ...media });
+          notifyPost(await ACCOUNT.write('create_post', { p_body: body, ...media }));
           uploaded = null;
           dropAttach();
           feed = { ...feed, draft: '', busy: false };
         } else if (form.dataset.postAct === 'reply') {
           const id = form.closest('[data-post]').dataset.post;
-          await ACCOUNT.write('create_post', { p_body: body, p_parent: id });
+          notifyPost(await ACCOUNT.write('create_post', { p_body: body, p_parent: id }));
           const rows = await ACCOUNT.read('list_replies', { p_parents: [id] });
           feed.replies.set(id, rows);
           const post = feed.posts.find((x) => x.id === id);
@@ -1400,6 +1400,8 @@
       b.title = title;
       b.classList.toggle('at', Boolean(at));
     });
+    // The count on the installed app's icon, where the phone supports it.
+    if (navigator.setAppBadge) (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
   }
   async function checkUnread() {
     if (!canReact()) { Object.assign(unread, { posts: 0, mentions: 0 }); return drawUnread(); }
@@ -1530,7 +1532,7 @@
               : `<p>Not a manager in ${me.season}, so members-only features are off for this account.</p>`}
           </div>
         </div>
-        ${league ? '<p class="acct-lede">You’re all set. Members-only features on the Blog are on the way.</p>' : ''}
+        ${league ? '<p class="acct-lede">You’re all set: post and react on the Blog, and make your picks in Predictions.</p>' : ''}
         ${msg}
         <p class="acct-links"><span>Signed in as ${esc(s.user.email)}</span><button type="button" data-act="sign-out">Sign out</button></p></div>`;
       // The team's own logo, from the saved standings
@@ -1543,6 +1545,148 @@
         }).catch(() => {});
       }
     }
+    el.insertAdjacentHTML('beforeend', '<section class="panel acct-card app-card" id="app-panel" aria-label="App and notifications"></section>');
+    drawAppPanel();
+  }
+
+  // ---------- the app (installable site) and notifications ----------
+  // sw.js shows notifications and keeps the last pages seen for offline use; manifest.webmanifest makes the
+  // site installable. Notifications come from the push Edge Function (supabase/functions/push).
+  let installPrompt = null; // Chrome/Android's install offer, kept for the Install button
+  let deviceSaved = false; // this visit re-saved the device's subscription (its address can change)
+  const appStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const appIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch((err) => console.warn('No offline app', err)));
+    navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'open') location.href = e.data.url; });
+  }
+  window.addEventListener('beforeinstallprompt', (e) => { installPrompt = e; drawAppPanel(); });
+  window.addEventListener('appinstalled', () => { installPrompt = null; drawAppPanel(); });
+
+  function notifyPost(id) {
+    if (!id || !ACCOUNT || !ACCOUNT.push) return;
+    ACCOUNT.push({ action: 'post', id }).catch((err) => console.warn('Notifications not sent', err.message));
+  }
+  const keyBytes = (b64) => {
+    const raw = atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  };
+  async function deviceSubscription() {
+    if (!pushSupported()) return null;
+    const reg = await navigator.serviceWorker.getRegistration();
+    return reg ? reg.pushManager.getSubscription() : null;
+  }
+  const saveDevice = (sub) => {
+    const j = sub.toJSON();
+    return ACCOUNT.write('save_push_device', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
+  };
+
+  async function drawAppPanel(note) {
+    const el = document.getElementById('app-panel');
+    if (!el) return;
+    const s = ACCOUNT ? ACCOUNT.state : {};
+    const member = Boolean(s.me && s.me.league);
+    const ios = appIos();
+    const installed = appStandalone();
+    const install = installed ? '<p class="acct-lede">You’re using the MGDX app.</p>'
+      : installPrompt ? `<p class="acct-lede">Add MGDX to your home screen. It opens full screen, like any other app.</p>
+          <button class="btn" type="button" data-app="install">Install the app</button>`
+      : ios ? `<p class="acct-lede">Add MGDX to your Home Screen. It opens full screen, like any other app.</p>
+          <ol class="app-steps"><li>Open mgdxfantasy.com in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span class="app-share" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>.</li><li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li></ol>`
+      : `<p class="acct-lede">Add MGDX to your home screen: open your browser’s menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p>`;
+
+    let notes = '';
+    if (member) {
+      const sub = await deviceSubscription().catch(() => null);
+      if (!document.getElementById('app-panel')) return;
+      if (sub && !deviceSaved) { deviceSaved = true; saveDevice(sub).catch(() => {}); }
+      let settings = null;
+      try { [settings] = await ACCOUNT.write('push_settings'); } catch (err) { console.warn(err); }
+      if (!document.getElementById('app-panel')) return;
+      const toggles = settings ? `
+        <fieldset class="app-prefs"${sub ? '' : ' disabled'}>
+          <legend class="sr-only">Send me a notification</legend>
+          ${[['mentions', 'When someone @mentions me'], ['replies', 'When someone replies to my post'], ['picks', 'A few hours before Predictions lock']]
+            .map(([k, label]) => `<label class="app-pref"><input type="checkbox" data-pref="${k}" ${settings[k] ? 'checked' : ''}><span>${label}</span></label>`).join('')}
+        </fieldset>` : '';
+      let state;
+      if (!pushSupported()) {
+        state = ios && !installed
+          ? '<p class="acct-lede">On iPhone and iPad, notifications work in the app. Add it to your Home Screen (above), open MGDX from there, and turn them on here.</p>'
+          : '<p class="acct-lede">This browser can’t show notifications. Try the app on your phone.</p>';
+      } else if (Notification.permission === 'denied') {
+        state = '<p class="acct-lede">Notifications are blocked for MGDX. Allow them in your phone or browser settings, then come back here.</p>';
+      } else if (sub) {
+        state = `<p class="acct-lede"><b class="app-on">On</b> for this device.</p>
+          <div class="app-actions"><button class="btn" type="button" data-app="test">Send a test</button>
+          <button class="btn-quiet" type="button" data-app="off">Turn off on this device</button></div>`;
+      } else {
+        state = `<p class="acct-lede">Get a notification when someone @mentions you or replies to your post, and a reminder before Predictions lock.</p>
+          <button class="btn" type="button" data-app="on">Turn on notifications</button>`;
+      }
+      notes = `<h3>Notifications</h3>${state}${toggles}`;
+    }
+    el.innerHTML = `<h2>The MGDX app</h2>${install}${notes}<p class="acct-msg app-msg" role="status">${note ? esc(note) : ''}</p>`;
+  }
+  const appMessage = (text, error) => {
+    const p = document.querySelector('#app-panel .app-msg');
+    if (!p) return;
+    p.textContent = text;
+    p.classList.toggle('error', Boolean(error));
+  };
+
+  if (ACCOUNT && !ARCHIVE) {
+    main.addEventListener('click', async (e) => {
+      const b = e.target.closest('#app-panel button[data-app]');
+      if (!b) return;
+      const act = b.dataset.app;
+      b.disabled = true;
+      try {
+        if (act === 'install' && installPrompt) {
+          installPrompt.prompt();
+          await installPrompt.userChoice;
+          installPrompt = null;
+          drawAppPanel();
+        } else if (act === 'on') {
+          const perm = await Notification.requestPermission(); // first, while the tap still counts
+          if (perm !== 'granted') { drawAppPanel(perm === 'denied' ? '' : 'Notifications weren’t turned on.'); return; }
+          const reg = await navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready);
+          const { publicKey } = await ACCOUNT.push({ action: 'key' });
+          const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
+          await saveDevice(sub);
+          deviceSaved = true;
+          drawAppPanel('Notifications are on. Try Send a test.');
+        } else if (act === 'off') {
+          const sub = await deviceSubscription();
+          if (sub) {
+            await ACCOUNT.write('remove_push_device', { p_endpoint: sub.endpoint }).catch(() => {});
+            await sub.unsubscribe();
+          }
+          drawAppPanel('Notifications are off for this device.');
+        } else if (act === 'test') {
+          const { sent } = await ACCOUNT.push({ action: 'test' });
+          appMessage(sent ? `Sent to ${sent} device${sent === 1 ? '' : 's'}. It should arrive in a few seconds.` : 'No devices got it. Turn notifications off and on again.', !sent);
+          b.disabled = false;
+        }
+      } catch (err) {
+        b.disabled = false;
+        appMessage(err.message || String(err), true);
+      }
+    });
+    main.addEventListener('change', async (e) => {
+      const box = e.target.closest('#app-panel input[data-pref]');
+      if (!box) return;
+      const args = { p_mentions: null, p_replies: null, p_picks: null };
+      args[`p_${box.dataset.pref}`] = box.checked;
+      try {
+        await ACCOUNT.write('set_push_settings', args);
+        appMessage('Saved.');
+      } catch (err) {
+        box.checked = !box.checked;
+        appMessage(err.message || String(err), true);
+      }
+    });
   }
 
   function accountMessage(text, error) {
@@ -1561,7 +1705,14 @@
       try {
         if (act === 'mode') { accountMode = accountMode === 'sign-up' ? 'sign-in' : 'sign-up'; drawAccount(); }
         else if (act === 'google') { b.disabled = true; await ACCOUNT.google(); }
-        else if (act === 'sign-out') await ACCOUNT.signOut();
+        else if (act === 'sign-out') {
+          const sub = await deviceSubscription().catch(() => null);
+          if (sub) {
+            await ACCOUNT.write('remove_push_device', { p_endpoint: sub.endpoint }).catch(() => {});
+            await sub.unsubscribe().catch(() => {});
+          }
+          await ACCOUNT.signOut();
+        }
         else if (act === 'forgot') {
           const email = document.querySelector('#account-body input[name=email]').value.trim();
           if (!email) return accountMessage('Enter your email above, then choose Forgot your password again.', true);

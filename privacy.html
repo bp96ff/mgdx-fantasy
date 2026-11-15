@@ -7,11 +7,13 @@
   <meta name="description" content="What the Microgen Fantasy Football site collects when managers sign in, and how it's used.">
   <meta name="theme-color" content="#061a2c">
   <link rel="icon" type="image/png" href="assets/img/mgdx-shield.png?v=3">
-  <link rel="apple-touch-icon" href="assets/img/mgdx-shield.png?v=3">
+  <link rel="apple-touch-icon" href="assets/img/app/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-title" content="MGDX">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=173">
+  <link rel="stylesheet" href="css/styles.css?v=174">
 </head>
 <body data-theme="home">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -51,8 +53,9 @@
         <li><b>Your manager link.</b> Which league manager your account belongs to, and when you entered your claim code. Attempts to enter a code are logged with a time, to stop guessing.</li>
         <li><b>Sign-in records.</b> The sign-in service keeps basic security logs, such as when you signed in and from what IP address.</li>
         <li><b>What you post.</b> Your posts, reactions, team logo and any pictures you upload. These are public on the site. Deleting a post deletes its picture too.</li>
+        <li><b>Notifications, if you turn them on.</b> For each phone or browser you turn them on in, the address its push service gives it, and which kinds of notifications you want. Turning them off on a device, or signing out there, deletes that device’s address.</li>
       </ul>
-      <p>The site has no ads, analytics or tracking. Your browser keeps a sign-in token so you stay signed in; signing out removes it.</p>
+      <p>The site has no ads, analytics or tracking. Your browser keeps a sign-in token so you stay signed in; signing out removes it. It also keeps a copy of the pages you’ve opened, so the app still opens without a signal.</p>
 
       <h2>How it’s used</h2>
       <p>Only to sign you in, show which team is yours, and let members and moderators use the site’s members-only features. We don’t sell or share your information, and we don’t send email except for account messages you ask for, like confirming your address or resetting your password.</p>
@@ -64,6 +67,7 @@
         <li><b>Google</b> handles “Continue with Google” if you choose it, and serves the site’s fonts.</li>
         <li><b>Resend</b> delivers account emails.</li>
         <li><b>GitHub Pages</b> hosts the site.</li>
+        <li><b>Apple, Google or Mozilla</b> (whichever made your phone or browser) deliver notifications, if you turn them on. What a notification says passes through their push service, encrypted.</li>
       </ul>
       <p>League scores, rosters and team names come from ESPN Fantasy and are shown to everyone, with or without an account.</p>
 

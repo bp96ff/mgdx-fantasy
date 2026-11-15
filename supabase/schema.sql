@@ -632,3 +632,143 @@ $$;
 revoke execute on function public.set_pick(int, text, text), public.my_picks(int) from public, anon;
 grant execute on function public.set_pick(int, text, text), public.my_picks(int) to authenticated;
 grant execute on function public.pick_weeks(), public.pick_tallies() to anon, authenticated;
+
+-- ---------- App notifications ----------
+-- Each phone or browser a member turned notifications on in (its Web Push subscription). The site saves and
+-- removes its own device; only the push Edge Function (supabase/functions/push) reads them, with the service key.
+create table if not exists public.push_devices (
+  endpoint text primary key check (endpoint like 'https://%' and char_length(endpoint) <= 1000),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  p256dh text not null check (char_length(p256dh) <= 200),
+  auth text not null check (char_length(auth) <= 100),
+  created_at timestamptz not null default now()
+);
+create index if not exists push_devices_user on public.push_devices (user_id);
+alter table public.push_devices enable row level security;
+revoke all on public.push_devices from anon, authenticated;
+
+-- Which notifications a member wants (all on until they turn one off).
+alter table public.profiles add column if not exists push_mentions boolean not null default true;
+alter table public.profiles add column if not exists push_replies boolean not null default true;
+alter table public.profiles add column if not exists push_picks boolean not null default true;
+
+-- What has been sent, so a post or a week's reminder only goes out once.
+create table if not exists public.push_sent (
+  kind text not null,
+  key text not null,
+  at timestamptz not null default now(),
+  primary key (kind, key)
+);
+alter table public.push_sent enable row level security;
+revoke all on public.push_sent from anon, authenticated;
+
+-- Saves this device for the signed-in member (up to 10 devices each; the oldest goes first).
+create or replace function public.save_push_device(p_endpoint text, p_p256dh text, p_auth text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from profiles where user_id = auth.uid()) then raise exception 'Link your team first'; end if;
+  insert into push_devices (endpoint, user_id, p256dh, auth) values (p_endpoint, auth.uid(), p_p256dh, p_auth)
+  on conflict (endpoint) do update set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, created_at = now();
+  delete from push_devices where user_id = auth.uid() and endpoint in (
+    select endpoint from push_devices where user_id = auth.uid() order by created_at desc offset 10);
+end
+$$;
+
+create or replace function public.remove_push_device(p_endpoint text) returns void
+language sql security definer set search_path = public as $$
+  delete from push_devices where endpoint = p_endpoint and user_id = auth.uid()
+$$;
+
+create or replace function public.push_settings()
+returns table (mentions boolean, replies boolean, picks boolean, devices int)
+language sql stable security definer set search_path = public as $$
+  select p.push_mentions, p.push_replies, p.push_picks,
+    (select count(*)::int from push_devices d where d.user_id = p.user_id)
+  from profiles p where p.user_id = auth.uid()
+$$;
+
+create or replace function public.set_push_settings(p_mentions boolean, p_replies boolean, p_picks boolean) returns void
+language sql security definer set search_path = public as $$
+  update profiles set push_mentions = coalesce(p_mentions, push_mentions), push_replies = coalesce(p_replies, push_replies),
+    push_picks = coalesce(p_picks, push_picks)
+  where user_id = auth.uid()
+$$;
+
+-- For the push function only. A new post or reply by p_user (checked: theirs, under 10 minutes old, not sent
+-- before): the devices of this season's members it @mentions, and, for a reply, the post's author.
+create or replace function public.push_post_recipients(p_post uuid, p_user uuid)
+returns table (endpoint text, p256dh text, auth text, reason text, author text, body text, parent_id uuid)
+language plpgsql security definer set search_path = public as $$
+declare post record;
+begin
+  select x.id, x.body, x.parent_id, x.manager_id, m.name into post
+  from posts x join managers m on m.id = x.manager_id
+  join profiles pr on pr.manager_id = x.manager_id and pr.user_id = p_user
+  where x.id = p_post and x.created_at > now() - interval '10 minutes';
+  if post.id is null then return; end if;
+  insert into push_sent (kind, key) values ('post', p_post::text) on conflict do nothing;
+  if not found then return; end if;
+  return query
+  with members as (
+    select pr.user_id, pr.manager_id, pr.push_mentions, pr.push_replies, m.name,
+      '(^|[^[:alnum:]_])@' || regexp_replace(m.name, '([^[:alnum:] ])', '\\\1', 'g') || '($|[^[:alnum:]_])' as pattern
+    from profiles pr join managers m on m.id = pr.manager_id
+    join season_teams s on s.manager_id = pr.manager_id and s.season = current_season()
+    where pr.manager_id <> post.manager_id
+  ), why as (
+    select mb.user_id, case
+      when mb.push_mentions and post.body ~* mb.pattern then 'mention'
+      when mb.push_replies and post.parent_id is not null
+        and mb.manager_id = (select manager_id from posts where posts.id = post.parent_id) then 'reply'
+    end as reason
+    from members mb
+  )
+  select d.endpoint, d.p256dh, d.auth, w.reason, post.name, post.body, post.parent_id
+  from why w join push_devices d on d.user_id = w.user_id
+  where w.reason is not null;
+end
+$$;
+
+-- For the push function only. When a week's Predictions lock is under 3 hours away and its reminder hasn't
+-- gone out: every member's devices (with pick reminders on), their league and how many picks they've made.
+create or replace function public.push_pick_recipients()
+returns table (endpoint text, p256dh text, auth text, week int, locks_at timestamptz, league text, picks int)
+language plpgsql security definer set search_path = public as $$
+declare lk record;
+begin
+  select l.season, l.week, l.locks_at into lk from pick_locks l
+  where l.season = current_season() and l.locks_at > now() and l.locks_at <= now() + interval '3 hours'
+  order by l.locks_at limit 1;
+  if lk.week is null then return; end if;
+  insert into push_sent (kind, key) values ('picks', lk.season || '-' || lk.week) on conflict do nothing;
+  if not found then return; end if;
+  return query
+  select d.endpoint, d.p256dh, d.auth, lk.week, lk.locks_at, s.league,
+    (select count(*)::int from picks k where k.season = lk.season and k.week = lk.week and k.manager_id = pr.manager_id)
+  from profiles pr
+  join season_teams s on s.manager_id = pr.manager_id and s.season = lk.season
+  join push_devices d on d.user_id = pr.user_id
+  where pr.push_picks;
+end
+$$;
+
+-- For the push function only: a member's own devices (the "Send a test" button), and forgetting a device the
+-- push service says is gone.
+create or replace function public.push_user_devices(p_user uuid)
+returns table (endpoint text, p256dh text, auth text)
+language sql stable security definer set search_path = public as $$
+  select d.endpoint, d.p256dh, d.auth from push_devices d where d.user_id = p_user
+$$;
+create or replace function public.forget_push_device(p_endpoint text) returns void
+language sql security definer set search_path = public as $$
+  delete from push_devices where endpoint = p_endpoint
+$$;
+
+revoke execute on function public.save_push_device(text, text, text), public.remove_push_device(text),
+  public.push_settings(), public.set_push_settings(boolean, boolean, boolean) from public, anon;
+grant execute on function public.save_push_device(text, text, text), public.remove_push_device(text),
+  public.push_settings(), public.set_push_settings(boolean, boolean, boolean) to authenticated;
+revoke execute on function public.push_post_recipients(uuid, uuid), public.push_pick_recipients(),
+  public.push_user_devices(uuid), public.forget_push_device(text) from public, anon, authenticated;
+grant execute on function public.push_post_recipients(uuid, uuid), public.push_pick_recipients(),
+  public.push_user_devices(uuid), public.forget_push_device(text) to service_role;

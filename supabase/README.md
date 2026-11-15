@@ -72,6 +72,27 @@ Run `pick-locks-<season>.sql` in the SQL editor. It says when each week's picks 
 kickoff. Each game's favorite and underdog come from `data/predictions.json`, which the "Predictions
 favorites" GitHub workflow saves shortly before each lock (`tools/run-pick-favorites.js`).
 
+### 7. App notifications
+The site installs as an app (`manifest.webmanifest`, `sw.js`). Members turn notifications on under **Your
+Account**. The `push` Edge Function (`functions/push/index.ts`) sends them: @mentions, replies to your post,
+and a reminder about 3 hours before Predictions lock (the "Predictions favorites" workflow asks for it).
+
+1. Run the latest `schema.sql`.
+2. Make the notification keys. In a terminal on your computer (needs Node), run
+   `npx web-push generate-vapid-keys`. It prints a public key and a private key. Keep the private key
+   private: don't send it to anyone, Claude included.
+3. In Supabase, go to **Edge Functions → Secrets** and add two secrets:
+   - `VAPID_PUBLIC_KEY` = the public key
+   - `VAPID_PRIVATE_KEY` = the private key
+4. **Edge Functions → Deploy a new function → Via Editor**. Name it `push`, replace the sample code with all of
+   `functions/push/index.ts`, and deploy.
+5. Open the `push` function's **Details** and turn off **Verify JWT with legacy secret** (JWT verification), then
+   save. The function checks who's calling itself, and the site's publishable key isn't a JWT.
+6. Try it: on your phone, add the site to your Home Screen, open it from there, go to **Your Account → Turn on
+   notifications**, then **Send a test**.
+
+If you change the keys later, everyone has to turn notifications on again.
+
 ## Each season
 Once `data/standings.json` has the new season's teams:
 

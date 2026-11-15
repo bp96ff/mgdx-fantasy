@@ -1588,3 +1588,19 @@ button.react-chip:hover { border-color: var(--accent); }
   .rv-row > span { font-size: 16px; }
   .rv-games .rv-team { display: none; }
 }
+
+/* ===== The app (account page) ===== */
+.app-card { margin-top: 16px; }
+.app-card h3 { margin: 18px 0 6px; padding-top: 16px; border-top: 1px solid var(--line); font: 800 18px/1.1 var(--display); text-transform: uppercase; letter-spacing: .03em; }
+.app-card .acct-lede { margin-bottom: 12px; }
+.app-card .btn { border: 0; cursor: pointer; font-size: 15px; padding: 10px 16px; }
+.app-card .btn:disabled { opacity: .6; cursor: progress; }
+.app-steps { margin: 0 0 4px; padding-left: 22px; line-height: 1.7; color: var(--muted); }
+.app-steps b { color: var(--text); }
+.app-share { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; background: var(--surface-2); color: var(--accent); vertical-align: -6px; }
+.app-on { color: var(--win); }
+.app-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.app-prefs { margin: 16px 0 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 10px; }
+.app-prefs[disabled] { opacity: .5; }
+.app-pref { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.app-pref input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }

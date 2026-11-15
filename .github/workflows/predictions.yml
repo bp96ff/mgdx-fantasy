@@ -1,6 +1,8 @@
 # Saves each team's max projected lineup just before the week's Predictions lock (its first NFL game), which
 # decides each game's favorite and underdog. Checks every 30 minutes Wednesday through Friday (UTC), since a
 # week's first game is always in that span. Most checks change nothing, and then nothing is committed.
+# Each check also asks the push function to send the week's "picks lock soon" notification, which it does once,
+# when the lock is under 3 hours away.
 name: Predictions favorites
 
 on:
@@ -23,6 +25,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      - name: Pick reminder notifications (sent once, when a lock is under 3 hours away)
+        continue-on-error: true
+        run: |
+          curl -sS --max-time 60 -X POST "https://blfbdmrnrwvylvqakgck.supabase.co/functions/v1/push" -H "Content-Type: application/json" -H "apikey: sb_publishable_YgYOVZ69vU8LUPqhHvN7YQ_RJdv64e_" -d '{"action":"reminders"}'
       - run: node tools/run-pick-favorites.js
       - name: Save the favorites
         run: |

@@ -183,6 +183,18 @@
     },
     removePostMedia: (p) => p && client.storage.from('post-media').remove([p]).then(({ error }) => { if (error) console.error(error); }),
 
+    // The push Edge Function (app notifications), with the member's session when signed in.
+    async push(body) {
+      if (!client) throw new Error('Sign-in isn’t ready yet.');
+      const { data, error } = await client.functions.invoke('push', { body });
+      if (error) {
+        let msg = error.message;
+        try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) { /* not JSON */ }
+        throw new Error(msg);
+      }
+      return data;
+    },
+
     logos,
     logosReady,
     onLogosChange(fn) { logoListeners.add(fn); return () => logoListeners.delete(fn); },
