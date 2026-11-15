@@ -1208,3 +1208,9 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .rc-update { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--k, var(--accent)); border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--k, var(--accent)) 10%, transparent); }
 .rc-update .rc-hm-tag { margin-top: 0; }
 .rc-update p:last-child { margin-bottom: 0; }
+/* Weekly Snapshot: a top score that ranks among the 50 highest of all time */
+.tw-team small.tw-alltime {
+  align-self: flex-start; margin-top: 5px; padding: 3px 8px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #f2c94c 55%, transparent); background: color-mix(in srgb, #f2c94c 14%, transparent);
+  color: #f2c94c; font-size: 11px; font-weight: 700; letter-spacing: .04em; white-space: normal;
+}

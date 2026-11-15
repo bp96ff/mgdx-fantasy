@@ -1862,7 +1862,7 @@
 
   function twCard(label, inner, note, link) {
     return `
-      <article class="panel tw-card">
+      <article class="panel tw-card" data-card="${esc(label)}">
         <h3 class="tw-label">${link ? `<a href="${esc(link)}" title="View this matchup">${esc(label)}<i class="tw-go" aria-hidden="true"></i></a>` : esc(label)}</h3>
         ${inner}
         ${note ? `<p class="tw-note">${esc(note)}</p>` : ''}
@@ -1891,8 +1891,117 @@
   function twStreaksCard(streaks, week, live) {
     if (!streaks) return '';
     const row = (x, letter) => `<li>${twTeam(x.side, week, live, `<b class="tw-score ${letter === 'W' ? 'up' : 'down'}">${letter}${x.length}</b><small>${letter === 'W' ? 'won' : 'lost'} in a row</small>`)}</li>`;
-    const group = (title, list, letter) => (list.length ? `<h4 class="tw-sub">${title}</h4><ul class="tw-list plain">${list.map((x) => row(x, letter)).join('')}</ul>` : '');
+    const group = (title, list, letter) => (list.length ? `<h4 class="tw-sub">${title}</h4><ul class="tw-list plain" data-streak="${letter}">${list.map((x) => row(x, letter)).join('')}</ul>` : '');
     return twCard('Hottest and Coldest', `${group('Hottest', streaks.hot, 'W')}${group('Coldest', streaks.cold, 'L')}`, `Current streaks, in-league and cross-league${live ? ', if the projected results hold' : ''}`);
+  }
+
+  // The all-time tags on the Weekly Snapshot: a card's team gets a gold tag when it lands in the matching
+  // Archives > Records list (same data, same rules, same list length), counting only what had happened by that
+  // week. Earlier seasons come from their games.json (plus playoff games, for the score lists); this season from
+  // its own games.json, weeks before the one shown.
+  let allTimePool = null;
+  function teamWeeks(file) {
+    const by = new Map();
+    for (const [week, a, sa, b, sb, link] of file.games) {
+      const inLeague = link.includes('/matchups');
+      for (const [key, pf, pa] of b === 'median' ? [[a, sa, sb]] : [[a, sa, sb], [b, sb, sa]]) {
+        const id = key + '|' + week;
+        if (!by.has(id)) by.set(id, { key, week, pf, games: [] });
+        by.get(id).games.push({ result: pf > pa ? 'W' : pf < pa ? 'L' : 'T', inLeague });
+      }
+    }
+    return [...by.values()];
+  }
+  // Streaks within one season, through a given week: in-league game before cross-league each week; a tie ends one.
+  function seasonRuns(weeks, through) {
+    const runs = [];
+    const byTeam = new Map();
+    for (const w of weeks) if (w.week <= through) (byTeam.get(w.key) || byTeam.set(w.key, []).get(w.key)).push(w);
+    for (const [key, list] of byTeam) {
+      list.sort((x, y) => x.week - y.week);
+      let run = null;
+      for (const w of list) {
+        for (const g of w.games.slice().sort((x, y) => y.inLeague - x.inLeague)) {
+          if (run && run.result === g.result) { run.n++; run.end = w.week; continue; }
+          if (run) runs.push(run);
+          run = g.result === 'T' ? null : { key, result: g.result, n: 1, end: w.week };
+        }
+      }
+      if (run) runs.push(run);
+    }
+    return runs;
+  }
+  function allTimeFacts() {
+    if (!allTimePool) {
+      const json = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const past = SEASON_PAGES.filter((y) => y < SEASON);
+      allTimePool = Promise.all([json(DATA + 'games.json'), ...past.flatMap((y) => [json('data/seasons/' + y + '/games.json'), json('data/seasons/' + y + '/playoffs.json')])])
+        .then(([mine, ...rest]) => {
+          const prior = { scores: [], weeks: [], runs: [] };
+          past.forEach((y, i) => {
+            const [games, playoffs] = [rest[i * 2], rest[i * 2 + 1]];
+            if (games) {
+              const weeks = teamWeeks(games);
+              prior.weeks.push(...weeks);
+              prior.scores.push(...weeks.map((w) => w.pf));
+              prior.runs.push(...seasonRuns(weeks, Infinity));
+            }
+            if (playoffs) for (const g of playoffs.games) for (const t of g.teams) prior.scores.push(t.score);
+          });
+          return { prior, season: mine && mine.season === SEASON ? teamWeeks(mine) : [] };
+        });
+    }
+    return allTimePool;
+  }
+
+  async function tagAllTime(root, a, week, token) {
+    const pool = await allTimeFacts();
+    if (token !== renderToken || !root.isConnected) return;
+    const before = pool.season.filter((w) => w.week < week);
+    const has = (w, r) => w.games.some((g) => g.result === r);
+    const swept = (w, r) => w.games.length >= 2 && w.games.every((g) => g.result === r);
+    const weeksWhere = (test) => pool.prior.weeks.filter(test).concat(before.filter(test)).map((w) => w.pf);
+    const label = (rank, words) => (rank === 1 ? words[0].toUpperCase() + words.slice(1) : ordinal(rank) + '-' + words) + ' all time';
+    const tag = (el, rank, limit, words) => {
+      if (!el || rank > limit) return;
+      el.querySelector(':scope > span').insertAdjacentHTML('beforeend', '<small class="tw-alltime">' + esc(label(rank, words)) + '</small>');
+    };
+    // Rank = 1 + how many entries beat it; others = that week's other entries in the same card.
+    const rankOf = (value, pool, others, better) => 1 + pool.filter((v) => better(v, value)).length + others.filter((v) => better(v, value)).length;
+    const high = (v, x) => v > x;
+    const low = (v, x) => v < x;
+    const card = (name) => root.querySelector('[data-card="' + name + '"]');
+    const allScores = pool.prior.scores.concat(before.map((w) => w.pf));
+    const list = (name) => [...((card(name) || root).querySelectorAll('.tw-list > li > .tw-team'))];
+    const scoreTags = (name, sides, better, words) => list(name).forEach((el, i) => {
+      const s = sides[i];
+      if (s) tag(el, rankOf(s.score, allScores, sides.filter((o) => o !== s).map((o) => o.score), better), 50, words);
+    });
+    if (card('Top Scores')) scoreTags('Top Scores', a.scores, high, 'highest score');
+    if (card('Lowest Scores')) scoreTags('Lowest Scores', a.lowest, low, 'lowest score');
+    const one = (name, i, side, pool, better, limit, words) => {
+      const c = card(name);
+      if (c && side) tag(c.querySelectorAll('.tw-game > .tw-team')[i], rankOf(side.score, pool, [], better), limit, words);
+    };
+    if (a.badBeat) one('Best Losing Score', 1, a.badBeat.low, weeksWhere((w) => has(w, 'L')), high, 30, 'most points in a loss');
+    if (a.luckyWin) one('Lowest Winning Score', 0, a.luckyWin.high, weeksWhere((w) => has(w, 'W')), low, 30, 'fewest points in a win');
+    if (a.lostBoth) one('Most Points, Lost Both', 0, a.lostBoth.side, weeksWhere((w) => swept(w, 'L')), high, 15, 'most points in an 0-2 week');
+    if (a.wonBoth) one('Fewest Points, Won Both', 0, a.wonBoth.side, weeksWhere((w) => swept(w, 'W')), low, 15, 'fewest points in a 2-0 week');
+    // Streaks need the whole week saved, to see where every team's run stood.
+    const c = card('Hottest and Coldest');
+    if (a.streaks && c && pool.season.some((w) => w.week === week)) {
+      const runs = seasonRuns(pool.season, week);
+      for (const [kind, letter, words] of [['hot', 'W', 'winning streak'], ['cold', 'L', 'losing streak']]) {
+        const els = [...c.querySelectorAll('[data-streak="' + letter + '"] > li > .tw-team')];
+        a.streaks[kind].forEach((x, i) => {
+          const key = x.side.league.slug + ':' + x.side.team.id;
+          const mine = runs.find((r) => r.key === key && r.result === letter && r.end === week);
+          const others = runs.filter((r) => r.result === letter && r !== mine).map((r) => r.n);
+          const prior = pool.prior.runs.filter((r) => r.result === letter).map((r) => r.n);
+          tag(els[i], rankOf(x.length, prior, others, high), 10, 'longest ' + words);
+        });
+      }
+    }
   }
 
   // Finished weeks are saved by tools/run-this-week.js. A week that isn't in the file comes live from ESPN instead.
@@ -2020,8 +2129,10 @@
         ${twMoversCard(a.movers, week, live)}
         ${twStreaksCard(a.streaks, week, live)}
       </div>
-      <p class="fineprint">Covers in-league and cross-league games across all four leagues${crossOk ? '' : ' (cross-league games are unavailable right now, so only in-league games are shown)'}. While games are in progress, teams are ranked by ESPN's live projected final score, which counts points already scored plus projections for players yet to finish. The biggest upset compares that with what each team's starters were projected to score before the week began.</p>`;
+      <p class="fineprint">Covers in-league and cross-league games across all four leagues${crossOk ? '' : ' (cross-league games are unavailable right now, so only in-league games are shown)'}. While games are in progress, teams are ranked by ESPN's live projected final score, which counts points already scored plus projections for players yet to finish. The biggest upset compares that with what each team's starters were projected to score before the week began. Gold tags mark a final result that made one of the all-time lists on Archives &gt; Records, ranked as of that week.</p>`;
     bindWeekSelect();
+    // Final scores only: a live score is still moving.
+    if (!live) tagAllTime(body(), a, week, token);
     if (live && LIVE_REFRESH_MS) {
       clearTimeout(refreshTimer);
       refreshTimer = setTimeout(async function tick() {
