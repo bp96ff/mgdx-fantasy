@@ -219,6 +219,7 @@
     // Every game, from both sides; every team-week score.
     const sides = []; // { t, year, week, pf, pa, opp, result, link, inLeague }
     const weekly = new Map(); // `${year}|${key}|${week}` -> { t, year, week, pf, games: [] }
+    const matchups = []; // { t: winner, opp, year, week, pf, pa, margin, link }
     for (const s of seasons) {
       for (const [week, a, sa, b, sb, hash] of s.games.games) {
         const inLeague = hash.includes('/matchups');
@@ -236,6 +237,11 @@
           w.games.push(side);
           if (inLeague) w.link = side.link; // a week's score links to its in-league game when there is one
         }
+        // Head-to-head games once each, winner first (not 2023's games against the median)
+        if (b !== 'median') {
+          const [win, lose, ws, ls] = sa >= sb ? [a, b, sa, sb] : [b, a, sb, sa];
+          matchups.push({ t: team(s.year, win), opp: team(s.year, lose), year: s.year, week, pf: ws, pa: ls, margin: Math.round((ws - ls) * 100) / 100, link: link(s.year, hash) });
+        }
       }
     }
     // Playoff weeks of past seasons (each team's one game a week), for the single-week score lists.
@@ -252,6 +258,10 @@
 
     const oppName = (x) => (x.opp ? `${esc(x.opp.owner)} ${f2(x.pa)}` : `the median ${f2(x.pa)}`);
     const when = (x) => `${x.year} · Wk ${x.week}`;
+    const gameRow = (x) => ({
+      t: x.t, when: when(x), value: f2(x.margin), link: x.link,
+      note: `${x.margin ? 'Beat' : 'Tied'} ${esc(x.opp.owner)} ${f2(x.pf)}–${f2(x.pa)}`,
+    });
     const scoreRow = (x) => ({ t: x.t, when: `${when(x)}${x.label ? ` · ${esc(x.label)}` : ''}`, value: f2(x.pf), link: x.link });
     const top = (list, n, val, dir) => list.slice().sort((a, b) => (dir === 'asc' ? val(a) - val(b) : val(b) - val(a))).slice(0, n);
 
@@ -328,6 +338,8 @@
         .map((x) => ({ t: x.t, when: when(x), value: f2(x.pf), note: sweepNote(x), link: x.link })), 'Score'],
       ['Longest winning streaks', 10, top(streaks.W, 10, (x) => x.n).map(streakRow), 'Streak'],
       ['Longest losing streaks', 10, top(streaks.L, 10, (x) => x.n).map(streakRow), 'Streak'],
+      ['Biggest blowouts', 30, top(matchups, 30, (x) => x.margin).map(gameRow), 'Margin'],
+      ['Closest games', 30, top(matchups, 30, (x) => x.margin, 'asc').map(gameRow), 'Margin'],
     ];
 
     // Ranks share a number on an exact tie (1, 2, 2, 4).
@@ -364,7 +376,7 @@
     body().innerHTML = `
       <p class="pw-status">All-time records from ${first} on. Tap a list to open it.</p>
       <div class="rec-list">${sections.map(table).join('')}</div>
-      <p class="fineprint">Single-week scores, game lists and streaks use ESPN's scores and include the ${SEASON} season's finished weeks; single-week scores also count past seasons' playoff games. Season records, PF and PA are from finished seasons, as League History shows them; PA counts every opponent, in-league and cross-league. Streaks run within one season, counting each week's in-league game before its cross-league game; a tie ends a streak. ${history.seasons[2023] ? 'In 2023, a team on bye played the week’s median, and those games count.' : ''}</p>`;
+      <p class="fineprint">Single-week scores, game lists and streaks use ESPN's scores and include the ${SEASON} season's finished weeks; single-week scores also count past seasons' playoff games. Season records, PF and PA are from finished seasons, as League History shows them; PA counts every opponent, in-league and cross-league. Streaks run within one season, counting each week's in-league game before its cross-league game; a tie ends a streak. ${history.seasons[2023] ? 'In 2023, a team on bye played the week’s median, and those games count, except in blowouts and closest games, which are head-to-head games only.' : ''}</p>`;
   }
 
   function placeholderPanel(art, kicker, title) {
@@ -1931,13 +1943,15 @@
     }
     return runs;
   }
+  // Head-to-head margins (not 2023's games against the median): [{ week, margin }]
+  const margins = (file) => file.games.filter((g) => g[3] !== 'median').map((g) => ({ week: g[0], margin: Math.round(Math.abs(g[2] - g[4]) * 100) / 100 }));
   function allTimeFacts() {
     if (!allTimePool) {
       const json = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       const past = SEASON_PAGES.filter((y) => y < SEASON);
       allTimePool = Promise.all([json(DATA + 'games.json'), ...past.flatMap((y) => [json('data/seasons/' + y + '/games.json'), json('data/seasons/' + y + '/playoffs.json')])])
         .then(([mine, ...rest]) => {
-          const prior = { scores: [], weeks: [], runs: [] };
+          const prior = { scores: [], weeks: [], runs: [], margins: [] };
           past.forEach((y, i) => {
             const [games, playoffs] = [rest[i * 2], rest[i * 2 + 1]];
             if (games) {
@@ -1945,10 +1959,12 @@
               prior.weeks.push(...weeks);
               prior.scores.push(...weeks.map((w) => w.pf));
               prior.runs.push(...seasonRuns(weeks, Infinity));
+              prior.margins.push(...margins(games).map((m) => m.margin));
             }
             if (playoffs) for (const g of playoffs.games) for (const t of g.teams) prior.scores.push(t.score);
           });
-          return { prior, season: mine && mine.season === SEASON ? teamWeeks(mine) : [] };
+          const ok = mine && mine.season === SEASON;
+          return { prior, season: ok ? teamWeeks(mine) : [], seasonMargins: ok ? margins(mine) : [] };
         });
     }
     return allTimePool;
@@ -1987,6 +2003,10 @@
     if (a.luckyWin) one('Lowest Winning Score', 0, a.luckyWin.high, weeksWhere((w) => has(w, 'W')), low, 30, 'fewest points in a win');
     if (a.lostBoth) one('Most Points, Lost Both', 0, a.lostBoth.side, weeksWhere((w) => swept(w, 'L')), high, 15, 'most points in an 0-2 week');
     if (a.wonBoth) one('Fewest Points, Won Both', 0, a.wonBoth.side, weeksWhere((w) => swept(w, 'W')), low, 15, 'fewest points in a 2-0 week');
+    const allMargins = pool.prior.margins.concat(pool.seasonMargins.filter((m) => m.week < week).map((m) => m.margin));
+    const marginOf = (g) => Math.round(g.margin * 100) / 100;
+    if (a.blowout) one('Biggest Blowout', 0, { score: marginOf(a.blowout) }, allMargins, high, 30, 'biggest blowout');
+    if (a.closest) one('Closest Game', 0, { score: marginOf(a.closest) }, allMargins, low, 30, 'closest game');
     // Streaks need the whole week saved, to see where every team's run stood.
     const c = card('Hottest and Coldest');
     if (a.streaks && c && pool.season.some((w) => w.week === week)) {
