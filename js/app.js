@@ -10,7 +10,7 @@
     blog: { title: 'Blog', kicker: 'Takes, recaps and trash talk', art: 'assets/img/mgdx-shield.png?v=3' },
     archives: { title: 'Archives', kicker: 'Seasons past', art: 'assets/img/mgdx-shield.png?v=3' },
   };
-  const SUBTABS = ARCHIVE ? ['final-standings', 'standings', 'rosters', 'matchups'] : ['standings', 'rosters', 'matchups', 'power-rankings', 'transactions', 'draft-board'];
+  const SUBTABS = ARCHIVE ? ['final-standings', 'standings', 'rosters', 'matchups', 'draft-board'] : ['standings', 'rosters', 'matchups', 'power-rankings', 'transactions', 'draft-board'];
   const subtabLabel = (s) => s.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
   let refreshTimer = null;
   let renderToken = 0;
@@ -1436,7 +1436,7 @@
   function draftBoards() {
     if (!draftFile) {
       // Bump the ?v= after rebuilding the file; the browser can otherwise keep it as long as it likes.
-      draftFile = fetch('data/draft-boards.json?v=2').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      draftFile = fetch(`${DATA}draft-boards.json?v=2`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
     }
     return draftFile;
   }
@@ -1470,6 +1470,7 @@
     };
     body().innerHTML = `
       <div class="panel">
+        ${board.offline ? `<p class="draft-note"><b>Roster view.</b> This board shows each team’s draft picks, not the order they were made in. The ${SEASON} draft was held offline, and the original board wasn’t kept.</p>` : ''}
         <p class="draft-hint">Swipe sideways to see every team</p>
         <div class="table-wrap">
           <table class="draft">
@@ -1489,7 +1490,9 @@
           </table>
         </div>
       </div>
-      <p class="fineprint">Draft results by round, with teams in the same order as the league's draft board.</p>`;
+      <p class="fineprint">${!ARCHIVE ? 'Draft results by round, with teams in the same order as the league’s draft board.'
+        : board.offline ? `Picks are ESPN’s record of the offline draft, typed in afterward, so the rounds and the team order may not match how the draft went.`
+        : `Draft results by round from ESPN, with teams in round 1 draft order. It was a snake draft, so the order reversed every round.`}</p>`;
   }
 
   // Results are calculated once a week by tools/run-power-rankings.js; the page only reads the saved file.

@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-// Builds data/draft-boards.json, the saved table behind each league's Draft Board tab. Run once after
-// the draft (a draft doesn't change): node tools/build-draft-boards.js
+// Builds draft-boards.json, the saved table behind each league's Draft Board tab. Run once after the draft
+// (a draft doesn't change):
+//   node tools/build-draft-boards.js          this season: data/draft-boards.json
+//   node tools/build-draft-boards.js 2024     a past season: data/seasons/2024/draft-boards.json
 //
-// Picks and player details come from ESPN. BOARD_COLUMNS and CORRECTIONS come from the photos of the
-// physical boards in Media/, which win wherever they disagree with ESPN.
+// Picks and player details come from ESPN. This season's BOARD_COLUMNS and CORRECTIONS come from the photos of
+// the physical boards in Media/, which win wherever they disagree with ESPN. A past season's columns are ESPN's
+// draft order unless PAST_COLUMNS sets them.
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 
-// The site's config and ESPN code expect a browser `window`; here it is just the global object.
-globalThis.window = globalThis;
-for (const file of ['js/config.js', 'js/espn.js']) {
-  vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), { filename: file });
-}
-const { MGDX, ESPN } = globalThis;
+const YEAR = Number(process.argv[2]) || null;
+if (YEAR) process.env.MGDX_CONFIG = `js/seasons/${YEAR}.js`; // team names and logos from that season's saved files
+const { loadSite } = require('./load-site');
+const { MGDX, ESPN, dataDir } = loadSite(['js/espn.js']);
 
 const SEASON = MGDX.SEASON;
 const BASE = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${SEASON}`;
@@ -24,6 +24,8 @@ const BOARD_COLUMNS = {
   'genomic-gerbils': [1, 2, 7, 8, 3, 4, 9, 6, 5], // Laith, Purcella, Alan, Tisha, Darbie, Haley, Sloan, Jen, Daniel
   'research-rodents': [2, 4, 7, 1, 3, 5, 8, 6, 9], // Ciana, Tiffany, Jenna, Emma, Jake, Dago, Craig, Hoai-Nha, Darcy
 };
+// A past season's team ids left to right, where ESPN's draft order isn't the board's: { year: { league: [ids] } }.
+const PAST_COLUMNS = {};
 // Picks to change from ESPN's record, e.g. { league: 'lab-rats', team: 3, round: 16, player: 'Full Name' }.
 // Known board differences where ESPN is kept: Lab Rats, Nick, round 16 is blank on the board (ESPN: Kenyon Sadiq);
 // Genomic Gerbils, Alan, round 11 reads Malik Washington on the board (Parker Washington confirmed as correct).
@@ -51,7 +53,8 @@ async function main() {
   const leagues = {};
   for (const cfg of MGDX.LEAGUES) {
     const slug = cfg.slug;
-    const d = await getJSON(`${BASE}/segments/0/leagues/${cfg.id}?view=mDraftDetail`);
+    const d = await getJSON(`${BASE}/segments/0/leagues/${cfg.id}?view=mDraftDetail&view=mSettings`);
+    const draft = d.settings.draftSettings;
     // Owner names (with the config's name changes) and logos, so the tab needs no live league data.
     const league = await ESPN.getLeague(cfg);
     const teams = Object.fromEntries(league.teams.map((t) => [t.id, { name: t.name, owner: t.owner, logo: t.logo }]));
@@ -63,14 +66,16 @@ async function main() {
       (picks[pick.teamId] = picks[pick.teamId] || [])[pick.roundId - 1] = entry(player);
       rounds = Math.max(rounds, pick.roundId);
     }
-    for (const fix of CORRECTIONS.filter((c) => c.league === slug)) {
+    for (const fix of YEAR ? [] : CORRECTIONS.filter((c) => c.league === slug)) {
       const player = byName.get(fix.player);
       if (!player) throw new Error(`No player named ${fix.player}`);
       picks[fix.team][fix.round - 1] = entry(player);
     }
-    leagues[slug] = { rounds, columns: BOARD_COLUMNS[slug], teams, picks };
+    const columns = YEAR ? ((PAST_COLUMNS[YEAR] || {})[slug] || draft.pickOrder) : BOARD_COLUMNS[slug];
+    // An offline draft is typed into ESPN afterward, so its rounds and order may not be how it went.
+    leagues[slug] = { rounds, columns, teams, picks, ...(draft.type === 'OFFLINE' ? { offline: true } : {}) };
   }
-  const out = path.join(__dirname, '..', 'data', 'draft-boards.json');
+  const out = path.join(dataDir, 'draft-boards.json');
   fs.writeFileSync(out, `${JSON.stringify({ season: SEASON, leagues })}\n`);
   console.log(`Saved ${Object.keys(leagues).length} draft boards (${fs.statSync(out).size} bytes).`);
 }

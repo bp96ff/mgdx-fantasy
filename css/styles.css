@@ -509,6 +509,8 @@ th.sorted .arrow.asc { border-top-color: transparent; border-bottom-color: curre
 .dp img.dp-logo { right: 3px; bottom: 3px; width: 26px; height: 26px; object-fit: contain; }
 .dp.s-BE { color: #cfe0f0; }
 .dp-empty { background: var(--surface-2); }
+.draft-note { margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--line, rgba(255,255,255,.12)); border-left: 3px solid var(--accent, #3b82f6); border-radius: 8px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.draft-note b { color: var(--text, inherit); }
 .draft-hint { display: none; }
 @media (max-width: 860px) {
   .draft-hint { display: block; margin: 0; padding: 8px 12px 0; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
