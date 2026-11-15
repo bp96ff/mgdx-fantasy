@@ -157,9 +157,9 @@
   }
 
   // ---------- archives ----------
-  const ARCHIVE_TABS = ['records', 'history'];
-  const ARCHIVE_TAB_NAMES = { records: 'Records', history: 'League History' };
-  const ARCHIVE_KICKERS = { records: 'All-time bests and worsts', history: 'Champions and seasons past' };
+  const ARCHIVE_TABS = ['records', 'career', 'history'];
+  const ARCHIVE_TAB_NAMES = { records: 'Records', career: 'Careers', history: 'League History' };
+  const ARCHIVE_KICKERS = { records: 'All-time bests and worsts', career: 'Every manager, all seasons', history: 'Champions and seasons past' };
 
   function renderArchives(sub, params) {
     const p = PLACEHOLDERS.archives;
@@ -173,12 +173,164 @@
           <h1 class="page-title">${esc(p.title)}</h1>
         </div>
       </section>
-      <nav class="subtabs two" aria-label="Archives sections">
+      <nav class="subtabs" aria-label="Archives sections">
         ${ARCHIVE_TABS.map((s) => `<a href="#/archives/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${ARCHIVE_TAB_NAMES[s]}</a>`).join('')}
       </nav>
-      <div id="league-body">${loading(sub === 'history' ? 'Loading league history' : 'Loading records')}</div>`;
+      <div id="league-body">${loading(sub === 'history' ? 'Loading league history' : sub === 'career' ? 'Loading careers' : 'Loading records')}</div>`;
     if (sub === 'history') renderHistory(params);
+    else if (sub === 'career') renderCareer();
     else renderRecords();
+  }
+
+  // ---------- careers ----------
+  // One row per manager (by the name the league uses), across every season. Finished seasons' records come from
+  // data/history.json, as League History shows them; this season's from data/standings.json, as Standings shows it.
+  // Playoff games, streaks and points per game come from the saved games (games.json, playoffs.json).
+  async function renderCareer() {
+    const token = renderToken;
+    const body = () => document.getElementById('league-body');
+    const json = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const past = SEASON_PAGES.filter((y) => y !== SEASON);
+    const [history, current, mine, ...files] = await Promise.all([
+      json('data/history.json'), json('data/standings.json'), json('data/games.json'),
+      ...past.flatMap((y) => [json('data/seasons/' + y + '/games.json'), json('data/seasons/' + y + '/playoffs.json'), json('data/seasons/' + y + '/standings.json')]),
+    ]);
+    if (token !== renderToken) return;
+    if (!history || !current) {
+      body().innerHTML = '<div class="state state-error" role="alert"><strong>Couldn\'t load careers.</strong><a class="btn" href="#/archives/career" onclick="window.dispatchEvent(new HashChangeEvent(\'hashchange\'));return false;">Try again</a></div>';
+      return;
+    }
+    const people = new Map();
+    const person = (owner) => {
+      if (!people.has(owner)) {
+        people.set(owner, { owner, seasons: 0, w: 0, l: 0, t: 0, inW: 0, inL: 0, inT: 0, xW: 0, xL: 0, xT: 0, pw: 0, pl: 0,
+          winRun: 0, lossRun: 0, pts: 0, weeks: 0, grand: 0, losses: 0, titles: [], last: null });
+      }
+      return people.get(owner);
+    };
+    const leagueOf = (slug) => LEAGUES.find((l) => l.slug === slug);
+    const add = (p, x) => {
+      p.seasons++;
+      for (const k of ['w', 'l', 't', 'inW', 'inL', 'inT', 'xW', 'xL', 'xT']) p[k] += x[k] || 0;
+    };
+
+    // Finished seasons, oldest first, so a manager's latest team ends up as "last".
+    const byYear = new Map(past.map((y, i) => [y, { games: files[i * 3], playoffs: files[i * 3 + 1], standings: files[i * 3 + 2] }]));
+    const years = Object.keys(history.seasons).map(Number).filter((y) => y !== SEASON).sort((a, b) => a - b);
+    for (const y of years) {
+      const season = history.seasons[y];
+      const saved = byYear.get(y) || {};
+      const logos = new Map();
+      for (const [slug, l] of Object.entries((saved.standings && saved.standings.leagues) || {})) for (const t of l.teams) logos.set(slug + ':' + t.owner, t.logo);
+      const cut = saved.standings ? Object.values(saved.standings.leagues)[0].playoffTeams : 4;
+      for (const t of season.teams) {
+        const p = person(t.owner);
+        add(p, t);
+        if (season.grandChampion === t.owner) p.grand++;
+        if (season.ultimateLoser === t.owner) p.losses++;
+        if (season.champions[t.league] === t.owner) p.titles.push(t.league);
+        p.last = { year: y, team: t.team, league: leagueOf(t.league), logo: logos.get(t.league + ':' + t.owner) };
+      }
+      // Playoff record: every playoffs-bracket game a playoff team played; the top score of the game wins it.
+      const seeds = new Map(season.teams.map((t) => [t.owner, t.seed]));
+      for (const g of (saved.playoffs && saved.playoffs.games) || []) {
+        if (g.bracket !== 'playoffs') continue;
+        const best = Math.max(...g.teams.map((x) => x.score));
+        for (const x of g.teams) {
+          if (!(seeds.get(x.owner) <= cut)) continue;
+          if (x.score === best) person(x.owner).pw++;
+          else person(x.owner).pl++;
+        }
+      }
+    }
+    // This season so far, as Standings has it.
+    for (const [slug, l] of Object.entries(current.leagues)) {
+      for (const t of l.teams) {
+        const p = person(t.owner);
+        add(p, { w: t.wins, l: t.losses, t: t.ties, inW: t.inW, inL: t.inL, inT: t.inT, xW: t.xW, xL: t.xL, xT: t.xT });
+        p.last = { year: SEASON, team: t.name, league: leagueOf(slug), logo: t.logo, current: true };
+      }
+    }
+    // Streaks (longest within one season) and points per game, from every season's saved games.
+    const gameFiles = past.map((y) => [y, byYear.get(y).games]).concat([[SEASON, mine]]).filter(([y, g]) => g && g.season === y);
+    for (const [, file] of gameFiles) {
+      const weeks = teamWeeks(file);
+      for (const w of weeks) {
+        const p = person(file.teams[w.key][1]);
+        p.pts += w.pf;
+        p.weeks++;
+      }
+      for (const r of seasonRuns(weeks, Infinity)) {
+        const p = person(file.teams[r.key][1]);
+        if (r.result === 'W') p.winRun = Math.max(p.winRun, r.n);
+        else p.lossRun = Math.max(p.lossRun, r.n);
+      }
+    }
+
+    const list = [...people.values()].filter((p) => p.last);
+    const pct = (w, l, t) => (w + l + t ? (w + t / 2) / (w + l + t) : 0);
+    const val = {
+      seasons: (p) => p.seasons,
+      pct: (p) => pct(p.w, p.l, p.t),
+      league: (p) => pct(p.inW, p.inL, p.inT),
+      cross: (p) => pct(p.xW, p.xL, p.xT),
+      playoffs: (p) => (p.pw + p.pl ? p.pw / (p.pw + p.pl) + p.pw / 1000 : -1),
+      win: (p) => p.winRun,
+      loss: (p) => p.lossRun,
+      ppg: (p) => (p.weeks ? p.pts / p.weeks : 0),
+    };
+    const rec = (w, l, t) => w + '-' + l + (t ? '-' + t : '');
+    const badges = (p) => champBadges({ grandTitles: p.grand, ultimateLosses: p.losses, titles: p.titles });
+    const row = (p) => {
+      const lg = p.last.league;
+      return '<tr class="lg-row" style="--lc:var(--' + lg.theme + ')">'
+        + '<td class="c-team"><div class="team-cell">' + teamLogo({ logo: p.last.logo }, lg)
+        + '<span><strong>' + esc(p.owner) + '</strong><small>' + esc(p.last.team) + badges(p) + '</small>'
+        + '<small class="lg-name">' + (p.last.current ? esc(lg.name) : 'Last played ' + p.last.year) + '</small></span></div></td>'
+        + '<td class="c-num hide-sm">' + p.seasons + '</td>'
+        + '<td class="c-num c-ppg">' + (p.weeks ? f2(p.pts / p.weeks) : '—') + '</td>'
+        + '<td class="c-num c-rec">' + rec(p.w, p.l, p.t) + '</td>'
+        + '<td class="c-num hide-sm">' + pct(p.w, p.l, p.t).toFixed(3).replace(/^0/, '') + '</td>'
+        + '<td class="c-num hide-sm muted">' + rec(p.inW, p.inL, p.inT) + '</td>'
+        + '<td class="c-num hide-sm muted">' + rec(p.xW, p.xL, p.xT) + '</td>'
+        + '<td class="c-num hide-sm">' + (p.pw + p.pl ? rec(p.pw, p.pl) : '<span class="muted">—</span>') + '</td>'
+        + '<td class="c-num hide-sm">' + (p.winRun ? 'W' + p.winRun : '—') + '</td>'
+        + '<td class="c-num hide-sm">' + (p.lossRun ? 'L' + p.lossRun : '—') + '</td>'
+        + '</tr>';
+    };
+    let sort = { key: 'ppg', dir: 'desc' };
+    const table = () => {
+      const v = val[sort.key];
+      const sorted = list.slice().sort((a, b) => (sort.dir === 'desc' ? v(b) - v(a) : v(a) - v(b)) || val.pct(b) - val.pct(a) || b.w - a.w);
+      return '<table class="standings career-table"><thead><tr>'
+        + '<th>Manager</th>'
+        + sortHeader(sort, 'seasons', 'Seasons', 'c-num hide-sm', 'Sort by seasons played')
+        + sortHeader(sort, 'ppg', 'PPG', 'c-num', 'Sort by average points per game')
+        + sortHeader(sort, 'pct', 'Overall', 'c-num', 'Sort by overall win percentage')
+        + '<th class="c-num hide-sm">Pct</th>'
+        + sortHeader(sort, 'league', 'League', 'c-num hide-sm', 'Sort by in-league win percentage')
+        + sortHeader(sort, 'cross', 'Cross', 'c-num hide-sm', 'Sort by cross-league win percentage')
+        + sortHeader(sort, 'playoffs', 'Playoffs', 'c-num hide-sm', 'Sort by playoff win percentage')
+        + sortHeader(sort, 'win', 'Win streak', 'c-num hide-sm', 'Sort by longest winning streak')
+        + sortHeader(sort, 'loss', 'Loss streak', 'c-num hide-sm', 'Sort by longest losing streak')
+        + '</tr></thead><tbody>' + sorted.map(row).join('') + '</tbody></table>';
+    };
+    body().innerHTML = '<p class="pw-status">All ' + list.length + ' managers since ' + years.concat(SEASON)[0] + ', including ' + SEASON + ' so far.</p>'
+      + '<p class="pw-sort">Table sortable by Seasons, PPG, Overall, League, Cross, Playoffs and streaks</p>'
+      + '<div class="panel st-panel ' + (standingsExpanded ? 'st-expanded' : '') + '">'
+      + '<button class="toggle st-expand" type="button" aria-expanded="' + standingsExpanded + '">' + (standingsExpanded ? 'Show fewer columns' : 'Show all columns') + '</button>'
+      + '<p class="st-hint">Swipe the table sideways to see every column</p>'
+      + '<div class="table-wrap">' + table() + '</div></div>'
+      + '<p class="fineprint">Managers are matched across seasons by the name the league uses. Records are regular season: finished seasons as League History shows them, ' + SEASON + ' as Standings shows it; ' + (history.seasons[2023] ? 'Cross includes 2023’s bye-week games against the median. ' : '') + 'Playoffs counts every playoff-bracket game a playoff team played, Weeks 15 to 17, including placement finals; the top score of the game wins it, so a three- or four-team game is one win for the top score and one loss for each other team. Streaks are the longest within one season (in-league game before cross-league each week; a tie ends one). PPG is the average weekly score in the regular season, from ESPN. The logo and team name are each manager’s most recent.</p>';
+    const wrap = body().querySelector('.table-wrap');
+    wrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('th button[data-sort]');
+      if (!btn) return;
+      const key = btn.dataset.sort;
+      sort = key === sort.key ? { key, dir: sort.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' };
+      wrap.innerHTML = table();
+      wrap.querySelector('th button[data-sort="' + key + '"]').focus();
+    });
   }
 
   // ---------- all-time records ----------

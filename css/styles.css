@@ -1214,3 +1214,9 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   border: 1px solid color-mix(in srgb, #f2c94c 55%, transparent); background: color-mix(in srgb, #f2c94c 14%, transparent);
   color: #f2c94c; font-size: 11px; font-weight: 700; letter-spacing: .04em; white-space: normal;
 }
+
+/* ===== Archives: Career (one row per manager, all seasons) ===== */
+.career-table td.c-team { min-width: 220px; }
+.career-table th { white-space: nowrap; }
+.career-table td.c-num { white-space: nowrap; }
+@media (max-width: 680px) { .career-table td.c-team { min-width: 170px; } }
