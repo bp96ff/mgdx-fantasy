@@ -1877,6 +1877,31 @@
     const rec = (x) => `${x.w}-${x.l}${x.ties ? `-${x.ties}` : ''}`;
     const seasonRow = (value) => (x) => ({ t: x.t, when: String(x.year), value: value(x), note: `${rec(x)} · ${f2(x.pf)} PF`, link: x.link });
 
+    // Luck in finished seasons, worked out as each season's Luck Index tab does: actual wins minus the wins its
+    // all-play rate gives, over the regular season (in-league and cross-league games).
+    const luckRows = [];
+    for (const s of seasons) {
+      if (s.year === SEASON || !s.standings || s.standings.season !== s.year) continue;
+      const entries = LEAGUES.filter((cfg) => s.standings.leagues[cfg.slug]).flatMap((cfg) => {
+        const { league, results } = lockedLeague(s.standings, cfg);
+        return league.teams.map((tm) => ({ team: tm, league, results: results.get(tm.id) }));
+      });
+      entries.sort((a, b) => b.team.pct - a.team.pct || b.team.pf - a.team.pf).forEach((e, i) => { e.rank = i + 1; });
+      for (const e of luckIndex(entries, s.standings.week)) {
+        const tm = e.team;
+        luckRows.push({
+          t: team(s.year, `${e.league.slug}:${tm.id}`) || { name: tm.name, owner: tm.owner, league: LEAGUES.find((l) => l.slug === e.league.slug), logo: tm.logo },
+          year: s.year, luck: Math.round(e.luck * 10) / 10, expected: e.expected,
+          rec: `${tm.wins}-${tm.losses}${tm.ties ? `-${tm.ties}` : ''}`, link: `${s.year}.html#/home/luck-index`,
+        });
+      }
+    }
+    const luckRow = (x) => ({
+      t: x.t, when: String(x.year), link: x.link,
+      value: `${x.luck > 0 ? '+' : x.luck < 0 ? '−' : ''}${Math.abs(x.luck).toFixed(1)}`,
+      note: `${x.rec} · ${f1(x.expected)} expected wins`,
+    });
+
     // A team's week where it played twice or more and lost (or won) them all.
     const sweeps = (result) => [...weekly.values()].filter((w) => w.games.length >= 2 && w.games.every((g) => g.result === result));
     const sweepNote = (w) => `${w.games[0].result === 'L' ? 'Lost to' : 'Beat'} ${w.games.map(oppName).join(' and ')}`;
@@ -1929,6 +1954,8 @@
         .map((x) => ({ t: x.t, when: when(x), value: f2(x.pf), note: resultNote(x, 'W'), link: x.link })), 'Score'],
       ['Fewest points in a 2-0 week', 15, top(sweeps('W'), 15, (x) => x.pf, 'asc')
         .map((x) => ({ t: x.t, when: when(x), value: f2(x.pf), note: sweepNote(x), link: x.link })), 'Score'],
+      ['Luckiest seasons', 15, top(luckRows, 15, (x) => x.luck).map(luckRow), 'Luck'],
+      ['Unluckiest seasons', 15, top(luckRows, 15, (x) => x.luck, 'asc').map(luckRow), 'Luck'],
       ['Longest winning streaks', 10, top(streaks.W, 10, (x) => x.n).map(streakRow), 'Streak'],
       ['Longest losing streaks', 10, top(streaks.L, 10, (x) => x.n).map(streakRow), 'Streak'],
       ['Biggest blowouts', 30, top(matchups, 30, (x) => x.margin).map(gameRow), 'Margin'],
@@ -1969,7 +1996,7 @@
     body().innerHTML = `
       <p class="pw-status">All-time records from ${first} on. Tap a list to open it.</p>
       <div class="rec-list">${sections.map(table).join('')}</div>
-      <p class="fineprint">Single-week scores, game lists and streaks use ESPN's scores and include the ${SEASON} season's finished weeks; single-week scores also count past seasons' playoff games. Season records, PF and PA are from finished seasons, as League History shows them; PA counts every opponent, in-league and cross-league. Streaks run within one season, counting each week's in-league game before its cross-league game; a tie ends a streak. ${history.seasons[2023] ? 'In 2023, a team on bye played the week’s median, and those games count, except in blowouts and closest games, which are head-to-head games only.' : ''}</p>`;
+      <p class="fineprint">Single-week scores, game lists and streaks use ESPN's scores and include the ${SEASON} season's finished weeks; single-week scores also count past seasons' playoff games. Season records, PF and PA are from finished seasons, as League History shows them; PA counts every opponent, in-league and cross-league. Streaks run within one season, counting each week's in-league game before its cross-league game; a tie ends a streak. Luck is a finished season's actual wins minus expected wins, as each season's Luck Index has it: expected wins are the team's all-play win rate (its score each week against every other team's) times its games played, in-league and cross-league. ${history.seasons[2023] ? 'In 2023, a team on bye played the week’s median, and those games count, except in blowouts and closest games, which are head-to-head games only.' : ''}</p>`;
   }
 
   function placeholderPanel(art, kicker, title) {
@@ -3391,10 +3418,13 @@
   }
 
   async function renderLuckIndex(entries, week, body, token) {
-    const file = await thisWeekFile();
+    // A past season has no lineup grades (and its file's week is the first playoff week, so this is the regular season).
+    const graded = !ARCHIVE;
+    const file = graded ? await thisWeekFile() : null;
     if (token !== renderToken) return;
     const all = luckIndex(entries, week);
-    addGrades(all, file && file.lineups);
+    if (graded) addGrades(all, file && file.lineups);
+    const others = all.length - 1;
     if (!all.some((e) => e.all.w + e.all.l + e.all.t)) {
       body().innerHTML = '<div class="state"><strong>The Luck Index isn\'t available yet.</strong><span>It fills in once the first week is final.</span></div>';
       return;
@@ -3417,16 +3447,16 @@
       const rows = all.slice().sort((a, b) => (sort.dir === 'desc' ? val(b) - val(a) : val(a) - val(b)) || a.rank - b.rank);
       const scrolled = body().querySelector('.table-wrap')?.scrollLeft || 0;
       body().innerHTML = `
-      <p class="pw-status">Through the last finished week. A positive number means more wins than the team's scores would usually earn.</p>
-      <p class="pw-status">Grade reflects how well a team has set their starters vs. their bench.</p>
+      <p class="pw-status">${ARCHIVE ? `The ${SEASON} regular season` : 'Through the last finished week'}. A positive number means more wins than the team's scores would usually earn.</p>
+      ${graded ? '<p class="pw-status">Grade reflects how well a team has set their starters vs. their bench.</p>' : ''}
       <div class="panel">
-        <p class="pw-sort">Table sortable by Rank, Grade, Strength of Schedule, or Luck</p>
+        <p class="pw-sort">Table sortable by Rank, ${graded ? 'Grade, ' : ''}Strength of Schedule, or Luck</p>
         <p class="pw-hint">Swipe the table sideways to see every column</p>
         <div class="table-wrap">
           <table class="standings power">
             <thead><tr>
-              ${sortHeader(sort, 'rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th>${sortHeader(sort, 'grade', 'Grade', 'c-num', 'Sort by lineup grade')}<th class="c-num">Overall</th>
-              <th class="c-num" title="Record if the team had played all 35 others every week">All-play</th><th class="c-num" title="Wins an average schedule would give these scores">Expected<br>wins</th>${sortHeader(sort, 'sos', 'Schedule<br>strength', 'c-num', 'Sort by strength of schedule')}${sortHeader(sort, 'luck', 'Luck', 'c-num', 'Sort by luck')}
+              ${sortHeader(sort, 'rank', 'Rank', 'c-rank', 'Sort by overall standings rank')}<th>Team</th>${graded ? sortHeader(sort, 'grade', 'Grade', 'c-num', 'Sort by lineup grade') : ''}<th class="c-num">Overall</th>
+              <th class="c-num" title="Record if the team had played all ${others} others every week">All-play</th><th class="c-num" title="Wins an average schedule would give these scores">Expected<br>wins</th>${sortHeader(sort, 'sos', 'Schedule<br>strength', 'c-num', 'Sort by strength of schedule')}${sortHeader(sort, 'luck', 'Luck', 'c-num', 'Sort by luck')}
             </tr></thead>
             <tbody>${rows.map(({ team: t, league, rank, all: a, expected, luck, sosRank, letter }) => `
               <tr class="lg-row" style="--lc:var(--${league.theme})">
@@ -3437,7 +3467,7 @@
                     <span><strong>${esc(t.name)}</strong><small>${esc(t.owner)}${champBadges(t)}</small><small class="lg-name">${esc(league.displayName)}</small></span>
                   </a>
                 </td>
-                <td class="c-num pw-letter grade-${letter.toLowerCase()}">${letter}</td>
+                ${graded ? `<td class="c-num pw-letter grade-${letter.toLowerCase()}">${letter}</td>` : ''}
                 <td class="c-num c-rec">${record(t)}</td>
                 <td class="c-num">${a.w}-${a.l}${a.t ? `-${a.t}` : ''}</td>
                 <td class="c-num">${f1(expected)}</td>
@@ -3448,7 +3478,7 @@
           </table>
         </div>
       </div>
-      <p class="fineprint">All-play is the record a team would have if its score each week were compared with all 35 other teams. Expected wins applies that win rate to the games the team has actually played. Schedule strength ranks all 36 teams by the average all-play win rate of the opponents they've faced, with 1 being the hardest schedule. Luck is actual wins minus expected wins. All of it covers in-league and cross-league games from finished weeks only.</p>`;
+      <p class="fineprint">All-play is the record a team would have if its score each week were compared with all ${others} other teams. Expected wins applies that win rate to the games the team has actually played. Schedule strength ranks all ${all.length} teams by the average all-play win rate of the opponents they've faced, with 1 being the hardest schedule. Luck is actual wins minus expected wins. All of it covers in-league and cross-league games from ${ARCHIVE ? 'the regular season (Weeks 1-14)' : 'finished weeks only'}.</p>`;
       body().querySelector('.table-wrap').scrollLeft = scrolled;
       body().querySelectorAll('th button[data-sort]').forEach((btn) => btn.addEventListener('click', () => {
         const key = btn.dataset.sort;
@@ -3771,7 +3801,7 @@
   }
 
   // ---------- home ----------
-  const HOME_TABS = ARCHIVE ? ['final-standings', 'standings', 'this-week', 'playoff-bracket', 'toilet-bowl']
+  const HOME_TABS = ARCHIVE ? ['final-standings', 'standings', 'this-week', 'playoff-bracket', 'toilet-bowl', 'luck-index']
     : ['standings', 'this-week', 'title-odds', 'playoff-bracket', 'toilet-bowl', 'luck-index'];
   const HOME_TAB_NAMES = { standings: 'Standings', 'final-standings': 'Final Standings', 'this-week': 'Weekly Snapshot', 'title-odds': 'Title Odds', 'playoff-bracket': 'Playoffs', 'toilet-bowl': 'Toilet Bowl', 'luck-index': 'Luck Index' };
 
