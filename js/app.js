@@ -1598,9 +1598,9 @@
   }
 
   // ---------- archives ----------
-  const ARCHIVE_TABS = ['records', 'career', 'history'];
-  const ARCHIVE_TAB_NAMES = { records: 'Records', career: 'Careers', history: 'League History' };
-  const ARCHIVE_KICKERS = { records: 'All-time bests and worsts', career: 'Every manager, all seasons', history: 'Champions and seasons past' };
+  const ARCHIVE_TABS = ['records', 'career', 'rivalries', 'history'];
+  const ARCHIVE_TAB_NAMES = { records: 'Records', career: 'Careers', rivalries: 'Rivalries', history: 'League History' };
+  const ARCHIVE_KICKERS = { records: 'All-time bests and worsts', career: 'Every manager, all seasons', rivalries: 'Head to head', history: 'Champions and seasons past' };
 
   function renderArchives(sub, params) {
     const p = PLACEHOLDERS.archives;
@@ -1614,12 +1614,13 @@
           <h1 class="page-title">${esc(p.title)}</h1>
         </div>
       </section>
-      <nav class="subtabs" aria-label="Archives sections">
+      <nav class="subtabs four" aria-label="Archives sections">
         ${ARCHIVE_TABS.map((s) => `<a href="#/archives/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${ARCHIVE_TAB_NAMES[s]}</a>`).join('')}
       </nav>
-      <div id="league-body">${loading(sub === 'history' ? 'Loading league history' : sub === 'career' ? 'Loading careers' : 'Loading records')}</div>`;
+      <div id="league-body">${loading(sub === 'history' ? 'Loading league history' : sub === 'career' ? 'Loading careers' : sub === 'rivalries' ? 'Loading rivalries' : 'Loading records')}</div>`;
     if (sub === 'history') renderHistory(params);
     else if (sub === 'career') renderCareer();
+    else if (sub === 'rivalries') renderRivalries(params);
     else renderRecords();
   }
 
@@ -1772,6 +1773,192 @@
       wrap.innerHTML = table();
       wrap.querySelector('th button[data-sort="' + key + '"]').focus();
     });
+  }
+
+  // ---------- rivalries ----------
+  // Every game two managers have played each other, matched by the name the league uses: regular-season games
+  // (in-league and cross-league) from each season's games.json, this season's finished weeks included, and past
+  // seasons' playoff and Toilet Bowl games from playoffs.json (in a three-team game, the higher of the two scores
+  // wins their head to head). Loaded once per visit.
+  let rivalData = null;
+  async function loadRivalData() {
+    if (rivalData) return rivalData;
+    const json = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const past = SEASON_PAGES.filter((y) => y !== SEASON);
+    const years = [...past, SEASON];
+    const dirOf = (y) => (y === SEASON ? 'data/' : `data/seasons/${y}/`);
+    const files = await Promise.all(years.flatMap((y) => [json(`${dirOf(y)}games.json`), json(`${dirOf(y)}standings.json`), y === SEASON ? null : json(`${dirOf(y)}playoffs.json`)]));
+    const people = new Map(); // owner -> { owner, team, league, logo, year }
+    const games = []; // { year, week, kind, label, link, order, sides: [{ owner, team, league, logo, score }] }
+    years.forEach((year, i) => {
+      const [g, st, po] = files.slice(i * 3, i * 3 + 3);
+      if (!g || g.season !== year) return;
+      const link = (hash) => (year === SEASON ? hash : `${year}.html${hash}`);
+      const logos = new Map();
+      for (const [slug, l] of Object.entries((st && st.leagues) || {})) for (const t of l.teams) logos.set(`${slug}:${t.id}`, t.logo);
+      const side = (key) => {
+        const [team, owner] = g.teams[key];
+        const slug = key.split(':')[0];
+        return { owner, team, league: LEAGUES.find((l) => l.slug === slug), logo: logos.get(key) };
+      };
+      for (const key of Object.keys(g.teams)) { const x = side(key); people.set(x.owner, { ...x, year }); } // oldest first, so the latest wins
+      for (const [week, a, sa, b, sb, hash] of g.games) {
+        if (a === 'median' || b === 'median') continue;
+        const inLeague = hash.includes('/matchups');
+        games.push({ year, week, kind: inLeague ? 'league' : 'cross', label: inLeague ? 'In-league' : 'Cross-league', link: link(hash),
+          order: inLeague ? 0 : 1, sides: [{ ...side(a), score: sa }, { ...side(b), score: sb }] });
+      }
+      ((po && po.games) || []).forEach((pg, j) => {
+        const sides = pg.teams.map((t) => {
+          const key = Object.keys(g.teams).find((k) => g.teams[k][1] === t.owner && (!pg.league || k.startsWith(`${pg.league}:`)))
+            || Object.keys(g.teams).find((k) => g.teams[k][1] === t.owner);
+          return key ? { ...side(key), score: t.score } : null;
+        }).filter(Boolean);
+        const kind = pg.bracket === 'toilet' ? 'toilet' : 'playoffs';
+        games.push({ year, week: pg.week, kind, label: /Toilet Bowl|Playoff/.test(pg.name || pg.title) ? pg.name || pg.title : `${kind === 'toilet' ? 'Toilet Bowl' : 'Playoffs'} · ${pg.name || pg.title}`,
+          link: link(playoffGameLink(pg, j)), order: 2, sides });
+      });
+    });
+    // Head-to-head meetings: one per pair of managers in a game.
+    const meetings = [];
+    for (const g of games) {
+      for (let i = 0; i < g.sides.length; i++) {
+        for (let j = i + 1; j < g.sides.length; j++) meetings.push({ ...g, x: g.sides[i], y: g.sides[j] });
+      }
+    }
+    meetings.sort((a, b) => a.year - b.year || a.week - b.week || a.order - b.order);
+    rivalData = { people, meetings, first: Math.min(...meetings.map((m) => m.year)) };
+    return rivalData;
+  }
+
+  async function renderRivalries(params) {
+    const token = renderToken;
+    const body = () => document.getElementById('league-body');
+    const data = await loadRivalData().catch((err) => { console.error(err); return null; });
+    if (token !== renderToken) return;
+    if (!data || !data.meetings.length) {
+      body().innerHTML = '<div class="state state-error" role="alert"><strong>Couldn\'t load the rivalries.</strong><a class="btn" href="#/archives/rivalries" onclick="window.dispatchEvent(new HashChangeEvent(\'hashchange\'));return false;">Try again</a></div>';
+      return;
+    }
+    const { people, meetings } = data;
+    const names = [...people.keys()].sort((a, b) => a.localeCompare(b));
+    const pairKey = (a, b) => [a, b].sort().join('|');
+    const counts = new Map();
+    for (const m of meetings) { const k = pairKey(m.x.owner, m.y.owner); counts.set(k, (counts.get(k) || 0) + 1); }
+    const rivalsOf = (who) => [...counts.entries()].filter(([k]) => k.split('|').includes(who)).sort((a, b) => b[1] - a[1]);
+
+    // Who to show: the link's two managers; otherwise the signed-in member and their most-played opponent;
+    // otherwise the most-played rivalry.
+    let a = people.has(params.get('a')) ? params.get('a') : null;
+    let b = people.has(params.get('b')) ? params.get('b') : null;
+    if (!a) {
+      const me = ACCOUNT && ACCOUNT.state && ACCOUNT.state.me && ACCOUNT.state.me.name;
+      a = me && people.has(me) ? me : [...counts.entries()].sort((x, y) => y[1] - x[1])[0][0].split('|')[0];
+    }
+    if (!b || b === a) {
+      const top = rivalsOf(a)[0];
+      b = top ? top[0].split('|').find((n) => n !== a) : names.find((n) => n !== a);
+    }
+
+    const games = meetings.filter((m) => (m.x.owner === a && m.y.owner === b) || (m.x.owner === b && m.y.owner === a))
+      .map((m) => (m.x.owner === a ? { ...m, me: m.x, them: m.y } : { ...m, me: m.y, them: m.x }));
+    const res = (g) => (g.me.score > g.them.score ? 'a' : g.me.score < g.them.score ? 'b' : 't');
+    const tally = (list) => list.reduce((r, g) => { r[res(g)]++; return r; }, { a: 0, b: 0, t: 0 });
+    const all = tally(games);
+    const sum = (list, side) => list.reduce((n, g) => n + g[side].score, 0);
+    const wins = (side) => games.filter((g) => res(g) === (side === 'me' ? 'a' : 'b'))
+      .map((g) => ({ g, margin: Math.abs(g.me.score - g.them.score) })).sort((x, y) => y.margin - x.margin)[0];
+    const high = (side) => games.slice().sort((x, y) => y[side].score - x[side].score)[0];
+
+    const person = (n) => people.get(n);
+    const pa = person(a);
+    const pb = person(b);
+    const options = (sel) => names.map((n) => `<option value="${esc(n)}" ${n === sel ? 'selected' : ''}>${esc(n)}</option>`).join('');
+    const side = (p, wins, cls) => `
+      <div class="rv-side ${cls}" style="--lc:var(--${p.league.theme})">
+        ${teamLogo({ logo: p.logo }, p.league, 'avatar lg')}
+        <div class="rv-who"><strong>${esc(p.owner)}</strong><small>${esc(p.team)}</small><small class="lg-name">${p.year === SEASON ? esc(p.league.name) : `Last played ${p.year}`}</small></div>
+        <b class="rv-wins">${wins}</b>
+      </div>`;
+
+    const recText = (r, who) => `${who === 'a' ? r.a : r.b}`;
+    const kinds = [
+      ['In-league wins', games.filter((g) => g.kind === 'league')],
+      ['Cross-league wins', games.filter((g) => g.kind === 'cross')],
+      ['Playoff wins', games.filter((g) => g.kind === 'playoffs')],
+      ['Toilet Bowl wins', games.filter((g) => g.kind === 'toilet')],
+    ].filter(([, list]) => list.length);
+    const compare = [];
+    for (const [label, list] of kinds) { const r = tally(list); compare.push([label, recText(r, 'a'), recText(r, 'b'), r.a - r.b, r.t ? `${r.t} tie${r.t > 1 ? 's' : ''}` : '']); }
+    if (games.length) {
+      const avgA = sum(games, 'me') / games.length;
+      const avgB = sum(games, 'them') / games.length;
+      compare.push(['Points per game', f2(avgA), f2(avgB), avgA - avgB]);
+      compare.push(['Total points', f2(sum(games, 'me')), f2(sum(games, 'them')), sum(games, 'me') - sum(games, 'them')]);
+      const hA = high('me');
+      const hB = high('them');
+      compare.push(['Highest score', f2(hA.me.score), f2(hB.them.score), hA.me.score - hB.them.score]);
+      const wA = wins('me');
+      const wB = wins('them');
+      compare.push(['Biggest win', wA ? `+${f2(wA.margin)}` : '—', wB ? `+${f2(wB.margin)}` : '—', (wA ? wA.margin : 0) - (wB ? wB.margin : 0)]);
+    }
+    // The current streak, from the latest game back.
+    let streak = '';
+    if (games.length) {
+      const last = res(games[games.length - 1]);
+      let n = 0;
+      for (let i = games.length - 1; i >= 0 && res(games[i]) === last; i--) n++;
+      streak = last === 't' ? 'Their last game was a tie.'
+        : `${esc(last === 'a' ? a : b)} has won ${n === 1 ? 'the last game' : `${n} straight`}.`;
+    }
+    const lastGame = games[games.length - 1];
+    const when = (g) => `${g.year} · Wk ${g.week}`;
+    const rows = games.slice().reverse().map((g) => {
+      const r = res(g);
+      return `
+        <tr class="rv-${r}">
+          <td class="c-when"><a href="${g.link}">${when(g)}</a><small>${esc(g.label)}</small></td>
+          <td class="rv-team ${r === 'a' ? 'won' : ''}"><span>${esc(g.me.team)}</span></td>
+          <td class="c-num rv-score ${r === 'a' ? 'won' : ''}">${f2(g.me.score)}</td>
+          <td class="c-num rv-score ${r === 'b' ? 'won' : ''}">${f2(g.them.score)}</td>
+          <td class="rv-team right ${r === 'b' ? 'won' : ''}"><span>${esc(g.them.team)}</span></td>
+        </tr>`;
+    }).join('');
+    const top = [...counts.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, 8);
+    const href = (x, y) => `#/archives/rivalries?a=${encodeURIComponent(x)}&b=${encodeURIComponent(y)}`;
+
+    body().innerHTML = `
+      <div class="panel rv-pick">
+        <label class="select"><span class="sr-only">First manager</span><select id="rv-a">${options(a)}</select></label>
+        <button type="button" class="rv-swap" id="rv-swap" title="Swap sides" aria-label="Swap sides"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 7h12m0 0-4-4m4 4-4 4M17 17H5m0 0 4-4m-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <label class="select"><span class="sr-only">Second manager</span><select id="rv-b">${options(b)}</select></label>
+      </div>
+      ${a === b ? '<div class="state"><strong>Pick two different managers.</strong></div>' : `
+      <section class="panel rv-head">
+        ${side(pa, all.a, all.a > all.b ? 'lead' : '')}
+        <div class="rv-mid"><span>vs</span><small>${games.length} game${games.length === 1 ? '' : 's'}${all.t ? ` · ${all.t} tie${all.t > 1 ? 's' : ''}` : ''}</small></div>
+        ${side(pb, all.b, `right${all.b > all.a ? ' lead' : ''}`)}
+        ${games.length ? `<div class="rv-bar" role="img" aria-label="${esc(a)} ${all.a} wins, ${esc(b)} ${all.b} wins"><i style="flex:${all.a + all.t / 2 || 0.0001};--lc:var(--${pa.league.theme})"></i><i style="flex:${all.b + all.t / 2 || 0.0001};--lc:var(--${pb.league.theme})"></i></div>` : ''}
+      </section>
+      ${games.length ? `
+      <p class="rv-streak">${streak} Last played ${when(lastGame)} (${esc(lastGame.label.toLowerCase())}): <a href="${lastGame.link}">${esc(res(lastGame) === 'b' ? b : a)} ${f2(Math.max(lastGame.me.score, lastGame.them.score))}–${f2(Math.min(lastGame.me.score, lastGame.them.score))}</a>.</p>
+      <div class="panel rv-compare">
+        ${compare.map(([label, x, y, diff, note]) => `
+          <div class="rv-row"><span class="${diff > 0 ? 'won' : ''}">${x}</span><small>${label}${note ? ` <em>· ${note}</em>` : ''}</small><span class="${diff < 0 ? 'won' : ''}">${y}</span></div>`).join('')}
+      </div>
+      <h3 class="section-label rv-label">Every game</h3>
+      <div class="panel"><div class="table-wrap"><table class="standings rv-games">
+        <thead><tr><th class="c-when">When</th><th class="rv-team"><span class="sr-only">${esc(a)}’s team</span></th><th class="c-num">${esc(a)}</th><th class="c-num">${esc(b)}</th><th class="rv-team"><span class="sr-only">${esc(b)}’s team</span></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div></div>` : `<div class="state"><strong>${esc(a)} and ${esc(b)} haven't played each other yet.</strong><span>Since ${data.first}, as far back as the saved games go.</span></div>`}`}
+      <h3 class="section-label rv-label">Most-played rivalries</h3>
+      <div class="rv-top">${top.map(([k, n]) => { const [x, y] = k.split('|'); return `<a class="rv-chip" href="${href(x, y)}">${esc(x)} <span>vs</span> ${esc(y)} <small>${n}</small></a>`; }).join('')}</div>
+      <p class="fineprint">Every game the two managers played against each other since ${data.first}, matched by the name the league uses: regular-season games, in-league and cross-league (${SEASON}'s finished weeks included), plus past seasons' playoff and Toilet Bowl games. In a three-team playoff game, the higher of the two scores wins their head to head. ${data.first <= 2023 ? '2023’s bye-week games against the median don’t count. ' : ''}Tap a game to see it.</p>`;
+
+    const go = (x, y) => { location.hash = href(x, y); };
+    body().querySelector('#rv-a').addEventListener('change', (e) => go(e.target.value, b === e.target.value ? a : b));
+    body().querySelector('#rv-b').addEventListener('change', (e) => go(a === e.target.value ? b : a, e.target.value));
+    body().querySelector('#rv-swap').addEventListener('click', () => go(b, a));
   }
 
   // ---------- all-time records ----------
