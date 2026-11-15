@@ -25,4 +25,5 @@ jobs:
           done
           echo "The recap still isn't live after 20 minutes." && exit 1
       - name: Send the notification
-        run: curl -sS --max-time 60 -X POST "https://blfbdmrnrwvylvqakgck.supabase.co/functions/v1/push" -H "Content-Type: application/json" -H "apikey: sb_publishable_YgYOVZ69vU8LUPqhHvN7YQ_RJdv64e_" -d '{"action":"recap"}'
+        run: |
+          curl -sS --max-time 60 -X POST "https://blfbdmrnrwvylvqakgck.supabase.co/functions/v1/push" -H "Content-Type: application/json" -H "apikey: sb_publishable_YgYOVZ69vU8LUPqhHvN7YQ_RJdv64e_" -d '{"action":"recap"}'
