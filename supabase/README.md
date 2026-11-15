@@ -67,12 +67,19 @@ Until this is done, Google sign-in still works.
 A new key allows 100 searches an hour for the whole site. If that runs out, GIPHY's dashboard can upgrade it.
 Without a key, the GIF button is hidden; uploading photos and GIFs still works.
 
+### 6. Predictions lock times
+Run `pick-locks-<season>.sql` in the SQL editor. It says when each week's picks lock: the week's first NFL
+kickoff. Each game's favorite and underdog come from `data/predictions.json`, which the "Predictions
+favorites" GitHub workflow saves shortly before each lock (`tools/run-pick-favorites.js`).
+
 ## Each season
 Once `data/standings.json` has the new season's teams:
 
     node tools/build-supabase-seed.js
+    node tools/build-pick-locks.js
 
-Run the new `seed-<season>.sql` in the SQL editor. Returning managers keep their accounts. New managers
+Run the new `seed-<season>.sql` and `pick-locks-<season>.sql` in the SQL editor. If the NFL moves a week's
+first game, run `build-pick-locks.js` again and rerun its file. Returning managers keep their accounts. New managers
 get codes, which the last query lists. Managers who left can still sign in, but they're no longer members.
 
 A manager is matched by name from season to season. If a returning manager's ESPN name changes, set it

@@ -1424,3 +1424,60 @@ button.react-chip:hover { border-color: var(--accent); }
   .post-add span { display: none; } /* icons only, so Photo, GIF and Post fit one row */
   .post-tools { flex-direction: column; gap: 0; align-items: flex-end; }
 }
+
+/* ===== Predictions: pick bars on game cards, and the leaderboard ===== */
+.gp { margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-2); }
+.gp-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; margin-bottom: 8px; }
+.gp-head b { font: 800 12px/1.2 var(--font); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.gp-head small { color: var(--muted); font-size: 12px; }
+.gp-opts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.gp-opt {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 8px 10px 8px 26px;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; cursor: pointer;
+}
+.gp-opt b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.gp-opt small { color: var(--muted); font-size: 12px; font-weight: 700; }
+.gp-opt:hover { border-color: var(--accent); }
+.gp-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gp-opt.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--surface)); }
+.gp-opt.on small { color: var(--text); }
+.gp-dot { position: absolute; top: 50%; left: 9px; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; border: 2px solid var(--muted); }
+.gp-opt.on .gp-dot { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 2px var(--surface); }
+.gp-split { display: grid; grid-template-columns: minmax(0, auto) minmax(40px, 1fr) minmax(0, auto); align-items: center; gap: 10px; font-size: 14px; }
+.gp-split > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp-split > span:last-child { text-align: right; }
+.gp-split .bar { height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.gp-split .bar i { display: block; height: 100%; background: var(--accent); }
+.gp-split small { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.gp-mine { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+.gp-mine b { color: var(--text); }
+.gp-mine.right { color: var(--win); }
+.gp-mine.wrong { color: var(--loss); }
+.bye-card > .gp, .matchup > .gp { margin-bottom: 0; }
+
+.pk-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 28px; padding: 18px 20px; margin-bottom: 20px; }
+.pk-when { flex: 1 1 280px; }
+.pk-when h2 { margin: 4px 0 6px; font: 800 26px/1.05 var(--display); text-transform: uppercase; }
+.pk-when p { margin: 0; }
+.pk-progress { margin: 0 0 8px; }
+.pk-progress a { color: var(--accent); font-weight: 700; }
+.pk-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.pk-link {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--text); text-decoration: none; font-size: 13px; font-weight: 700;
+}
+.pk-link b { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pk-link:hover { border-color: var(--accent); }
+.pk-link.done { border-color: var(--win); }
+.pk-link.done b { color: var(--win); }
+.pk-board .matchups-bar { align-items: center; }
+.pk-board .section-label { margin: 0; }
+.pk-table tr.me td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.pk-table .pk-pts { font-size: 18px; }
+.pk-table .pk-live { color: var(--win); }
+@media (max-width: 600px) {
+  .gp { padding: 9px 10px; }
+  .gp-opt { padding: 7px 8px 7px 24px; }
+  .gp-opt b { font-size: 14px; }
+  .pk-when h2 { font-size: 22px; }
+}

@@ -1,0 +1,38 @@
+# Saves each team's max projected lineup just before the week's Predictions lock (its first NFL game), which
+# decides each game's favorite and underdog. Checks every 30 minutes Wednesday through Friday (UTC), since a
+# week's first game is always in that span. Most checks change nothing, and then nothing is committed.
+name: Predictions favorites
+
+on:
+  schedule:
+    - cron: '17,47 * * * 3,4,5'
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: predictions
+  cancel-in-progress: false
+
+jobs:
+  save:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node tools/run-pick-favorites.js
+      - name: Save the favorites
+        run: |
+          git add data/predictions.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Nothing new."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Save Predictions favorites"
+            git pull --rebase
+            git push
+          fi

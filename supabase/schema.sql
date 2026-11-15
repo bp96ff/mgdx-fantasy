@@ -465,3 +465,101 @@ revoke execute on function public.create_post(text, text, text, int, int), publi
 grant execute on function public.create_post(text, text, text, int, int), public.edit_post(uuid, text), public.delete_post(uuid),
   public.toggle_reaction(text, text) to authenticated;
 grant execute on function public.list_posts(timestamptz, int), public.get_reactions(text[]) to anon, authenticated;
+
+-- ---------- Predictions: pick the winner of every game ----------
+-- Members pick a winner in each in-league and cross-league game. A week's picks lock when its first NFL game
+-- kicks off (pick_locks, from supabase/pick-locks-<season>.sql). Until then a member can change or clear a pick,
+-- and only they can see it; after that everyone's picks are public. Scoring happens on the site: 1 point for a
+-- correct favorite, 2 for a correct underdog (see data/predictions.json).
+create table if not exists public.pick_locks (
+  season int not null,
+  week int not null,
+  locks_at timestamptz not null,
+  primary key (season, week)
+);
+-- game names the two teams, lower first: 'lab-rats:1-12' for an in-league game,
+-- 'x:genomic-gerbils.8-lab-rats.1' for a cross-league one (byte order). pick is the chosen team, 'lab-rats.1'.
+create table if not exists public.picks (
+  season int not null,
+  week int not null,
+  game text not null check (char_length(game) <= 80),
+  manager_id text not null references public.managers (id) on update cascade on delete cascade,
+  pick text not null,
+  updated_at timestamptz not null default now(),
+  primary key (season, week, game, manager_id)
+);
+alter table public.pick_locks enable row level security;
+alter table public.picks enable row level security;
+revoke all on public.pick_locks, public.picks from anon, authenticated;
+
+-- This season's lock time for each week. Public.
+create or replace function public.pick_weeks()
+returns table (week int, locks_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select l.week, l.locks_at from pick_locks l where l.season = current_season() order by l.week
+$$;
+
+-- Makes, changes or (with p_pick null) clears the signed-in member's pick, until the week locks.
+create or replace function public.set_pick(p_week int, p_game text, p_pick text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  mid text := my_manager_id();
+  yr int := current_season();
+  lock_at timestamptz;
+  m text[];
+  a text;
+  b text;
+begin
+  if mid is null then raise exception 'Only this season''s managers can make picks'; end if;
+  select locks_at into lock_at from pick_locks where season = yr and week = p_week;
+  if lock_at is null then raise exception 'Picks aren''t open for Week %', p_week; end if;
+  if now() >= lock_at then raise exception 'Week % picks locked when its first game kicked off', p_week; end if;
+  m := regexp_match(coalesce(p_game, ''), '^([a-z-]+):([0-9]+)-([0-9]+)$');
+  if m is not null then
+    if m[2]::int >= m[3]::int then raise exception 'That isn''t a game'; end if;
+    a := m[1] || '.' || m[2];
+    b := m[1] || '.' || m[3];
+  else
+    m := regexp_match(coalesce(p_game, ''), '^x:([a-z-]+\.[0-9]+)-([a-z-]+\.[0-9]+)$');
+    if m is null or not (m[1] collate "C" < m[2] collate "C") then raise exception 'That isn''t a game'; end if;
+    a := m[1];
+    b := m[2];
+  end if;
+  if (select count(*) from season_teams s where s.season = yr and (s.league || '.' || s.team_id) in (a, b)) <> 2 then
+    raise exception 'That isn''t a game this season';
+  end if;
+  if p_pick is null then
+    delete from picks where season = yr and week = p_week and game = p_game and manager_id = mid;
+    return;
+  end if;
+  if p_pick not in (a, b) then raise exception 'Pick one of the two teams in the game'; end if;
+  if not exists (select 1 from picks where season = yr and week = p_week and game = p_game and manager_id = mid)
+      and (select count(*) from picks where season = yr and week = p_week and manager_id = mid) >= 60 then
+    raise exception 'That''s more picks than there are games';
+  end if;
+  insert into picks (season, week, game, manager_id, pick) values (yr, p_week, p_game, mid, p_pick)
+  on conflict (season, week, game, manager_id) do update set pick = excluded.pick, updated_at = now();
+end
+$$;
+
+-- The signed-in member's own picks for a week, locked or not.
+create or replace function public.my_picks(p_week int)
+returns table (game text, pick text)
+language sql stable security definer set search_path = public as $$
+  select p.game, p.pick from picks p
+  where p.season = current_season() and p.week = p_week and p.manager_id = my_manager_id()
+$$;
+
+-- Everyone's picks this season, for locked weeks only: who picked each team in each game. Public.
+create or replace function public.pick_tallies()
+returns table (week int, game text, pick text, managers text[])
+language sql stable security definer set search_path = public as $$
+  select p.week, p.game, p.pick, array_agg(p.manager_id order by p.manager_id)
+  from picks p join pick_locks l on l.season = p.season and l.week = p.week
+  where p.season = current_season() and l.locks_at <= now()
+  group by p.week, p.game, p.pick
+$$;
+
+revoke execute on function public.set_pick(int, text, text), public.my_picks(int) from public, anon;
+grant execute on function public.set_pick(int, text, text), public.my_picks(int) to authenticated;
+grant execute on function public.pick_weeks(), public.pick_tallies() to anon, authenticated;

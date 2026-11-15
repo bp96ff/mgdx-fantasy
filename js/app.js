@@ -136,9 +136,9 @@
   }
 
   // ---------- blog ----------
-  const BLOG_TABS = ['main', 'recaps', 'bets', 'polls'];
-  const BLOG_TAB_NAMES = { main: 'Main Blog', recaps: 'Recaps', bets: 'Bets', polls: 'Polls' };
-  const BLOG_KICKERS = { main: 'Takes and trash talk', recaps: 'How each week went down', bets: 'Wagers between managers', polls: 'The league weighs in' };
+  const BLOG_TABS = ['main', 'recaps', 'predictions'];
+  const BLOG_TAB_NAMES = { main: 'Main Blog', recaps: 'Recaps', predictions: 'Predictions' };
+  const BLOG_KICKERS = { main: 'Takes and trash talk', recaps: 'How each week went down', predictions: 'Pick every winner' };
 
   function renderBlog(sub, params) {
     const p = PLACEHOLDERS.blog;
@@ -152,11 +152,12 @@
           <h1 class="page-title">${esc(p.title)}</h1>
         </div>
       </section>
-      <nav class="subtabs four" aria-label="Blog sections">
+      <nav class="subtabs" aria-label="Blog sections">
         ${BLOG_TABS.map((s) => `<a href="#/blog/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${BLOG_TAB_NAMES[s]}</a>`).join('')}
       </nav>
       ${sub === 'recaps' ? `<div id="league-body">${loading('Loading recaps')}</div>`
-        : sub === 'main' && ACCOUNT && ACCOUNT.enabled && !ARCHIVE ? `<div id="league-body">${loading('Loading posts')}</div>` : `
+        : sub === 'main' && ACCOUNT && ACCOUNT.enabled && !ARCHIVE ? `<div id="league-body">${loading('Loading posts')}</div>`
+        : sub === 'predictions' && PICKS.on ? `<div id="league-body">${loading('Loading the leaderboard')}</div>` : `
       <section class="placeholder">
         <img class="placeholder-art" src="${p.art}" alt="" width="220" height="220">
         <p class="eyebrow">${esc(BLOG_KICKERS[sub])}</p>
@@ -165,6 +166,7 @@
       </section>`}`;
     if (sub === 'recaps') renderRecaps(params);
     else if (sub === 'main' && ACCOUNT && ACCOUNT.enabled && !ARCHIVE) renderFeed();
+    else if (sub === 'predictions' && PICKS.on) renderPredictions(params);
   }
 
   // ---------- reactions ----------
@@ -292,6 +294,417 @@
       if (e.target.closest && e.target.closest('.react-menu')) return;
       document.querySelectorAll('.react-add[open]').forEach((d) => { d.open = false; });
     }, { capture: true, passive: true });
+  }
+
+  // ---------- Predictions: picks on game cards ----------
+  // Members pick the winner of every in-league and cross-league game, on the Matchups and Cross-League tabs.
+  // A week's picks lock when its first NFL game kicks off (pick_locks in supabase/schema.sql); until then only
+  // the member sees their own picks, and after it everyone's are public. A correct favorite is worth 1 point,
+  // a correct underdog 2. The favorite has the higher max projected lineup (the best lineup its roster could
+  // start, by ESPN projections), saved at kickoff to data/predictions.json by tools/run-pick-favorites.js;
+  // before kickoff the cards show the live numbers.
+  const PICKS = (() => {
+    const on = Boolean(ACCOUNT && ACCOUNT.enabled && !ARCHIVE);
+    // Resolved data, so a card can redraw at once: locks (week -> ms), fav (data/predictions.json),
+    // tallies ('week|game' -> Map(team -> manager ids)), mine (week -> Map(game -> team)).
+    const state = { locks: null, fav: null, tallies: new Map(), mine: new Map() };
+    let locksP = null, favP = null, favT = 0, talliesP = null, talliesT = 0;
+    const mineP = new Map();
+    function locks() {
+      if (!locksP) {
+        locksP = ACCOUNT.read('pick_weeks').then((rows) => (state.locks = new Map(rows.map((r) => [r.week, Date.parse(r.locks_at)]))));
+        locksP.catch((err) => { console.warn('Pick locks unavailable', err); locksP = null; });
+      }
+      return locksP.catch(() => new Map());
+    }
+    function favorites() {
+      if (!favP || Date.now() - favT > 300000) {
+        favT = Date.now();
+        favP = fetch(`${DATA}predictions.json`, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+          .then((f) => (state.fav = f));
+      }
+      return favP;
+    }
+    function tallies() {
+      if (!talliesP || Date.now() - talliesT > 60000) {
+        talliesT = Date.now();
+        talliesP = ACCOUNT.read('pick_tallies').then((rows) => {
+          const map = new Map();
+          for (const r of rows) {
+            const k = `${r.week}|${r.game}`;
+            if (!map.has(k)) map.set(k, new Map());
+            map.get(k).set(r.pick, r.managers);
+          }
+          state.tallies = map;
+          return rows;
+        });
+        talliesP.catch((err) => { console.warn('Picks unavailable', err); talliesP = null; });
+      }
+      return talliesP.catch(() => []);
+    }
+    function mine(week) {
+      if (!canReact()) return Promise.resolve(null);
+      if (!mineP.has(week)) {
+        const p = ACCOUNT.write('my_picks', { p_week: week }).then((rows) => {
+          state.mine.set(week, new Map(rows.map((r) => [r.game, r.pick])));
+        });
+        p.catch((err) => { console.warn('Your picks are unavailable', err); mineP.delete(week); });
+        mineP.set(week, p);
+      }
+      return mineP.get(week).catch(() => null);
+    }
+    // A different member (or none): forget the last one's picks.
+    let who = null;
+    function resetMine() {
+      const now = canReact() ? ACCOUNT.state.me.manager_id : null;
+      if (now === who) return false;
+      who = now;
+      state.mine.clear();
+      mineP.clear();
+      return true;
+    }
+    return { on, state, locks, favorites, tallies, mine, resetMine };
+  })();
+
+  // A game's name in the database: its two teams, lower first ('lab-rats:1-12', 'x:genomic-gerbils.8-lab-rats.1').
+  const pickRef = (league, team) => `${league.slug}.${team.id}`;
+  function pickGame(a, b, cross) {
+    if (cross) return `x:${[a, b].sort().join('-')}`;
+    const [slug, x] = a.split('.');
+    const [lo, hi] = [Number(x), Number(b.split('.')[1])].sort((m, n) => m - n);
+    return `${slug}:${lo}-${hi}`;
+  }
+  const managerName = (id) => id.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  function lockText(ms) {
+    const d = new Date(ms);
+    const soon = ms - Date.now() < 6 * 86400e3;
+    return d.toLocaleString('en-US', soon ? { weekday: 'short', hour: 'numeric', minute: '2-digit' }
+      : { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+  // Points for a correct pick: 1 for the favorite (or an even game, or one with no projections), 2 for the underdog.
+  function pickWorth(proj, pick, other) {
+    if (!proj || proj[pick] == null || proj[other] == null) return 1;
+    return proj[pick] < proj[other] ? 2 : 1;
+  }
+
+  // One side of a card for the pick bar. proj is the live max projected lineup, when ESPN has the roster.
+  const pickSide = (side, league) => ({
+    ref: pickRef(league, side.team),
+    owner: side.team.owner || side.team.name,
+    proj: side.lineup ? Math.round(THIS_WEEK.potentialPoints(side.lineup, league.slotCounts, (p) => p.proj) * 100) / 100 : null,
+  });
+  const pickResult = (g, a, b) => (!g.decided ? null : g.winner === 'home' ? a.ref : g.winner === 'away' ? b.ref : 'tie');
+
+  const pickCards = new Map(); // 'week|game' -> { week, game, a, b, winner }
+  // Adds a pick bar to each card (above its reactions), then fills them in once the picks load.
+  function attachPicks(root, week, items) {
+    if (!PICKS.on) return;
+    for (const it of items) {
+      if (!it.el) continue;
+      const game = pickGame(it.a.ref, it.b.ref, it.cross);
+      const key = `${week}|${game}`;
+      pickCards.set(key, { ...it, el: null, week, game });
+      if (it.el.querySelector(':scope > .gp')) continue;
+      const html = `<div class="gp" data-pick="${esc(key)}" hidden></div>`;
+      const spot = it.el.querySelector(':scope > .react, :scope > .toggle');
+      if (spot) spot.insertAdjacentHTML('beforebegin', html);
+      else it.el.insertAdjacentHTML('beforeend', html);
+    }
+    loadPicks(week).then(() => drawPicks(root, week));
+  }
+  async function loadPicks(week) {
+    PICKS.resetMine();
+    const [locks] = await Promise.all([PICKS.locks(), PICKS.favorites(), PICKS.mine(week)]);
+    if (locks.has(week) && Date.now() >= locks.get(week)) await PICKS.tallies();
+  }
+  function drawPicks(root, week) {
+    root.querySelectorAll('.gp[data-pick]').forEach((el) => {
+      if (week == null || el.dataset.pick.startsWith(`${week}|`)) drawPick(el);
+    });
+  }
+
+  function drawPick(el) {
+    const it = pickCards.get(el.dataset.pick);
+    const S = PICKS.state;
+    const lock = it && S.locks && S.locks.get(it.week);
+    if (lock == null) { el.hidden = true; return; } // no picks this week (playoffs), or they didn't load
+    const locked = Date.now() >= lock;
+    const saved = locked && S.fav && S.fav.season === SEASON && S.fav.weeks && S.fav.weeks[it.week];
+    const proj = saved ? saved.proj : { [it.a.ref]: it.a.proj, [it.b.ref]: it.b.proj };
+    const known = proj[it.a.ref] != null && proj[it.b.ref] != null;
+    const tag = (s, o) => (!known ? '' : proj[s.ref] === proj[o.ref] ? 'Even · 1 pt'
+      : pickWorth(proj, s.ref, o.ref) === 2 ? 'Underdog · 2 pts' : 'Favorite · 1 pt');
+    const projLine = known ? `Max projected ${f1(proj[it.a.ref])}–${f1(proj[it.b.ref])}` : '';
+    const mine = S.mine.get(it.week);
+    const myPick = mine && mine.get(it.game);
+    if (!locked) {
+      if (!canReact()) { el.hidden = true; return; }
+      el.hidden = false;
+      el.className = 'gp';
+      el.innerHTML = `
+        <div class="gp-head"><b>Your pick</b><small>${known ? `${projLine} for now · ` : ''}Locks ${esc(lockText(lock))}</small></div>
+        <div class="gp-opts">${[[it.a, it.b], [it.b, it.a]].map(([s, o]) => `
+          <button type="button" class="gp-opt${myPick === s.ref ? ' on' : ''}" data-pick-team="${esc(s.ref)}" aria-pressed="${myPick === s.ref}">
+            <span class="gp-dot" aria-hidden="true"></span><b>${esc(s.owner)}</b>${tag(s, o) ? `<small>${tag(s, o)}</small>` : ''}
+          </button>`).join('')}</div>`;
+      return;
+    }
+    // Locked: how everyone picked, and how the member's pick did.
+    const t = S.tallies.get(`${it.week}|${it.game}`) || new Map();
+    const who = (s) => t.get(s.ref) || [];
+    const na = who(it.a).length, nb = who(it.b).length;
+    if (!na && !nb && !myPick) { el.hidden = true; return; }
+    el.hidden = false;
+    el.className = 'gp locked';
+    const pct = na + nb ? Math.round((100 * na) / (na + nb)) : 50;
+    const list = (s) => (who(s).length ? `Picked ${s.owner}: ${who(s).map(managerName).join(', ')}` : `No one picked ${s.owner}`);
+    let mineLine = '';
+    if (myPick) {
+      const s = myPick === it.a.ref ? it.a : it.b;
+      const o = s === it.a ? it.b : it.a;
+      const worth = pickWorth(proj, s.ref, o.ref);
+      const [cls, result] = !it.winner ? ['', `${worth} pt${worth > 1 ? 's' : ''} if ${esc(s.owner)} wins`]
+        : it.winner === s.ref ? ['right', `Correct · +${worth}`] : it.winner === 'tie' ? ['', 'Tie · no points'] : ['wrong', 'Missed · 0'];
+      mineLine = `<p class="gp-mine ${cls}">Your pick: <b>${esc(s.owner)}</b> · ${result}</p>`;
+    }
+    el.innerHTML = `
+      <div class="gp-head"><b>Picks</b><small>${known ? `${projLine}${saved ? (saved.late ? ' (saved after kickoff)' : ' at kickoff') : ' (estimate)'}` : 'Locked'}</small></div>
+      <div class="gp-split">
+        <span title="${esc(list(it.a))}"><b>${na}</b> ${esc(it.a.owner)}${tag(it.a, it.b) ? ` <small>${tag(it.a, it.b).split(' · ')[0]}</small>` : ''}</span>
+        <div class="bar" role="img" aria-label="${esc(`${na} picked ${it.a.owner}, ${nb} picked ${it.b.owner}`)}"><i style="width:${pct}%"></i></div>
+        <span title="${esc(list(it.b))}">${tag(it.b, it.a) ? `<small>${tag(it.b, it.a).split(' · ')[0]}</small> ` : ''}${esc(it.b.owner)} <b>${nb}</b></span>
+      </div>${mineLine}`;
+  }
+
+  if (PICKS.on) {
+    document.addEventListener('click', async (e) => {
+      const b = e.target.closest('.gp-opt');
+      if (!b || !canReact()) return;
+      const el = b.closest('.gp');
+      const it = pickCards.get(el.dataset.pick);
+      const lock = PICKS.state.locks && PICKS.state.locks.get(it.week);
+      if (lock == null || Date.now() >= lock) {
+        drawPick(el);
+        alert(`Week ${it.week} picks are locked.`);
+        return;
+      }
+      const S = PICKS.state;
+      if (!S.mine.has(it.week)) S.mine.set(it.week, new Map());
+      const mine = S.mine.get(it.week);
+      const before = mine.get(it.game);
+      const next = before === b.dataset.pickTeam ? null : b.dataset.pickTeam; // tapping your pick again clears it
+      if (next) mine.set(it.game, next); else mine.delete(it.game);
+      drawPick(el);
+      try {
+        await ACCOUNT.write('set_pick', { p_week: it.week, p_game: it.game, p_pick: next });
+      } catch (err) {
+        if (before) mine.set(it.game, before); else mine.delete(it.game);
+        drawPick(el);
+        alert(err.message);
+      }
+    });
+    // Signing in or out changes whose picks show.
+    ACCOUNT.onChange(() => {
+      if (!PICKS.resetMine()) return;
+      const weeks = new Set([...document.querySelectorAll('.gp[data-pick]')].map((el) => Number(el.dataset.pick.split('|')[0])));
+      for (const w of weeks) loadPicks(w).then(() => drawPicks(document, w));
+      const { parts, params } = parseHash();
+      if (parts[0] === 'blog' && parts[1] === 'predictions') renderPredictions(params);
+    });
+  }
+
+  // ---------- Predictions tab: the leaderboard ----------
+  // Every pick in a locked week, scored against the results: ESPN's in-league results, and the higher score
+  // for cross-league games once the week is over. Picks on anything that isn't a real game don't count.
+  async function predictionData() {
+    const [locks, rows, fav, leagues, file] = await Promise.all([
+      PICKS.locks(), PICKS.tallies(), PICKS.favorites(), loadAllLeagues(), lockedStandings(),
+    ]);
+    const [results, cross] = await Promise.all([
+      Promise.all(leagues.map((l) => ESPN.getResults(l))),
+      file ? lockedCrossSchedules(file) : crossSchedules(),
+    ]);
+    const currentWeek = Math.max(...leagues.map((l) => l.currentWeek));
+    const scores = new Map(); // 'week|ref' -> points
+    const games = new Map(); // 'week|game' -> { week, a, b, winner, leader, kind }
+    leagues.forEach((l, i) => {
+      for (const [teamId, list] of results[i]) for (const e of list) scores.set(`${e.week}|${l.slug}.${teamId}`, e.pf);
+    });
+    // The week being played: ESPN's season results don't have its live scores, so read them from the scoreboard.
+    if (locks.has(currentWeek)) {
+      const live = await Promise.all(leagues.map((l) => ESPN.getMatchups(l, currentWeek).catch(() => null)));
+      leagues.forEach((l, i) => {
+        for (const g of (live[i] && live[i].games) || []) {
+          for (const s of [g.home, g.away]) if (s && s.team) scores.set(`${currentWeek}|${l.slug}.${s.team.id}`, s.score);
+        }
+      });
+    }
+    const score = (week, ref) => scores.get(`${week}|${ref}`) || 0;
+    leagues.forEach((l, i) => {
+      for (const [teamId, list] of results[i]) {
+        for (const e of list) {
+          if (e.bye || !e.opp) continue;
+          const a = `${l.slug}.${teamId}`;
+          const b = `${l.slug}.${e.opp.id}`;
+          const game = pickGame(a, b, false);
+          if (games.has(`${e.week}|${game}`)) continue;
+          const winner = e.result == null ? null : e.result === 'T' ? 'tie' : e.result === 'W' ? a : b;
+          const pa = score(e.week, a), pb = score(e.week, b);
+          games.set(`${e.week}|${game}`, { week: e.week, game, a, b, winner, kind: l.slug, leader: pa > pb ? a : pb > pa ? b : null });
+        }
+      }
+    });
+    for (const [key, list] of cross.byTeam) {
+      for (const x of list) {
+        if (!x.opp || x.opp.missing || !x.opp.team) continue;
+        const a = key.replace(':', '.');
+        const b = `${x.opp.league.slug}.${x.opp.team.id}`;
+        const game = pickGame(a, b, true);
+        if (games.has(`${x.week}|${game}`)) continue;
+        const pa = score(x.week, a), pb = score(x.week, b);
+        const leader = pa > pb ? a : pb > pa ? b : null;
+        const winner = x.week < currentWeek ? leader || 'tie' : null;
+        games.set(`${x.week}|${game}`, { week: x.week, game, a, b, winner, leader, kind: 'x' });
+      }
+    }
+
+    // Each member's points, overall and by week.
+    const blank = () => ({ pts: 0, right: 0, wrong: 0, dogs: 0, picks: 0, live: 0 });
+    const members = new Map();
+    for (const r of rows) {
+      const g = games.get(`${r.week}|${r.game}`);
+      if (!g || (r.pick !== g.a && r.pick !== g.b)) continue;
+      const saved = fav && fav.season === SEASON && fav.weeks && fav.weeks[r.week];
+      const worth = pickWorth(saved && saved.proj, r.pick, r.pick === g.a ? g.b : g.a);
+      for (const id of r.managers) {
+        if (!members.has(id)) members.set(id, { id, total: blank(), weeks: new Map() });
+        const m = members.get(id);
+        if (!m.weeks.has(r.week)) m.weeks.set(r.week, blank());
+        for (const s of [m.total, m.weeks.get(r.week)]) {
+          s.picks++;
+          if (g.winner === r.pick) { s.pts += worth; s.right++; if (worth === 2) s.dogs++; }
+          else if (g.winner && g.winner !== 'tie') s.wrong++;
+          else if (!g.winner && g.leader === r.pick) s.live += worth;
+        }
+      }
+    }
+    // Who each manager is this season, by the manager id (their name as a slug).
+    const teams = new Map();
+    for (const l of leagues) for (const t of l.teams) teams.set(slugify(t.owner), { team: t, league: l });
+    return { locks, games, members, teams, currentWeek, leagues };
+  }
+
+  async function renderPredictions(params) {
+    const token = renderToken;
+    const el = document.getElementById('league-body');
+    try {
+      const d = await predictionData();
+      if (token !== renderToken) return;
+      const now = Date.now();
+      const lockedWeeks = [...d.locks].filter(([, at]) => at <= now).map(([w]) => w);
+      const playedWeeks = lockedWeeks.filter((w) => [...d.members.values()].some((m) => m.weeks.has(w)));
+      const asked = Number(params.get('week'));
+      const week = playedWeeks.includes(asked) ? asked : null; // null: the whole season
+      const next = [...d.locks].filter(([, at]) => at > now).sort((a, b) => a[1] - b[1])[0];
+      const live = lockedWeeks.includes(d.currentWeek) && [...d.games.values()].some((g) => g.week === d.currentWeek && !g.winner)
+        ? d.currentWeek : null;
+
+      // This week: when picks lock, and how many the member has made in each section.
+      let status = '';
+      if (next) {
+        const [nw, at] = next;
+        const left = at - now;
+        const inText = left < 3600e3 ? `${Math.max(1, Math.round(left / 60000))} min` : left < 86400e3
+          ? `${Math.floor(left / 3600e3)}h ${Math.round((left % 3600e3) / 60000)}m` : `${Math.floor(left / 86400e3)}d ${Math.floor((left % 86400e3) / 3600e3)}h`;
+        const weekGames = [...d.games.values()].filter((g) => g.week === nw);
+        let progress = '';
+        if (canReact()) {
+          await PICKS.mine(nw);
+          if (token !== renderToken) return;
+          const mine = PICKS.state.mine.get(nw) || new Map();
+          const sections = [...LEAGUES.map((l) => ({ kind: l.slug, name: l.name, href: `#/${l.slug}/matchups?week=${nw}`, theme: l.theme })),
+            { kind: 'x', name: 'Cross-League', href: `#/cross-league?week=${nw}` }];
+          const made = weekGames.filter((g) => mine.has(g.game)).length;
+          progress = `
+            <p class="pk-progress"><b>${made}</b> of ${weekGames.length} games picked</p>
+            <div class="pk-links">${sections.map((s) => {
+              const list = weekGames.filter((g) => g.kind === s.kind);
+              const n = list.filter((g) => mine.has(g.game)).length;
+              return `<a class="pk-link${list.length && n === list.length ? ' done' : ''}" href="${s.href}">${s.theme ? `<i class="dot" style="--c:var(--${s.theme})"></i>` : ''}${esc(s.name)} <b>${n}/${list.length}</b></a>`;
+            }).join('')}</div>`;
+        } else {
+          const s = ACCOUNT.state;
+          progress = `<p class="pk-progress">${!s.user ? 'Managers sign in to make picks.' : 'Link your team to make picks.'} <a href="#/account">${!s.user ? 'Sign in' : 'Link your team'}</a></p>`;
+        }
+        status = `
+          <section class="panel pk-status">
+            <div class="pk-when">
+              <p class="eyebrow">Week ${nw} picks</p>
+              <h2>Lock ${esc(new Date(at).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</h2>
+              <p class="muted">In ${inText}, at the week’s first kickoff. Pick each game on the Matchups and Cross-League tabs.</p>
+            </div>
+            ${progress}
+          </section>`;
+      }
+
+      // The table: the season, or one week.
+      const rows = [...d.members.values()].map((m) => {
+        const s = week ? m.weeks.get(week) : m.total;
+        return s && { m, s, liveWeek: live ? m.weeks.get(live) : null };
+      }).filter(Boolean).sort((a, b) => b.s.pts - a.s.pts || b.s.right - a.s.right || a.s.wrong - b.s.wrong
+        || (d.teams.get(a.m.id) || { team: { owner: a.m.id } }).team.owner.localeCompare((d.teams.get(b.m.id) || { team: { owner: b.m.id } }).team.owner));
+      let rank = 0;
+      const meId = canReact() ? ACCOUNT.state.me.manager_id : null;
+      const showLive = live && (!week || week === live);
+      const body = rows.map((r, i) => {
+        if (i === 0 || r.s.pts !== rows[i - 1].s.pts || r.s.right !== rows[i - 1].s.right || r.s.wrong !== rows[i - 1].s.wrong) rank = i + 1;
+        const who = d.teams.get(r.m.id);
+        const league = who && LEAGUES.find((l) => l.slug === who.league.slug);
+        const lw = r.liveWeek;
+        return `
+          <tr class="${r.m.id === meId ? 'me' : ''}">
+            <td class="c-rank"><span class="rank">${rank}</span></td>
+            <td class="c-team">${who ? `<a class="team-cell" href="#/${who.league.slug}/rosters?team=${who.team.id}">
+              ${teamLogo(who.team, league, 'avatar')}<span><strong>${esc(who.team.owner)}</strong><small>${esc(who.team.name)} · ${esc(league.name)}</small></span></a>`
+              : `<span class="team-cell"><span><strong>${esc(managerName(r.m.id))}</strong></span></span>`}</td>
+            <td class="c-num pk-pts">${r.s.pts}</td>
+            <td class="c-num">${r.s.right}-${r.s.wrong}</td>
+            <td class="c-num hide-sm">${r.s.dogs}</td>
+            ${showLive ? `<td class="c-num pk-live">${lw ? `+${lw.live}` : '—'}</td>` : ''}
+          </tr>`;
+      }).join('');
+      const options = [`<option value="">Season</option>`, ...playedWeeks.slice().sort((a, b) => b - a)
+        .map((w) => `<option value="${w}" ${w === week ? 'selected' : ''}>Week ${w}${w === live ? ' · live' : ''}</option>`)].join('');
+      const table = rows.length ? `
+        <div class="panel table-wrap">
+          <table class="standings pk-table">
+            <thead><tr>
+              <th class="c-rank">#</th><th>Manager</th>
+              <th class="c-num" title="1 per correct favorite, 2 per correct underdog">Pts</th>
+              <th class="c-num" title="Correct picks - missed picks (ties count for neither)">Record</th>
+              <th class="c-num hide-sm" title="Correct underdog picks">Upsets</th>
+              ${showLive ? `<th class="c-num" title="Week ${live}: points if every game ended now">Wk ${live} live</th>` : ''}
+            </tr></thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>` : `<div class="state"><strong>No locked picks yet.</strong><span>${next ? `The leaderboard starts when Week ${next[0]} locks.` : 'Check back next season.'}</span></div>`;
+
+      el.innerHTML = `
+        ${status}
+        <section class="pk-board">
+          <div class="matchups-bar">
+            <h2 class="section-label">${week ? `Week ${week} leaderboard` : 'Season leaderboard'}</h2>
+            ${playedWeeks.length ? `<label class="select"><span class="sr-only">Choose week</span><select id="pk-week">${options}</select></label>` : ''}
+          </div>
+          ${table}
+        </section>
+        <p class="fineprint">Pick the winner of every in-league and cross-league game, including bye-week matchups, on the Matchups and Cross-League tabs (regular season, Weeks 1-14). You can change a pick until the week’s first NFL game kicks off; then picks lock, and everyone’s become public. A correct pick of the favorite is worth 1 point and a correct underdog 2. The favorite is the team with the higher max projected lineup at kickoff: the best lineup its roster could start, by ESPN’s projections. Even projections make both teams worth 1. A tie earns no points. Ranked by points, then correct picks.</p>`;
+      const sel = el.querySelector('#pk-week');
+      if (sel) sel.addEventListener('change', (e) => { location.hash = `#/blog/predictions${e.target.value ? `?week=${e.target.value}` : ''}`; });
+    } catch (err) {
+      console.error(err);
+      if (token === renderToken) el.innerHTML = '<div class="state state-error" role="alert"><strong>Couldn’t load the leaderboard.</strong><span>Try again in a moment.</span></div>';
+    }
   }
 
   // ---------- Main Blog: posts ----------
@@ -3876,6 +4289,10 @@
       location.hash = `#/${league.slug}/matchups?week=${e.target.value}`;
     });
     bindToggles(body());
+    attachPicks(body(), week, data.games.filter((g) => !g.bye && g.home && g.away).map((g) => {
+      const a = pickSide(g.home, league), b = pickSide(g.away, league);
+      return { el: body().querySelector(`.matchup[data-id="${g.id}"]`), a, b, winner: pickResult(g, a, b) };
+    }));
     attachReactions(body(), data.games.filter((g) => !g.bye).map((g) => ({
       el: body().querySelector(`.matchup[data-id="${g.id}"]`),
       target: `match:${SEASON}:${league.slug}:w${week}:${g.home.team.id}-${g.away.team.id}`,
@@ -4297,6 +4714,10 @@
         location.hash = `#/cross-league?week=${e.target.value}`;
       });
       bindToggles(body());
+      attachPicks(body(), week, allGames.filter((g) => !g.home.missing && !g.away.missing && !g.home.median && !g.away.median).map((g) => {
+        const a = pickSide(g.home, g.home.league), b = pickSide(g.away, g.away.league);
+        return { el: body().querySelector(`.matchup[data-id="${g.id}"]`), a, b, cross: true, winner: pickResult(g, a, b) };
+      }));
       attachReactions(body(), allGames.filter((g) => !g.home.missing && !g.away.missing).map((g) => ({
         el: body().querySelector(`.matchup[data-id="${g.id}"]`),
         target: `xmatch:${SEASON}:w${week}:${g.home.league.slug}.${g.home.team.id}-${g.away.league.slug}.${g.away.team.id}`,
@@ -4359,6 +4780,7 @@
     } else if (key === 'blog') {
       renderToken++;
       setActiveNav('blog');
+      if (parts[1] === 'bets') { history.replaceState(null, '', '#/blog/predictions'); return route(); } // the tab's old name
       renderBlog(BLOG_TABS.includes(parts[1]) ? parts[1] : 'main', params);
     } else if (key === 'archives') {
       renderToken++;

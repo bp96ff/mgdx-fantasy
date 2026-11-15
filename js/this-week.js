@@ -50,7 +50,8 @@
 
   // The most points a roster could have started: tries every player in every open slot they're eligible for,
   // so a player who fits several slots can't throw it off. Injured reserve can't start, and a slot may stay empty.
-  function potentialPoints(lineup, slotCounts) {
+  // value picks what to add up: points scored (the default), or projections for Predictions' favorites.
+  function potentialPoints(lineup, slotCounts, value = (p) => p.points) {
     const slots = Object.entries(slotCounts)
       .filter(([slot, count]) => slot !== '20' && slot !== '21' && count > 0)
       .flatMap(([slot, count]) => Array(count).fill(Number(slot)));
@@ -64,7 +65,7 @@
         slots.forEach((slot, i) => {
           const bit = 1 << i;
           if (used & bit || !p.slots.includes(slot)) return;
-          next[used | bit] = Math.max(next[used | bit], best[used] + p.points);
+          next[used | bit] = Math.max(next[used | bit], best[used] + value(p));
         });
       }
       best = next;

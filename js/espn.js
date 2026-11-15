@@ -140,6 +140,18 @@
     };
   }
 
+  // When each NFL week's first game kicks off (ms), by scoring period: Predictions lock then.
+  async function firstKickoffs() {
+    const pro = await getProTeams();
+    const out = {};
+    for (const t of Object.values(pro)) {
+      for (const [period, games] of Object.entries(t.games)) {
+        for (const g of games) if (g.date && (!out[period] || g.date < out[period])) out[period] = g.date;
+      }
+    }
+    return out;
+  }
+
   // ---------- Player helpers ----------
   function findStat(stats, source, split, period, seasonId = SEASON) {
     return (stats || []).find(
@@ -397,6 +409,6 @@
 
   window.ESPN = {
     getLeague, getMatchups, getResults, getRosters, getCurrentWeek, getCurrentPeriod,
-    getRawTransactions, parseTransactions, getPlayerInfo, nflLogo, winProb,
+    getRawTransactions, parseTransactions, getPlayerInfo, nflLogo, winProb, firstKickoffs,
   };
 })();
