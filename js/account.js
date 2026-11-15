@@ -23,6 +23,15 @@
     const label = !state.user ? 'Sign in' : state.me ? state.me.name : 'Link your team';
     link.querySelector('span').textContent = label;
     link.classList.toggle('signed-in', Boolean(state.me));
+    link.setAttribute('aria-label', state.me ? `Your account (${state.me.name})` : label); // phones show only the icon
+    link.title = state.me ? 'Your account' : '';
+    // My Team: the signed-in manager's roster, while they have a team this season
+    const team = document.getElementById('my-team-link');
+    if (team) {
+      const me = state.me;
+      team.hidden = !(enabled && me && me.league);
+      if (me && me.league) team.href = `#/${me.league}/rosters?team=${me.team_id}`;
+    }
   }
 
   async function loadMe() {

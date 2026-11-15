@@ -1230,6 +1230,8 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   text-decoration: none; white-space: nowrap;
 }
 .account-link[hidden] { display: none; }
+.my-team-link + .account-link { margin-left: 10px; } /* My Team takes the push to the right */
+.my-team-link[hidden] + .account-link { margin-left: auto; }
 .account-link svg { color: var(--accent); flex: none; }
 .account-link:hover { border-color: var(--accent); }
 .account-link.signed-in { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
@@ -1266,6 +1268,9 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 @media (max-width: 600px) {
   .account-link { padding: 8px 10px; }
   .account-link span { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; }
+  .my-team-link + .account-link { margin-left: 6px; }
+  /* Signed in, both buttons are icons only, so the site name keeps its room */
+  .my-team-link span, .account-link.signed-in span { display: none; }
   .acct-card { padding: 20px 16px; }
 }
 
