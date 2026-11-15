@@ -153,7 +153,7 @@
         </div>
       </section>
       <nav class="subtabs" aria-label="Blog sections">
-        ${BLOG_TABS.map((s) => `<a href="#/blog/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${BLOG_TAB_NAMES[s]}</a>`).join('')}
+        ${BLOG_TABS.map((s) => `<a href="#/blog/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${BLOG_TAB_NAMES[s]}${s === 'main' && ACCOUNT && !ARCHIVE ? '<span class="nav-badge" data-unread hidden></span>' : ''}</a>`).join('')}
       </nav>
       ${sub === 'recaps' ? `<div id="league-body">${loading('Loading recaps')}</div>`
         : sub === 'main' && ACCOUNT && ACCOUNT.enabled && !ARCHIVE ? `<div id="league-body">${loading('Loading posts')}</div>`
@@ -167,6 +167,7 @@
     if (sub === 'recaps') renderRecaps(params);
     else if (sub === 'main' && ACCOUNT && ACCOUNT.enabled && !ARCHIVE) renderFeed();
     else if (sub === 'predictions' && PICKS.on) renderPredictions(params);
+    if (ACCOUNT && !ARCHIVE && typeof drawUnread === 'function') drawUnread();
   }
 
   // ---------- reactions ----------
@@ -382,10 +383,12 @@
       : { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
   // Points for a correct pick: 1 for the favorite (or an even game, or one with no projections), 2 for the underdog.
-  function pickWorth(proj, pick, other) {
-    if (!proj || proj[pick] == null || proj[other] == null) return 1;
-    return proj[pick] < proj[other] ? 2 : 1;
+  // A Matchup of the Week (double) is worth twice that.
+  function pickWorth(proj, pick, other, double) {
+    const base = !proj || proj[pick] == null || proj[other] == null || proj[pick] >= proj[other] ? 1 : 2;
+    return double ? base * 2 : base;
   }
+  const pts = (n) => `${n} pt${n === 1 ? '' : 's'}`;
 
   // One side of a card for the pick bar. proj is the live max projected lineup, when ESPN has the roster.
   const pickSide = (side, league) => ({
@@ -432,8 +435,10 @@
     const saved = locked && S.fav && S.fav.season === SEASON && S.fav.weeks && S.fav.weeks[it.week];
     const proj = saved ? saved.proj : { [it.a.ref]: it.a.proj, [it.b.ref]: it.b.proj };
     const known = proj[it.a.ref] != null && proj[it.b.ref] != null;
-    const tag = (s, o) => (!known ? '' : proj[s.ref] === proj[o.ref] ? 'Even · 1 pt'
-      : pickWorth(proj, s.ref, o.ref) === 2 ? 'Underdog · 2 pts' : 'Favorite · 1 pt');
+    const worthOf = (s, o) => pickWorth(proj, s.ref, o.ref, it.double);
+    const tag = (s, o) => (!known ? (it.double ? `Double · ${pts(worthOf(s, o))}` : '') : proj[s.ref] === proj[o.ref] ? `Even · ${pts(worthOf(s, o))}`
+      : pickWorth(proj, s.ref, o.ref) === 2 ? `Underdog · ${pts(worthOf(s, o))}` : `Favorite · ${pts(worthOf(s, o))}`);
+    const twice = it.double ? '<span class="gp-double" title="Matchup of the Week: correct picks score double">2x points</span>' : '';
     const projLine = known ? `Max projected ${f1(proj[it.a.ref])}–${f1(proj[it.b.ref])}` : '';
     const mine = S.mine.get(it.week);
     const myPick = mine && mine.get(it.game);
@@ -442,7 +447,7 @@
       el.hidden = false;
       el.className = 'gp';
       el.innerHTML = `
-        <div class="gp-head"><b>Your pick</b><small>${known ? `${projLine} for now · ` : ''}Locks ${esc(lockText(lock))}</small></div>
+        <div class="gp-head"><b>Your pick${twice}</b><small>${known ? `${projLine} for now · ` : ''}Locks ${esc(lockText(lock))}</small></div>
         <div class="gp-opts">${[[it.a, it.b], [it.b, it.a]].map(([s, o]) => `
           <button type="button" class="gp-opt${myPick === s.ref ? ' on' : ''}" data-pick-team="${esc(s.ref)}" aria-pressed="${myPick === s.ref}">
             <span class="gp-dot" aria-hidden="true"></span><b>${esc(s.owner)}</b>${tag(s, o) ? `<small>${tag(s, o)}</small>` : ''}
@@ -462,13 +467,13 @@
     if (myPick) {
       const s = myPick === it.a.ref ? it.a : it.b;
       const o = s === it.a ? it.b : it.a;
-      const worth = pickWorth(proj, s.ref, o.ref);
-      const [cls, result] = !it.winner ? ['', `${worth} pt${worth > 1 ? 's' : ''} if ${esc(s.owner)} wins`]
+      const worth = worthOf(s, o);
+      const [cls, result] = !it.winner ? ['', `${pts(worth)} if ${esc(s.owner)} wins`]
         : it.winner === s.ref ? ['right', `Correct · +${worth}`] : it.winner === 'tie' ? ['', 'Tie · no points'] : ['wrong', 'Missed · 0'];
       mineLine = `<p class="gp-mine ${cls}">Your pick: <b>${esc(s.owner)}</b> · ${result}</p>`;
     }
     el.innerHTML = `
-      <div class="gp-head"><b>Picks</b><small>${known ? `${projLine}${saved ? (saved.late ? ' (saved after kickoff)' : ' at kickoff') : ' (estimate)'}` : 'Locked'}</small></div>
+      <div class="gp-head"><b>Picks${twice}</b><small>${known ? `${projLine}${saved ? (saved.late ? ' (saved after kickoff)' : ' at kickoff') : ' (estimate)'}` : 'Locked'}</small></div>
       <div class="gp-split">
         <span title="${esc(list(it.a))}"><b>${na}</b> ${esc(it.a.owner)}${tag(it.a, it.b) ? ` <small>${tag(it.a, it.b).split(' · ')[0]}</small>` : ''}</span>
         <div class="bar" role="img" aria-label="${esc(`${na} picked ${it.a.owner}, ${nb} picked ${it.b.owner}`)}"><i style="width:${pct}%"></i></div>
@@ -568,6 +573,37 @@
       }
     }
 
+    // Matchups of the Week score double. They're picked as on the cards: by standings going into the week, in
+    // each league and across Cross-League. Week 1 has no standings yet, so no game scores double.
+    const motw = new Set();
+    const pickedWeeks = [...new Set(rows.map((r) => r.week))].filter((w) => w > 1 && locks.has(w));
+    if (pickedWeeks.length) {
+      const o = file ? null : await overallRecords();
+      const boards = leagues.map((l) => {
+        const copy = Object.assign({}, l, { teams: l.teams.map((t) => Object.assign({}, t)) });
+        if (file) applyLocked(copy, file.leagues[l.slug]);
+        else applyOverall(copy, o.out);
+        return copy;
+      });
+      const side = (ref) => ({ league: { slug: ref.split('.')[0] }, team: { id: Number(ref.split('.')[1]) } });
+      const asCards = (list) => list.map((g) => ({ id: g.game, home: side(g.a), away: side(g.b) }));
+      for (const w of pickedWeeks) {
+        const weekGames = [...games.values()].filter((g) => g.week === w);
+        boards.forEach((l, i) => {
+          const going = standingsGoingInto(l, results[i], w);
+          const list = weekGames.filter((g) => g.kind === l.slug);
+          if (!going || !list.length) return;
+          const top = pickTopRanked(asCards(list), (s) => (going.get(s.team.id) || {}).rank || 99);
+          if (top) motw.add(`${w}|${top}`);
+        });
+        const overall = await overallGoingInto(w);
+        const rank = (s) => (overall.get(`${s.league.slug}:${s.team.id}`) || {}).rank;
+        const ranked = asCards(weekGames.filter((g) => g.kind === 'x')).filter((g) => rank(g.home) && rank(g.away));
+        const top = ranked.length && pickTopRanked(ranked, rank);
+        if (top) motw.add(`${w}|${top}`);
+      }
+    }
+
     // Each member's points, overall and by week.
     const blank = () => ({ pts: 0, right: 0, wrong: 0, dogs: 0, picks: 0, live: 0 });
     const members = new Map();
@@ -575,7 +611,7 @@
       const g = games.get(`${r.week}|${r.game}`);
       if (!g || (r.pick !== g.a && r.pick !== g.b)) continue;
       const saved = fav && fav.season === SEASON && fav.weeks && fav.weeks[r.week];
-      const worth = pickWorth(saved && saved.proj, r.pick, r.pick === g.a ? g.b : g.a);
+      const worth = pickWorth(saved && saved.proj, r.pick, r.pick === g.a ? g.b : g.a, motw.has(`${r.week}|${r.game}`));
       for (const id of r.managers) {
         if (!members.has(id)) members.set(id, { id, total: blank(), weeks: new Map() });
         const m = members.get(id);
@@ -698,7 +734,7 @@
           </div>
           ${table}
         </section>
-        <p class="fineprint">Pick the winner of every in-league and cross-league game, including bye-week matchups, on the Matchups and Cross-League tabs (regular season, Weeks 1-14). You can change a pick until the week’s first NFL game kicks off; then picks lock, and everyone’s become public. A correct pick of the favorite is worth 1 point and a correct underdog 2. The favorite is the team with the higher max projected lineup at kickoff: the best lineup its roster could start, by ESPN’s projections. Even projections make both teams worth 1. A tie earns no points. Ranked by points, then correct picks.</p>`;
+        <p class="fineprint">Pick the winner of every in-league and cross-league game, including bye-week matchups, on the Matchups and Cross-League tabs (regular season, Weeks 1-14). You can change a pick until the week’s first NFL game kicks off; then picks lock, and everyone’s become public. A correct pick of the favorite is worth 1 point and a correct underdog 2. The favorite is the team with the higher max projected lineup at kickoff: the best lineup its roster could start, by ESPN’s projections. Even projections make both teams worth 1. Each Matchup of the Week (one per league and one in Cross-League, from Week 2 on) is worth double: 2 for the favorite, 4 for the underdog. A tie earns no points. Ranked by points, then correct picks.</p>`;
       const sel = el.querySelector('#pk-week');
       if (sel) sel.addEventListener('change', (e) => { location.hash = `#/blog/predictions${e.target.value ? `?week=${e.target.value}` : ''}`; });
     } catch (err) {
@@ -710,7 +746,13 @@
   // ---------- Main Blog: posts ----------
   // attach: the picture waiting in the post box ({ kind: 'image', blob, preview, w, h } or { kind: 'gif', url,
   // preview, w, h }). gif: the open GIF search ({ q, items, loading, error }), or null.
-  let feed = { posts: [], done: false, draft: '', editing: null, busy: false, msg: '', attach: null, gif: null };
+  // replies: post id -> its replies, oldest first. expanded: posts showing every reply (otherwise the last 3).
+  // replying: the post whose reply box is open. seenAt: when the member last opened the Main Blog before this
+  // visit (ms), so newer posts get a "New" divider; seenFor: whose visit that was.
+  let feed = {
+    posts: [], done: false, draft: '', editing: null, busy: false, msg: '', attach: null, gif: null,
+    replies: new Map(), expanded: new Set(), replying: null, replyDrafts: new Map(), seenAt: null, seenFor: null,
+  };
   const relTime = (iso) => {
     const s = (Date.now() - new Date(iso)) / 1000;
     if (s < 60) return 'just now';
@@ -719,9 +761,38 @@
     if (s < 7 * 86400) return `${Math.floor(s / 86400)}d ago`;
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: new Date(iso).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
   };
-  // Text as written: line breaks kept, links clickable, nothing else interpreted.
-  const postText = (s) => esc(s).replace(/(https?:\/\/[^\s<]+[^\s<.,!?)'"])/g, '<a href="$1" target="_blank" rel="noopener noreferrer nofollow">$1</a>')
-    .split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  // ---------- @mentions ----------
+  // "@Name" in a post or reply links to that manager's roster, and the post stands out for the manager it names.
+  // Names are this season's managers (feedTeams), longest first so "@Hoai-Nha" wins over a shorter name.
+  let mentionNames = []; // [{ name, league, id, team, logo }]
+  let mentionRe = null;
+  function setMentionNames() {
+    mentionNames = [...feedTeams.entries()].map(([key, t]) => ({ name: t.owner, league: key.split(':')[0], id: t.id, team: t.name, logo: t.logo }))
+      .filter((m) => m.name).sort((a, b) => b.name.length - a.name.length);
+    const alts = mentionNames.map((m) => esc(m.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    mentionRe = alts.length ? new RegExp(`(^|[^\\w@])@(${alts.join('|')})(?![\\w-])`, 'gi') : null;
+  }
+  const findMention = (name) => mentionNames.find((m) => esc(m.name).toLowerCase() === name.toLowerCase());
+  const myName = () => (canReact() ? ACCOUNT.state.me.name.toLowerCase() : null);
+  function mentionsMe(body) {
+    const me = myName();
+    if (!me || !mentionRe || !body) return false;
+    return [...esc(body).matchAll(mentionRe)].some((m) => m[2].toLowerCase() === esc(me));
+  }
+
+  // Text as written: line breaks kept, links and @mentions clickable, nothing else interpreted.
+  function postText(s) {
+    let html = esc(s).replace(/(https?:\/\/[^\s<]+[^\s<.,!?)'"])/g, '<a href="$1" target="_blank" rel="noopener noreferrer nofollow">$1</a>');
+    if (mentionRe) {
+      const me = myName();
+      html = html.split(/(<a [^>]*>[\s\S]*?<\/a>)/).map((part, i) => (i % 2 ? part : part.replace(mentionRe, (all, pre, name) => {
+        const m = findMention(name);
+        if (!m) return all;
+        return `${pre}<a class="mention${me && m.name.toLowerCase() === me ? ' me' : ''}" href="#/${m.league}/rosters?team=${m.id}">@${esc(m.name)}</a>`;
+      }))).join('');
+    }
+    return html.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  }
 
   // A post's picture, at its own shape and up to 420px tall. The space is saved before it loads, so the
   // scroll box doesn't jump. Tapping it opens the full picture.
@@ -825,37 +896,126 @@
     if (g2) { g2.innerHTML = gifGrid(); g2.scrollTop = 0; }
   }
 
-  function postCard(p) {
-    const me = canReact() ? ACCOUNT.state.me : null;
+  // The author's team logo (the league seal for a manager who has left).
+  function authorLogo(p, cls = 'avatar') {
     const league = LEAGUES.find((l) => l.slug === p.league);
+    return league ? teamLogo({ id: p.team_id, logo: (feedTeams.get(`${p.league}:${p.team_id}`) || {}).logo }, league, cls)
+      : `<img class="${cls}" src="assets/img/mgdx-shield.png?v=3" alt="">`;
+  }
+  const when = (p) => `<time datetime="${esc(p.created_at)}" title="${esc(new Date(p.created_at).toLocaleString())}">${relTime(p.created_at)}</time>${p.edited_at ? ' · edited' : ''}`;
+  // Written by someone else since the member's last visit.
+  const isNew = (p) => Boolean(feed.seenAt && Date.parse(p.created_at) > feed.seenAt
+    && !(canReact() && p.manager_id === ACCOUNT.state.me.manager_id));
+  function postTools(p, editing) {
+    const me = canReact() ? ACCOUNT.state.me : null;
     const mine = me && me.manager_id === p.manager_id;
-    const mod = me && me.moderator;
-    const editing = feed.editing === p.id;
-    const logo = league ? teamLogo({ id: p.team_id, logo: (feedTeams.get(`${p.league}:${p.team_id}`) || {}).logo }, league) : '<img class="avatar" src="assets/img/mgdx-shield.png?v=3" alt="">';
+    if (!mine && !(me && me.moderator)) return '';
+    return `<div class="post-tools">
+      ${mine && !editing ? '<button type="button" class="btn-quiet" data-post-act="edit">Edit</button>' : ''}
+      <button type="button" class="btn-quiet danger" data-post-act="delete">Delete</button>
+    </div>`;
+  }
+  function editForm(p, label, rows) {
     return `
-      <article class="panel post" data-post="${p.id}" style="${league ? `--lc:var(--${league.theme})` : ''}">
+      <form class="post-form" data-post-act="save">
+        <label class="sr-only" for="edit-${p.id}">${label}</label>
+        <textarea id="edit-${p.id}" name="body" maxlength="2000" rows="${rows}"${p.media ? '' : ' required'}>${esc(p.body)}</textarea>
+        <div class="post-form-row"><span></span><div class="logo-actions">
+          <button type="button" class="btn-quiet" data-post-act="cancel">Cancel</button>
+          <button type="submit" class="btn">Save</button></div></div>
+      </form>`;
+  }
+
+  function postCard(p) {
+    const league = LEAGUES.find((l) => l.slug === p.league);
+    const editing = feed.editing === p.id;
+    return `
+      <article class="panel post${mentionsMe(p.body) ? ' mentioned' : ''}" data-post="${p.id}" style="${league ? `--lc:var(--${league.theme})` : ''}">
         <header class="post-head">
-          ${logo}
+          ${authorLogo(p)}
           <div class="post-who">
             <b>${esc(p.name)}</b>
-            <small>${league ? `<a href="#/${league.slug}/rosters?team=${p.team_id}">${esc(p.team_name)}</a> · ${esc(league.name)} · ` : ''}<time datetime="${esc(p.created_at)}" title="${esc(new Date(p.created_at).toLocaleString())}">${relTime(p.created_at)}</time>${p.edited_at ? ' · edited' : ''}</small>
+            <small>${league ? `<a href="#/${league.slug}/rosters?team=${p.team_id}">${esc(p.team_name)}</a> · ${esc(league.name)} · ` : ''}${when(p)}</small>
           </div>
-          ${mine || mod ? `<div class="post-tools">
-            ${mine && !editing ? '<button type="button" class="btn-quiet" data-post-act="edit">Edit</button>' : ''}
-            <button type="button" class="btn-quiet danger" data-post-act="delete">Delete</button>
-          </div>` : ''}
+          ${postTools(p, editing)}
         </header>
-        ${editing ? `
-          <form class="post-form" data-post-act="save">
-            <label class="sr-only" for="edit-${p.id}">Edit your post</label>
-            <textarea id="edit-${p.id}" name="body" maxlength="2000" rows="4"${p.media ? '' : ' required'}>${esc(p.body)}</textarea>
-            <div class="post-form-row"><span></span><div class="logo-actions">
-              <button type="button" class="btn-quiet" data-post-act="cancel">Cancel</button>
-              <button type="submit" class="btn">Save</button></div></div>
-          </form>` : p.body ? `<div class="post-body">${postText(p.body)}</div>` : ''}
+        ${editing ? editForm(p, 'Edit your post', 4) : p.body ? `<div class="post-body">${postText(p.body)}</div>` : ''}
         ${postMedia(p)}
         ${reactBar(`post:${p.id}`)}
+        ${repliesBlock(p)}
       </article>`;
+  }
+
+  // Replies sit under their post, oldest first; a long thread shows its last 3 until opened.
+  function replyItem(r) {
+    const editing = feed.editing === r.id;
+    return `
+      <div class="reply${mentionsMe(r.body) ? ' mentioned' : ''}" data-post="${r.id}">
+        ${authorLogo(r, 'avatar')}
+        <div class="reply-main">
+          <div class="reply-head">
+            <span class="reply-who"><b>${esc(r.name)}</b> <small>${when(r)}</small>${isNew(r) ? ' <span class="new-tag">New</span>' : ''}</span>
+            ${postTools(r, editing)}
+          </div>
+          ${editing ? editForm(r, 'Edit your reply', 2) : `<div class="post-body">${postText(r.body)}</div>`}
+        </div>
+      </div>`;
+  }
+  function repliesBlock(p) {
+    const list = feed.replies.get(p.id) || [];
+    const member = canReact();
+    if (!list.length && !member) return '';
+    const shown = feed.expanded.has(p.id) ? list : list.slice(-3);
+    const hidden = list.length - shown.length;
+    const box = !member ? '' : feed.replying === p.id ? `
+      <form class="post-form reply-form" data-post-act="reply">
+        <label class="sr-only" for="reply-${p.id}">Reply to ${esc(p.name)}</label>
+        <textarea id="reply-${p.id}" name="body" maxlength="2000" rows="2" placeholder="Reply to ${esc(p.name)}… (@ to mention)" required>${esc(feed.replyDrafts.get(p.id) || '')}</textarea>
+        <div class="post-form-row"><span></span><div class="logo-actions">
+          <button type="button" class="btn-quiet" data-post-act="reply-cancel">Cancel</button>
+          <button type="submit" class="btn">Reply</button></div></div>
+      </form>` : '<button type="button" class="btn-quiet reply-open" data-post-act="reply-open">Reply</button>';
+    return `
+      <div class="replies${list.length ? '' : ' empty'}">
+        ${hidden ? `<button type="button" class="btn-quiet reply-more" data-post-act="replies-all">View ${hidden} earlier ${hidden === 1 ? 'reply' : 'replies'}</button>` : ''}
+        ${shown.map(replyItem).join('')}
+        ${box}
+      </div>`;
+  }
+
+  // The replies to these posts (only those that have any), into feed.replies.
+  async function loadReplies(posts) {
+    const ids = posts.filter((p) => p.replies > 0).map((p) => p.id);
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50);
+      const rows = await ACCOUNT.read('list_replies', { p_parents: batch });
+      for (const id of batch) feed.replies.set(id, []);
+      for (const r of rows) feed.replies.get(r.parent_id).push(r);
+    }
+  }
+  // A post or reply by id, with the post it belongs to.
+  function findPost(id) {
+    const post = feed.posts.find((x) => x.id === id);
+    if (post) return { item: post, post };
+    for (const [pid, list] of feed.replies) {
+      const item = list.find((r) => r.id === id);
+      if (item) return { item, post: feed.posts.find((x) => x.id === pid) };
+    }
+    return null;
+  }
+  // Redraws one post (and its replies) in place, keeping it at the same spot in the scroll box.
+  function redrawPost(id, focusId) {
+    const el = document.querySelector(`.post[data-post="${CSS.escape(id)}"]`);
+    const p = feed.posts.find((x) => x.id === id);
+    const box = document.querySelector('.post-scroll');
+    if (!el || !p || !box) return drawFeed();
+    const top = el.getBoundingClientRect().top;
+    const activeId = focusId || (document.activeElement && document.activeElement.id);
+    el.outerHTML = postCard(p);
+    const now = box.querySelector(`.post[data-post="${CSS.escape(id)}"]`);
+    box.scrollTop += now.getBoundingClientRect().top - top;
+    refocus(activeId);
+    hydrateReactions(now);
   }
 
   let feedTeams = new Map(); // 'league:teamId' -> this season's team (for ESPN logos)
@@ -882,7 +1042,7 @@
     const PHOTO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.8" fill="currentColor"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L19 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
     return `<form class="panel post-form composer" data-post-act="create">
       <label class="sr-only" for="post-body">Write a post</label>
-      <textarea id="post-body" name="body" maxlength="2000" rows="3" placeholder="Takes, trash talk, trade offers…">${esc(feed.draft)}</textarea>
+      <textarea id="post-body" name="body" maxlength="2000" rows="3" placeholder="Takes, trash talk, trade offers… (@ to mention)">${esc(feed.draft)}</textarea>
       ${attached}${picker}
       <div class="post-form-row">
         <div class="post-tools-left">
@@ -912,7 +1072,8 @@
     el.innerHTML = `
       <div class="post-scroll" tabindex="0" aria-label="Posts, oldest first">
         ${top}
-        <div class="post-list">${feed.posts.length ? feed.posts.slice().reverse().map(postCard).join('')
+        <div class="post-list">${feed.posts.length ? feed.posts.slice().reverse().map((p, i, all) =>
+          (isNew(p) && !all.slice(0, i).some(isNew) ? '<div class="post-new" role="separator"><span>New since your last visit</span></div>' : '') + postCard(p)).join('')
           : '<div class="state"><strong>No posts yet.</strong><span>Be the first to talk some trash.</span></div>'}</div>
       </div>
       ${composer()}`;
@@ -927,7 +1088,7 @@
 
   // Typing spots keep focus (and the cursor at the end) through a redraw.
   function refocus(id) {
-    if (id !== 'post-body' && id !== 'gif-q') return;
+    if (!id || !/^(post-body|gif-q|reply-|edit-)/.test(id)) return;
     const t = document.getElementById(id);
     if (!t) return;
     t.focus({ preventScroll: true });
@@ -954,6 +1115,7 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Loading older posts…'; }
     try {
       const older = await ACCOUNT.read('list_posts', { p_before: feed.posts[feed.posts.length - 1].created_at, p_limit: 20 });
+      await loadReplies(older);
       if (token !== renderToken) return;
       feed = { ...feed, posts: feed.posts.concat(older), done: older.length < 20, loadingOlder: false };
       // Slot them in above the posts already shown, keeping the box (and a swipe in progress) where it is.
@@ -973,19 +1135,25 @@
     }
   }
 
-  async function renderFeed() {
+  // fresh: a new visit to the Main Blog, which marks it read (after posting, the page reloads without that).
+  async function renderFeed(fresh = true) {
     const token = renderToken;
     const el = document.getElementById('league-body');
     el.classList.add('feed-body');
+    if (fresh) feed.seenFor = null;
     try {
       const [posts, standings] = await Promise.all([
         ACCOUNT.read('list_posts', { p_limit: 20 }),
         fetch('data/standings.json').then((r) => r.json()).catch(() => null),
+        markSeen(),
       ]);
+      feed.replies = new Map();
+      await loadReplies(posts);
       if (token !== renderToken) return;
       feedTeams = new Map();
       for (const [slug, l] of Object.entries((standings && standings.leagues) || {})) for (const t of l.teams) feedTeams.set(`${slug}:${t.id}`, t);
-      feed = { ...feed, posts, done: posts.length < 20, editing: null, msg: '', loadingOlder: false };
+      setMentionNames();
+      feed = { ...feed, posts, done: posts.length < 20, editing: null, replying: fresh ? null : feed.replying, msg: '', loadingOlder: false };
       drawFeed(true);
     } catch (err) {
       console.error(err);
@@ -1019,6 +1187,8 @@
         gifTimer = setTimeout(() => { if (feed.gif && feed.gif.q === q) runGifSearch(q); }, gifCache.has(t.toLowerCase()) ? 0 : 450);
         return;
       }
+      if (e.target.matches('.feed-body textarea')) showMentions(e.target);
+      if (e.target.id.startsWith('reply-')) feed.replyDrafts.set(e.target.id.slice(6), e.target.value);
       if (e.target.id !== 'post-body') return;
       feed.draft = e.target.value;
       const c = e.target.closest('form').querySelector('.post-count');
@@ -1050,16 +1220,28 @@
           uploaded = null;
           dropAttach();
           feed = { ...feed, draft: '', busy: false };
+        } else if (form.dataset.postAct === 'reply') {
+          const id = form.closest('[data-post]').dataset.post;
+          await ACCOUNT.write('create_post', { p_body: body, p_parent: id });
+          const rows = await ACCOUNT.read('list_replies', { p_parents: [id] });
+          feed.replies.set(id, rows);
+          const post = feed.posts.find((x) => x.id === id);
+          if (post) post.replies = rows.length;
+          feed.replyDrafts.delete(id);
+          feed.replying = null;
+          redrawPost(id);
+          return;
         } else {
-          // An edit changes one post in place, keeping the older posts already loaded and the scroll spot.
+          // An edit changes one post or reply in place, keeping the older posts already loaded and the scroll spot.
           const id = form.closest('[data-post]').dataset.post;
           await ACCOUNT.write('edit_post', { p_id: id, p_body: body });
-          feed.posts = feed.posts.map((p) => (p.id === id ? { ...p, body: body.trim(), edited_at: new Date().toISOString() } : p));
+          const found = findPost(id);
+          if (found) Object.assign(found.item, { body: body.trim(), edited_at: new Date().toISOString() });
           feed.editing = null;
-          drawFeed();
+          if (found) redrawPost(found.post.id); else drawFeed();
           return;
         }
-        renderFeed(); // a new post: reload the newest and land on it at the bottom
+        renderFeed(false); // a new post: reload the newest and land on it at the bottom
       } catch (err) {
         if (uploaded) ACCOUNT.removePostMedia(uploaded); // the post didn't save, so its picture shouldn't stay
         if (form.dataset.postAct === 'create') { feed = { ...feed, busy: false, msg: err.message }; drawFeed(); }
@@ -1071,19 +1253,33 @@
       if (!b || b.tagName === 'FORM') return;
       const act = b.dataset.postAct;
       const card = b.closest('[data-post]');
-      if (act === 'edit') { feed.editing = card.dataset.post; drawFeed(); card && document.getElementById(`edit-${feed.editing}`)?.focus(); }
-      else if (act === 'cancel') { feed.editing = null; drawFeed(); }
-      else if (act === 'delete') {
-        const p = feed.posts.find((x) => x.id === card.dataset.post);
-        const mine = p && ACCOUNT.state.me && p.manager_id === ACCOUNT.state.me.manager_id;
-        if (!confirm(mine ? 'Delete your post?' : `Delete ${p ? p.name : 'this manager'}’s post? This can’t be undone.`)) return;
+      const found = card && findPost(card.dataset.post);
+      const postId = found && found.post && found.post.id;
+      if (act === 'edit' && found) { feed.editing = card.dataset.post; redrawPost(postId, `edit-${card.dataset.post}`); }
+      else if (act === 'cancel' && found) { feed.editing = null; redrawPost(postId); }
+      else if (act === 'delete' && found) {
+        const p = found.item;
+        const reply = p !== found.post;
+        const kind = reply ? 'reply' : 'post';
+        const mine = ACCOUNT.state.me && p.manager_id === ACCOUNT.state.me.manager_id;
+        if (!confirm(mine ? `Delete your ${kind}?` : `Delete ${p.name}’s ${kind}? This can’t be undone.`)) return;
         try {
-          const file = await ACCOUNT.write('delete_post', { p_id: card.dataset.post });
+          const file = await ACCOUNT.write('delete_post', { p_id: p.id });
           ACCOUNT.removePostMedia(file);
-          feed.posts = feed.posts.filter((x) => x.id !== card.dataset.post);
-          drawFeed();
+          if (reply) {
+            feed.replies.set(postId, feed.replies.get(postId).filter((r) => r.id !== p.id));
+            found.post.replies = feed.replies.get(postId).length;
+            redrawPost(postId);
+          } else {
+            feed.posts = feed.posts.filter((x) => x.id !== p.id);
+            feed.replies.delete(p.id);
+            drawFeed();
+          }
         } catch (err) { alert(err.message); }
-      } else if (act === 'more') loadOlder();
+      } else if (act === 'reply-open' && found) { feed.replying = postId; redrawPost(postId, `reply-${postId}`); }
+      else if (act === 'reply-cancel' && found) { feed.replying = null; redrawPost(postId); }
+      else if (act === 'replies-all' && found) { feed.expanded.add(postId); redrawPost(postId); }
+      else if (act === 'more') loadOlder();
       else if (act === 'unattach') { dropAttach(); feed.msg = ''; redrawComposer('post-body'); }
       else if (act === 'gif') {
         if (feed.gif) { feed.gif = null; return redrawComposer('post-body'); }
@@ -1111,7 +1307,132 @@
       if (feed.gif) runGifSearch(e.target.value);
     });
     // Signing in or out changes the composer and post tools.
-    ACCOUNT.onChange(() => { if (parseHash().parts[0] === 'blog' && (parseHash().parts[1] || 'main') === 'main') drawFeed(); });
+    ACCOUNT.onChange(() => { if (onMainBlog()) markSeen().then(() => drawFeed()); });
+  }
+
+  // ---------- @mention suggestions ----------
+  // Typing "@" and a few letters in a post, reply or edit box lists matching managers; arrows and Enter (or a tap)
+  // fill in the name.
+  let mentionUI = null; // { ta, start, list, active }
+  function closeMentions() {
+    const menu = document.querySelector('.mention-menu');
+    if (menu) menu.remove();
+    mentionUI = null;
+  }
+  function showMentions(ta) {
+    const upto = ta.value.slice(0, ta.selectionStart);
+    const m = /(^|[^\w@])@([\w-]{0,20})$/.exec(upto);
+    if (!m || !mentionNames.length) return closeMentions();
+    const q = m[2].toLowerCase();
+    const list = mentionNames.filter((x) => x.name.toLowerCase().startsWith(q)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 6);
+    if (!list.length) return closeMentions();
+    mentionUI = { ta, start: upto.length - m[2].length - 1, list, active: 0 };
+    drawMentions();
+  }
+  function drawMentions() {
+    let menu = document.querySelector('.mention-menu');
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.className = 'mention-menu';
+      menu.setAttribute('role', 'listbox');
+      menu.setAttribute('aria-label', 'Mention a manager');
+      document.body.appendChild(menu);
+    }
+    const { ta, list, active } = mentionUI;
+    menu.innerHTML = list.map((x, i) => {
+      const league = LEAGUES.find((l) => l.slug === x.league);
+      return `<button type="button" role="option" tabindex="-1" class="${i === active ? 'on' : ''}" aria-selected="${i === active}" data-mention="${i}">
+        ${league ? teamLogo({ id: x.id, logo: x.logo }, league, 'avatar') : ''}<span><b>${esc(x.name)}</b><small>${esc(x.team)}</small></span></button>`;
+    }).join('');
+    // Below the box when there's room, otherwise above it (the post box sits at the bottom of the page).
+    const r = ta.getBoundingClientRect();
+    const h = menu.offsetHeight;
+    menu.style.left = `${Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8))}px`;
+    menu.style.top = `${r.bottom + 4 + h <= innerHeight ? r.bottom + 4 : Math.max(8, r.top - h - 4)}px`;
+  }
+  function pickMention(i) {
+    const { ta, start, list } = mentionUI;
+    const text = `@${list[i].name} `;
+    const end = ta.selectionStart;
+    ta.value = ta.value.slice(0, start) + text + ta.value.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + text.length, start + text.length);
+    closeMentions();
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  if (ACCOUNT && !ARCHIVE) {
+    main.addEventListener('keydown', (e) => {
+      if (!mentionUI || e.target !== mentionUI.ta) return;
+      const n = mentionUI.list.length;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        mentionUI.active = (mentionUI.active + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+        drawMentions();
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        pickMention(mentionUI.active);
+      } else if (e.key === 'Escape') closeMentions();
+    }, true);
+    // mousedown, not click, so the text box keeps focus
+    document.addEventListener('mousedown', (e) => {
+      const b = e.target.closest('.mention-menu [data-mention]');
+      if (b && mentionUI) { e.preventDefault(); pickMention(Number(b.dataset.mention)); }
+      else if (mentionUI && e.target !== mentionUI.ta) closeMentions();
+    });
+    main.addEventListener('focusout', (e) => { if (mentionUI && e.target === mentionUI.ta) setTimeout(() => { if (mentionUI && document.activeElement !== mentionUI.ta) closeMentions(); }, 0); });
+    document.addEventListener('scroll', (e) => { if (mentionUI && !(e.target.closest && e.target.closest('.mention-menu'))) closeMentions(); }, { capture: true, passive: true });
+    window.addEventListener('hashchange', closeMentions);
+  }
+
+  // ---------- unread posts ----------
+  // A badge on the Blog tab (and Main Blog) counts posts and replies other managers wrote since the member last
+  // opened the Main Blog; "@" when one mentions them. Checked on sign-in, every few minutes and on returning
+  // to the tab. Opening the Main Blog marks everything read.
+  const unread = { posts: 0, mentions: 0, who: null };
+  const onMainBlog = () => { const { parts } = parseHash(); return parts[0] === 'blog' && (parts[1] || 'main') === 'main'; };
+  function drawUnread() {
+    const { posts: n, mentions: at } = unread;
+    const text = at ? '@' : n ? (n > 9 ? '9+' : String(n)) : '';
+    const title = at ? `${at} new mention${at > 1 ? 's' : ''}${n > at ? `, ${n} new in all` : ''}` : n ? `${n} new post${n > 1 ? 's' : ''} and replies` : '';
+    document.querySelectorAll('[data-unread]').forEach((b) => {
+      b.hidden = !text;
+      b.textContent = text;
+      b.title = title;
+      b.classList.toggle('at', Boolean(at));
+    });
+  }
+  async function checkUnread() {
+    if (!canReact()) { Object.assign(unread, { posts: 0, mentions: 0 }); return drawUnread(); }
+    if (onMainBlog()) return; // the feed marks itself read
+    try {
+      const [r] = await ACCOUNT.write('unread_posts');
+      Object.assign(unread, { posts: (r && r.posts) || 0, mentions: (r && r.mentions) || 0 });
+      drawUnread();
+    } catch (err) { console.warn('Unread posts unavailable', err); }
+  }
+  async function markSeen() {
+    const me = canReact() ? ACCOUNT.state.me.manager_id : null;
+    if (!me || feed.seenFor === me) return;
+    feed.seenFor = me;
+    try {
+      const before = await ACCOUNT.write('mark_posts_seen');
+      feed.seenAt = before ? Date.parse(before) : null;
+    } catch (err) { console.warn('Couldn’t mark the blog read', err); }
+    Object.assign(unread, { posts: 0, mentions: 0 });
+    drawUnread();
+  }
+  if (ACCOUNT && ACCOUNT.enabled && !ARCHIVE) {
+    const blogLink = document.querySelector('#main-nav a[data-route="blog"]');
+    if (blogLink) blogLink.insertAdjacentHTML('beforeend', '<span class="nav-badge" data-unread hidden></span>');
+    ACCOUNT.onChange(() => {
+      const who = canReact() ? ACCOUNT.state.me.manager_id : null;
+      if (who === unread.who) return;
+      unread.who = who;
+      checkUnread();
+    });
+    setInterval(() => { if (!document.hidden) checkUnread(); }, 180000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUnread(); });
+    window.addEventListener('hashchange', () => { if (!onMainBlog()) setTimeout(drawUnread, 0); });
   }
 
   // ---------- account ----------
@@ -4291,7 +4612,8 @@
     bindToggles(body());
     attachPicks(body(), week, data.games.filter((g) => !g.bye && g.home && g.away).map((g) => {
       const a = pickSide(g.home, league), b = pickSide(g.away, league);
-      return { el: body().querySelector(`.matchup[data-id="${g.id}"]`), a, b, winner: pickResult(g, a, b) };
+      const double = Boolean(going && week > 1 && g.id === top); // Matchup of the Week (not Week 1's closest game)
+      return { el: body().querySelector(`.matchup[data-id="${g.id}"]`), a, b, double, winner: pickResult(g, a, b) };
     }));
     // A recap links by team: find that team's game this week
     const teamId = params.get('team');
@@ -4711,7 +5033,8 @@
       bindToggles(body());
       attachPicks(body(), week, allGames.filter((g) => !g.home.missing && !g.away.missing && !g.home.median && !g.away.median).map((g) => {
         const a = pickSide(g.home, g.home.league), b = pickSide(g.away, g.away.league);
-        return { el: body().querySelector(`.matchup[data-id="${g.id}"]`), a, b, cross: true, winner: pickResult(g, a, b) };
+        const double = rankedGames.length > 0 && g.id === top; // Matchup of the Week (not Week 1's closest game)
+        return { el: body().querySelector(`.matchup[data-id="${g.id}"]`), a, b, cross: true, double, winner: pickResult(g, a, b) };
       }));
       const setSection = (section, open) => {
         const si = Number(section.dataset.sec);

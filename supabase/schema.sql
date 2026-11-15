@@ -314,28 +314,51 @@ alter table public.posts enable row level security;
 alter table public.reactions enable row level security;
 revoke all on public.posts, public.reactions from anon, authenticated;
 
--- Newest first; pass the oldest created_at shown so far to get the next page. The author's league and team
--- are this season's (null for a manager who has left).
+-- Replies: a post with parent_id is a reply to that post (one level: replies can't have replies, or pictures).
+-- Deleting a post deletes its replies.
+alter table public.posts add column if not exists parent_id uuid references public.posts (id) on delete cascade;
+create index if not exists posts_parent on public.posts (parent_id, created_at);
+-- When the member last opened the Main Blog, for the unread dot and the "New" divider.
+alter table public.profiles add column if not exists posts_seen_at timestamptz;
+
+-- Newest first, posts only (not replies); pass the oldest created_at shown so far to get the next page.
+-- The author's league and team are this season's (null for a manager who has left).
 drop function if exists public.list_posts(timestamptz, int);
 create function public.list_posts(p_before timestamptz default null, p_limit int default 20)
 returns table (id uuid, manager_id text, name text, league text, team_id int, team_name text,
-  body text, media_kind text, media text, media_w int, media_h int, created_at timestamptz, edited_at timestamptz)
+  body text, media_kind text, media text, media_w int, media_h int, replies int, created_at timestamptz, edited_at timestamptz)
 language sql stable security definer set search_path = public as $$
   select p.id, p.manager_id, m.name, s.league, s.team_id, s.team_name, p.body,
-    p.media_kind, p.media, p.media_w, p.media_h, p.created_at, p.edited_at
+    p.media_kind, p.media, p.media_w, p.media_h,
+    (select count(*)::int from posts r where r.parent_id = p.id), p.created_at, p.edited_at
   from posts p
   join managers m on m.id = p.manager_id
   left join season_teams s on s.manager_id = p.manager_id and s.season = current_season()
-  where p_before is null or p.created_at < p_before
+  where p.parent_id is null and (p_before is null or p.created_at < p_before)
   order by p.created_at desc
   limit least(greatest(coalesce(p_limit, 20), 1), 50)
 $$;
 
+-- Every reply to the given posts (up to 50 posts), oldest first.
+create or replace function public.list_replies(p_parents uuid[])
+returns table (id uuid, parent_id uuid, manager_id text, name text, league text, team_id int, team_name text,
+  body text, created_at timestamptz, edited_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.parent_id, p.manager_id, m.name, s.league, s.team_id, s.team_name, p.body, p.created_at, p.edited_at
+  from posts p
+  join managers m on m.id = p.manager_id
+  left join season_teams s on s.manager_id = p.manager_id and s.season = current_season()
+  where p.parent_id = any (p_parents[1:50])
+  order by p.created_at
+$$;
+
+-- p_parent: the post this replies to (text only). Otherwise a post, with an optional picture:
 -- p_media_kind 'image': p_media is a file the member already uploaded to their own post-media folder.
 -- p_media_kind 'gif': p_media is a GIPHY image address. Leave all four media arguments null for a text post.
 drop function if exists public.create_post(text);
+drop function if exists public.create_post(text, text, text, int, int);
 create or replace function public.create_post(p_body text, p_media_kind text default null, p_media text default null,
-  p_media_w int default null, p_media_h int default null) returns uuid
+  p_media_w int default null, p_media_h int default null, p_parent uuid default null) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   mid text := my_manager_id();
@@ -343,8 +366,21 @@ declare
   new_id uuid;
 begin
   if mid is null then raise exception 'Only this season''s managers can post'; end if;
-  if char_length(clean) = 0 and p_media is null then raise exception 'Write something or add a picture first'; end if;
   if char_length(clean) > 2000 then raise exception 'Posts can be up to 2,000 characters'; end if;
+  if p_parent is not null then
+    if char_length(clean) = 0 then raise exception 'Write a reply first'; end if;
+    if p_media is not null or p_media_kind is not null then raise exception 'Replies can''t have pictures'; end if;
+    if not exists (select 1 from posts where posts.id = p_parent and posts.parent_id is null) then
+      raise exception 'That post is gone';
+    end if;
+    if (select count(*) from posts where manager_id = mid and parent_id is not null
+        and created_at > now() - interval '10 minutes') >= 20 then
+      raise exception 'That''s a lot of replies. Wait a few minutes, then try again';
+    end if;
+    insert into posts (manager_id, body, parent_id) values (mid, clean, p_parent) returning posts.id into new_id;
+    return new_id;
+  end if;
+  if char_length(clean) = 0 and p_media is null then raise exception 'Write something or add a picture first'; end if;
   if p_media is not null or p_media_kind is not null then
     if p_media_w is null or p_media_h is null or p_media_w not between 1 and 10000 or p_media_h not between 1 and 10000 then
       raise exception 'That picture''s size is missing';
@@ -364,7 +400,8 @@ begin
       raise exception 'Unknown kind of picture';
     end if;
   end if;
-  if (select count(*) from posts where manager_id = mid and created_at > now() - interval '10 minutes') >= 5 then
+  if (select count(*) from posts where manager_id = mid and parent_id is null
+      and created_at > now() - interval '10 minutes') >= 5 then
     raise exception 'That''s a lot of posts. Wait a few minutes, then try again';
   end if;
   insert into posts (manager_id, body, media_kind, media, media_w, media_h)
@@ -388,18 +425,47 @@ begin
 end
 $$;
 
--- The author or any moderator. Its reactions go with it. Returns the uploaded picture's path (or null) so the
--- site can delete the file.
+-- The author or any moderator. Its reactions and replies (and theirs) go with it. Returns the uploaded
+-- picture's path (or null) so the site can delete the file.
 drop function if exists public.delete_post(uuid);
 create function public.delete_post(p_id uuid) returns text
 language plpgsql security definer set search_path = public as $$
 declare kind text; path text;
 begin
-  delete from posts where posts.id = p_id and (manager_id = my_manager_id() or is_moderator())
-  returning media_kind, media into kind, path;
-  if not found then raise exception 'Only the author or a moderator can delete this post'; end if;
+  if not exists (select 1 from posts where posts.id = p_id and (manager_id = my_manager_id() or is_moderator())) then
+    raise exception 'Only the author or a moderator can delete this post';
+  end if;
+  delete from reactions where target in (select 'post:' || r.id::text from posts r where r.parent_id = p_id);
   delete from reactions where target = 'post:' || p_id::text;
+  delete from posts where posts.id = p_id returning media_kind, media into kind, path;
   return case when kind = 'image' then path end;
+end
+$$;
+
+-- How many posts and replies other managers wrote since the member last opened the Main Blog (or, before
+-- that, since they linked their team), and how many of those @mention them.
+create or replace function public.unread_posts()
+returns table (posts int, mentions int)
+language sql stable security definer set search_path = public as $$
+  with me as (
+    select p.manager_id, coalesce(p.posts_seen_at, p.claimed_at) as seen,
+      '(^|[^[:alnum:]_])@' || regexp_replace(m.name, '([^[:alnum:] ])', '\\\1', 'g') || '($|[^[:alnum:]_])' as pattern
+    from profiles p join managers m on m.id = p.manager_id
+    where p.user_id = auth.uid()
+  )
+  select count(x.id)::int, (count(x.id) filter (where x.body ~* me.pattern))::int
+  from me left join posts x on x.manager_id <> me.manager_id and x.created_at > me.seen
+  group by me.manager_id
+$$;
+
+-- Marks the Main Blog as read now. Returns when it was last read, so the page can mark what's new.
+create or replace function public.mark_posts_seen() returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare before timestamptz;
+begin
+  select coalesce(posts_seen_at, claimed_at) into before from profiles where user_id = auth.uid();
+  update profiles set posts_seen_at = now() where user_id = auth.uid();
+  return before;
 end
 $$;
 
@@ -460,11 +526,14 @@ begin
 end
 $$;
 
-revoke execute on function public.create_post(text, text, text, int, int), public.edit_post(uuid, text), public.delete_post(uuid),
+revoke execute on function public.create_post(text, text, text, int, int, uuid), public.edit_post(uuid, text), public.delete_post(uuid),
   public.toggle_reaction(text, text) from public, anon;
-grant execute on function public.create_post(text, text, text, int, int), public.edit_post(uuid, text), public.delete_post(uuid),
+grant execute on function public.create_post(text, text, text, int, int, uuid), public.edit_post(uuid, text), public.delete_post(uuid),
   public.toggle_reaction(text, text) to authenticated;
-grant execute on function public.list_posts(timestamptz, int), public.get_reactions(text[]) to anon, authenticated;
+grant execute on function public.list_posts(timestamptz, int), public.list_replies(uuid[]), public.get_reactions(text[])
+  to anon, authenticated;
+revoke execute on function public.unread_posts(), public.mark_posts_seen() from public, anon;
+grant execute on function public.unread_posts(), public.mark_posts_seen() to authenticated;
 
 -- ---------- Predictions: pick the winner of every game ----------
 -- Members pick a winner in each in-league and cross-league game. A week's picks lock when its first NFL game

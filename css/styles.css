@@ -1481,3 +1481,45 @@ button.react-chip:hover { border-color: var(--accent); }
   .gp-opt b { font-size: 14px; }
   .pk-when h2 { font-size: 22px; }
 }
+
+/* Matchup of the Week picks count double */
+.gp-double { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--rr); color: #1a1300; font: 800 10px/1.4 var(--font); letter-spacing: .05em; text-transform: uppercase; vertical-align: 1px; }
+
+/* Replies */
+.replies { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.replies.empty { border-top: 0; padding-top: 0; margin-top: 8px; }
+.reply { display: flex; gap: 10px; align-items: flex-start; }
+.reply .avatar { width: 30px; height: 30px; border-width: 1px; }
+.reply-main { flex: 1; min-width: 0; background: var(--surface-2); border-radius: 10px; padding: 8px 12px; }
+.reply-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.reply-who { min-width: 0; }
+.reply-who b { font-size: 14px; }
+.reply-who small { color: var(--muted); font-size: 12px; }
+.reply .post-tools { gap: 8px; font-size: 13px; }
+.reply .post-body { margin-top: 2px; font-size: 15px; }
+.reply .post-form { margin-top: 6px; }
+.reply-open, .reply-more { align-self: flex-start; font-size: 14px; }
+.post .reply-form { margin-top: 0; }
+.new-tag { display: inline-block; padding: 0 6px; border-radius: 999px; background: var(--loss); color: #fff; font: 800 10px/1.6 var(--font); text-transform: uppercase; letter-spacing: .05em; vertical-align: 1px; }
+
+/* @mentions */
+.mention { font-weight: 700; text-decoration: none; }
+.post-body a.mention { color: var(--accent); }
+.post-body a.mention.me { color: var(--rr); }
+.mention:hover { text-decoration: underline; }
+.post.mentioned, .reply.mentioned .reply-main { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rr) 55%, transparent); background: color-mix(in srgb, var(--rr) 8%, var(--surface)); }
+.reply.mentioned .reply-main { background: color-mix(in srgb, var(--rr) 10%, var(--surface-2)); }
+.mention-menu { position: fixed; z-index: 60; min-width: 220px; max-width: calc(100vw - 16px); padding: 4px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+.mention-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: 7px; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.mention-menu button.on, .mention-menu button:hover { background: var(--surface-2); }
+.mention-menu .avatar { width: 26px; height: 26px; border-width: 1px; }
+.mention-menu span { display: flex; flex-direction: column; min-width: 0; }
+.mention-menu b { font-size: 14px; }
+.mention-menu small { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Unread */
+.nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 999px; background: var(--loss); color: #fff; font: 800 11px/1 var(--font); }
+.nav-badge.at { background: var(--rr); color: #1a1300; }
+.nav-badge[hidden] { display: none; }
+.post-new { display: flex; align-items: center; gap: 10px; color: var(--loss); font: 800 12px/1 var(--font); text-transform: uppercase; letter-spacing: .08em; }
+.post-new::before, .post-new::after { content: ""; flex: 1; height: 1px; background: color-mix(in srgb, var(--loss) 60%, transparent); }
