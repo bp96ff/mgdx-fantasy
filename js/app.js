@@ -4854,7 +4854,7 @@
     return `
       <article class="matchup ${top ? 'featured' : ''}" data-id="${g.id}">
         ${top ? `<div class="flag">Matchup of the week</div>` : ''}
-        ${topTenTag(`${league.slug}:${g.home.team.id}`, `${league.slug}:${g.away.team.id}`, overall)}
+        ${cardTags(`${league.slug}:${g.home.team.id}`, `${league.slug}:${g.away.team.id}`, overall)}
         <div class="matchup-head">
           ${sideHead(g.home, league, 'left', homeLead, asOf(g.home))}
           <span class="vs-mark">vs</span>
@@ -4898,6 +4898,7 @@
       const rows = all.flatMap(({ league, results }) => standingsThrough(league, results, Math.max(last, 0))
         .map((r) => Object.assign(r, { key: `${league.slug}:${r.id}` })));
       rows.sort((a, b) => b.pct - a.pct || b.pf - a.pf);
+      if (week >= BUBBLE_FROM_WEEK && week <= LAST_REGULAR_WEEK && last >= 1) markBubble(all.map((e) => e.league), rows);
       return new Map(rows.map((r, i) => [r.key, Object.assign(r, { rank: last < 1 ? null : i + 1 })]));
     } catch (err) {
       console.warn('Overall standings unavailable', err);
@@ -4905,10 +4906,42 @@
     }
   }
 
-  function topTenTag(keyA, keyB, overall) {
-    const a = (overall.get(keyA) || {}).rank, b = (overall.get(keyB) || {}).rank;
-    if (!a || !b || a > 10 || b > 10) return '';
-    return `<div class="top-ten" title="Both teams in the overall top 10: #${Math.min(a, b)} and #${Math.max(a, b)}">Top-10</div>`;
+  // Bubble Spotlight: from Week 9 through the regular season, a game between two teams that are each within
+  // 2 games of their league's playoff line going into the week. A team in a playoff spot is measured against the
+  // first team out; a team outside, against the last team in. Games back = (wins gap + losses gap) / 2, a tie
+  // counting half a win and half a loss.
+  const BUBBLE_FROM_WEEK = 9;
+  const BUBBLE_GAMES = 2;
+  function markBubble(leagues, rows) {
+    for (const league of leagues) {
+      const spots = league.playoffTeams;
+      const mine = rows.filter((r) => r.key.startsWith(`${league.slug}:`)); // already in standings order
+      if (!spots || mine.length <= spots) continue;
+      const wl = (r) => ({ w: r.record.wins + r.record.ties / 2, l: r.record.losses + r.record.ties / 2 });
+      const lastIn = wl(mine[spots - 1]);
+      const firstOut = wl(mine[spots]);
+      mine.forEach((r, i) => {
+        const me = wl(r);
+        const gap = i < spots ? (me.w - firstOut.w + firstOut.l - me.l) / 2 : (lastIn.w - me.w + me.l - lastIn.l) / 2;
+        r.bubble = { inside: i < spots, gap, place: i + 1 };
+      });
+    }
+  }
+  const gamesText = (n) => `${n % 1 ? n.toFixed(1) : n} game${n === 1 ? '' : 's'}`;
+
+  // The tags that hang from a card's top-right edge: Bubble Spotlight and Top-10.
+  function cardTags(keyA, keyB, overall) {
+    const A = overall.get(keyA) || {}, B = overall.get(keyB) || {};
+    const tags = [];
+    const onBubble = (x) => x.bubble && x.bubble.gap <= BUBBLE_GAMES;
+    if (onBubble(A) && onBubble(B)) {
+      const say = (x) => `#${x.bubble.place}, ${x.bubble.gap === 0 ? 'right on the line' : `${gamesText(x.bubble.gap)} ${x.bubble.inside ? 'ahead of the first team out' : 'behind the last playoff spot'}`}`;
+      tags.push(`<div class="bubble-tag" title="Both teams within ${BUBBLE_GAMES} games of the playoff line: ${say(A)}; ${say(B)}">Bubble<span class="long"> Spotlight</span></div>`);
+    }
+    if (A.rank && B.rank && A.rank <= 10 && B.rank <= 10) {
+      tags.push(`<div class="top-ten" title="Both teams in the overall top 10: #${Math.min(A.rank, B.rank)} and #${Math.max(A.rank, B.rank)}">Top-10</div>`);
+    }
+    return tags.length ? `<div class="card-tags">${tags.join('')}</div>` : '';
   }
 
   // Links from This Week name a game: bring it into view below the sticky header and outline it.
@@ -5271,7 +5304,7 @@
     return `
       <article class="matchup cross ${top ? 'featured' : ''}" data-id="${g.id}" style="--home-c:var(--${g.home.league.theme});--away-c:var(--${g.away.league.theme})">
         ${top ? `<div class="flag">Matchup of the week</div>` : ''}
-        ${topTenTag(`${g.home.league.slug}:${g.home.team.id}`, `${g.away.league.slug}:${g.away.team.id}`, overall)}
+        ${cardTags(`${g.home.league.slug}:${g.home.team.id}`, `${g.away.league.slug}:${g.away.team.id}`, overall)}
         <div class="matchup-head">
           ${side(g.home, 'left', homeLead)}
           <span class="vs-mark">vs</span>
