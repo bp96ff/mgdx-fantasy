@@ -2288,12 +2288,14 @@
         seasonRows.push({
           t: found || { name: t.team, owner: t.owner, league, logo: null },
           year: y, w: t.w, l: t.l, ties, pct: (t.w + ties / 2) / (t.w + t.l + ties), pf: t.pf, pa: t.pa,
+          ppg: t.pf / ((t.w + t.l + ties) / 2), // two games a week, as League History's PPG
           link: SEASON_PAGES.includes(y) ? `${y}.html#/home/final-standings` : `#/archives/history?year=${y}`,
         });
       }
     }
     const rec = (x) => `${x.w}-${x.l}${x.ties ? `-${x.ties}` : ''}`;
     const seasonRow = (value) => (x) => ({ t: x.t, when: String(x.year), value: value(x), note: `${rec(x)} · ${f2(x.pf)} PF`, link: x.link });
+    const withPpg = (r, x) => Object.assign(r, { extra: f2(x.ppg) });
 
     // Luck in finished seasons, worked out as each season's Luck Index tab does: actual wins minus the wins its
     // all-play rate gives, over the regular season (in-league and cross-league games).
@@ -2360,8 +2362,8 @@
       ['Lowest single-week scores', 50, top(scores, 50, (x) => x.pf, 'asc').map(scoreRow), 'Score'],
       ['Best regular-season records', 30, top(seasonRows, 30, (x) => x.pct + x.pf / 1e6).map(seasonRow(rec)), 'Record'],
       ['Worst regular-season records', 30, top(seasonRows, 30, (x) => x.pct + x.pf / 1e6, 'asc').map(seasonRow(rec)), 'Record'],
-      ['Most regular-season points for', 30, top(seasonRows, 30, (x) => x.pf).map(seasonRow((x) => f2(x.pf))), 'PF'],
-      ['Fewest regular-season points for', 30, top(seasonRows, 30, (x) => x.pf, 'asc').map(seasonRow((x) => f2(x.pf))), 'PF'],
+      ['Most regular-season points for', 30, top(seasonRows, 30, (x) => x.pf).map((x) => withPpg(seasonRow((y) => f2(y.pf))(x), x)), 'PF', 'PPG'],
+      ['Fewest regular-season points for', 30, top(seasonRows, 30, (x) => x.pf, 'asc').map((x) => withPpg(seasonRow((y) => f2(y.pf))(x), x)), 'PF', 'PPG'],
       ['Most regular-season points against', 30, top(seasonRows, 30, (x) => x.pa).map(seasonRow((x) => f2(x.pa))), 'PA'],
       ['Fewest regular-season points against', 30, top(seasonRows, 30, (x) => x.pa, 'asc').map(seasonRow((x) => f2(x.pa))), 'PA'],
       ['Most points in a loss', 30, top(withResult('L'), 30, (x) => x.pf)
@@ -2381,7 +2383,8 @@
     ];
 
     // Ranks share a number on an exact tie (1, 2, 2, 4).
-    const table = ([title, n, rows, head]) => {
+    // An optional fifth entry names an extra column, left of the main one, from each row's `extra`.
+    const table = ([title, n, rows, head, extraHead]) => {
       let rank = 0;
       const body = rows.map((r, i) => {
         if (i === 0 || r.value !== rows[i - 1].value) rank = i + 1;
@@ -2394,6 +2397,7 @@
               <span><strong>${esc(r.t.name)}</strong><small>${esc(r.t.owner)}</small><small class="lg-name">${esc(lg.name)}</small><small class="rec-sub">${r.when}${r.note ? `<br>${r.note}` : ''}</small></span>
             </a></td>
             <td class="c-when">${r.when}${r.note ? `<small>${r.note}</small>` : ''}</td>
+            ${extraHead ? `<td class="c-num c-extra">${esc(r.extra)}</td>` : ''}
             <td class="c-num c-val">${esc(r.value)}</td>
           </tr>`;
       }).join('');
@@ -2405,8 +2409,8 @@
             ${first ? `<span class="rec-lead">${esc(first.t.owner)} · ${esc(first.value)}</span>` : ''}
           </summary>
           <div class="table-wrap"><table class="standings rec-table">
-            <thead><tr><th class="c-rank">#</th><th>Team</th><th class="c-when">When</th><th class="c-num">${esc(head)}</th></tr></thead>
-            <tbody>${body || '<tr><td colspan="4" class="muted">Nothing yet.</td></tr>'}</tbody>
+            <thead><tr><th class="c-rank">#</th><th>Team</th><th class="c-when">When</th>${extraHead ? `<th class="c-num" title="Points per game: average weekly score">${esc(extraHead)}</th>` : ''}<th class="c-num">${esc(head)}</th></tr></thead>
+            <tbody>${body || `<tr><td colspan="${extraHead ? 5 : 4}" class="muted">Nothing yet.</td></tr>`}</tbody>
           </table></div>
         </details>`;
     };
@@ -2547,7 +2551,7 @@
         t.owner === season.ultimateLoser ? '<img class="champ goat" src="assets/img/champs/ultimate-loser.png" alt="Ultimate loser" title="Ultimate loser" width="17" height="17">' : '',
       ].join('');
       const ties = t.t || 0; // 2025 had two in-league ties
-      const pct = ((t.w + ties / 2) / (t.w + t.l + ties)).toFixed(3).replace(/^0/, '');
+      const weeks = (t.w + t.l + ties) / 2; // two games a week (bye weeks are two cross-league games)
       const split = (w, l, tied) => (w == null ? '—' : `${w}-${l}${tied ? `-${tied}` : ''}`);
       return `
         <tr class="lg-row ${n <= 3 ? `podium p${n}` : ''}" style="--lc:var(--${league.theme})">
@@ -2561,8 +2565,8 @@
           <td class="c-num c-rec">${split(t.w, t.l, ties)}</td>
           <td class="c-num hide-sm muted">${split(t.inW, t.inL, t.inT)}</td>
           <td class="c-num hide-sm muted">${split(t.xW, t.xL)}</td>
-          <td class="c-num hide-sm">${pct}</td>
           <td class="c-num">${f2(t.pf)}</td>
+          <td class="c-num hide-sm">${weeks ? f2(t.pf / weeks) : '—'}</td>
           <td class="c-num hide-sm muted" title="In-league ${f2(t.pa - t.crossPa)} + cross-league ${f2(t.crossPa)}">${f2(t.pa)}</td>
         </tr>`;
     };
@@ -2577,7 +2581,7 @@
               ${sortHeader(sort, 'finish', 'Finish', 'c-rank', 'Sort by final place after the playoffs')}<th>Team</th>
               <th class="c-num">Overall</th>
               <th class="c-num hide-sm" title="In-league record">League</th><th class="c-num hide-sm" title="Cross-league record, including bye-week games">Cross</th>
-              <th class="c-num hide-sm">Pct</th>${sortHeader(sort, 'pf', 'PF', 'c-num', 'Sort by points for')}${sortHeader(sort, 'pa', 'PA', 'c-num hide-sm', 'Sort by points against, in-league and cross-league')}
+              ${sortHeader(sort, 'pf', 'PF', 'c-num', 'Sort by points for')}<th class="c-num hide-sm" title="Points per game: average weekly score">PPG</th>${sortHeader(sort, 'pa', 'PA', 'c-num hide-sm', 'Sort by points against, in-league and cross-league')}
             </tr></thead>
             <tbody>${list.map(row).join('')}</tbody>
           </table>`;
@@ -3136,6 +3140,8 @@
       let n = 0;
       for (let k = games.length - 1; k >= 0 && games[k].result === games[games.length - 1].result; k--) n++;
       const streak = n ? `${games[games.length - 1].result}${n}` : '';
+      // Points per game: PF over the weeks the team has scored (bye weeks count, since PF includes them).
+      const weeksPlayed = new Set(games.map((g) => g.week)).size;
       const line = playoffTeams && i + 1 === playoffTeams && i + 1 < entries.length
         ? `<tr class="playoff-line" aria-hidden="true"><td colspan="${cols}"><div class="pl"><span>Playoff line</span><span>Top ${playoffTeams} in</span></div></td></tr>` : '';
       const rowCls = showLeague ? 'lg-row' : i < playoffTeams ? 'in' : 'out';
@@ -3150,9 +3156,9 @@
           </td>
           <td class="c-num c-rec">${record(t)}</td>
           ${overall ? `<td class="c-num hide-sm muted">${split(t.inW, t.inL, t.inT)}</td><td class="c-num hide-sm muted">${split(t.xW, t.xL, t.xT)}</td>` : ''}
-          <td class="c-num hide-sm ${showLeague ? 'hide-md' : ''}">${t.pct != null ? t.pct.toFixed(3).replace(/^0/, '') : '—'}</td>
           <td class="c-last hide-xs"><span class="dots">${dots}</span><span class="streak ${streak[0] || ''}">${streak}</span></td>
           <td class="c-num" ${t.byePf ? `title="Includes ${f2(t.byePf)} from bye weeks"` : ''}>${f2(t.pf)}</td>
+          <td class="c-num hide-sm ${showLeague ? 'hide-md' : ''}">${weeksPlayed ? f2(t.pf / weeksPlayed) : '—'}</td>
           <td class="c-num hide-sm muted" ${t.crossPa ? `title="In-league ${f2(t.pa - t.crossPa)} + cross-league ${f2(t.crossPa)}"` : ''}>${f2(t.pa)}</td>
         </tr>${line}`;
     }).join('');
@@ -3166,8 +3172,8 @@
             <thead><tr>
               ${sortTh('rank', 'Rank', 'c-rank', 'Sort by standings (record, then PF)')}<th>Team</th>${sortTh('pct', overall ? 'Overall' : 'Record', 'c-num', 'Sort by record')}
               ${overall ? '<th class="c-num hide-sm" title="In-league record">League</th><th class="c-num hide-sm" title="Cross-league record">Cross</th>' : ''}
-              <th class="c-num hide-sm ${showLeague ? 'hide-md' : ''}">Pct</th>
-              <th class="c-last hide-xs" title="In-league and cross-league games from the last 3 completed weeks">${overall ? 'Last 6' : 'Last 3'}</th>${sortTh('pf', 'PF', 'c-num')}${sortTh('pa', 'PA', 'c-num hide-sm')}
+              <th class="c-last hide-xs" title="In-league and cross-league games from the last 3 completed weeks">${overall ? 'Last 6' : 'Last 3'}</th>${sortTh('pf', 'PF', 'c-num')}
+              <th class="c-num hide-sm ${showLeague ? 'hide-md' : ''}" title="Points per game: average weekly score">PPG</th>${sortTh('pa', 'PA', 'c-num hide-sm')}
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>

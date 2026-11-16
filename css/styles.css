@@ -1205,6 +1205,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
 .rec-table td.c-when { color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .rec-table td.c-when small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; white-space: normal; }
 .rec-table td.c-val { font: 800 19px/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rec-table td.c-extra { color: var(--muted); font: 700 16px/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rec-active { display: inline-block; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--win) 18%, transparent); color: var(--win); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
 @media (max-width: 680px) {
   .rec-section summary { padding: 13px 14px; }
@@ -1212,6 +1213,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .rec-lead { display: none; }
   .rec-table td.c-when { white-space: normal; font-size: 12px; }
   .rec-table td.c-val { font-size: 16px; }
+  .rec-table td.c-extra { font-size: 14px; }
   .rec-table .team-cell .avatar { width: 30px; height: 30px; }
 }
 @media (min-width: 681px) { .rec-table td.c-when { width: 230px; min-width: 230px; } }
