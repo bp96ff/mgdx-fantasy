@@ -797,10 +797,10 @@
   // A post's picture, at its own shape and up to 420px tall. The space is saved before it loads, so the
   // scroll box doesn't jump. Tapping it opens the full picture.
   const GIPHY_HOST = /^https:\/\/(media[0-9]?|i)\.giphy\.com\//;
-  const MEDIA_MAX_H = 420;
+  // Pictures and GIFs are at most --media-h tall (css/styles.css: shorter on phones), never wider than they are.
   function mediaImg(src, w, h, alt) {
     return `<img src="${esc(src)}" alt="${esc(alt)}" width="${w}" height="${h}" loading="lazy" decoding="async"
-      style="aspect-ratio:${w}/${h};max-width:min(100%, ${w}px, ${Math.round((MEDIA_MAX_H * w) / h)}px)">`;
+      style="aspect-ratio:${w}/${h};max-width:min(100%, ${w}px, calc(var(--media-h) * ${Math.round((w / h) * 1000) / 1000}))">`;
   }
   function postMedia(p) {
     if (!p.media || !p.media_w || !p.media_h) return '';
@@ -1042,7 +1042,7 @@
     const PHOTO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.8" fill="currentColor"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L19 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
     return `<form class="panel post-form composer" data-post-act="create">
       <label class="sr-only" for="post-body">Write a post</label>
-      <textarea id="post-body" name="body" maxlength="2000" rows="3" placeholder="Takes, trash talk, trade offers… (@ to mention)">${esc(feed.draft)}</textarea>
+      <textarea id="post-body" name="body" maxlength="2000" rows="1" placeholder="Takes, trash talk… (@ to mention)">${esc(feed.draft)}</textarea>
       ${attached}${picker}
       <div class="post-form-row">
         <div class="post-tools-left">
@@ -1078,12 +1078,40 @@
       </div>
       ${composer()}`;
     const box = el.querySelector('.post-scroll');
+    fitFeed();
     box.scrollTop = fromBottom ? box.scrollHeight - fromBottom : box.scrollHeight;
     box.addEventListener('scroll', () => { if (box.scrollTop < 120) loadOlder(); }, { passive: true });
     refocus(activeId);
     hydrateReactions(el);
     // Fewer posts than fill the box: keep loading until it scrolls (or there are no more).
     if (!feed.done && box.scrollHeight <= box.clientHeight) loadOlder();
+  }
+
+  // The posts box fills the screen between the pinned site header and the post box, so both fit at once.
+  // scrollPage (opening the Main Blog) scrolls the page down to them, past the page title, when they don't
+  // already fit.
+  function fitFeed(scrollPage) {
+    const el = document.getElementById('league-body');
+    const box = el && el.querySelector('.post-scroll');
+    const form = el && el.querySelector('.composer, .post-gate');
+    if (!box || !form) return;
+    const header = document.querySelector('.site-header');
+    const pinned = header && /sticky|fixed/.test(getComputedStyle(header).position) ? header.offsetHeight : 0;
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 4;
+    box.style.maxHeight = `${Math.round(Math.max(220, Math.min(900, innerHeight - pinned - form.offsetHeight - 40)))}px`;
+    if (atBottom) box.scrollTop = box.scrollHeight;
+    if (scrollPage) {
+      const bottom = form.getBoundingClientRect().bottom + scrollY + 14;
+      if (bottom > scrollY + innerHeight) window.scrollTo({ top: bottom - innerHeight, behavior: 'instant' });
+    }
+  }
+  let fitTimer = 0;
+  window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => fitFeed(), 150); });
+  // The post box grows with what's typed (up to a point), and the posts box makes room for it.
+  function growComposer(ta) {
+    ta.style.height = ''; // back to its usual size, then taller only if the text needs it
+    if (ta.scrollHeight > ta.clientHeight) ta.style.height = `${Math.min(ta.scrollHeight + 2, Math.round(innerHeight * 0.3))}px`;
+    fitFeed();
   }
 
   // Typing spots keep focus (and the cursor at the end) through a redraw.
@@ -1155,6 +1183,7 @@
       setMentionNames();
       feed = { ...feed, posts, done: posts.length < 20, editing: null, replying: fresh ? null : feed.replying, msg: '', loadingOlder: false };
       drawFeed(true);
+      if (fresh) fitFeed(true);
     } catch (err) {
       console.error(err);
       if (token === renderToken) el.innerHTML = '<div class="state state-error" role="alert"><strong>Couldn’t load the posts.</strong><span>Try again in a moment.</span></div>';
@@ -1191,6 +1220,7 @@
       if (e.target.id.startsWith('reply-')) feed.replyDrafts.set(e.target.id.slice(6), e.target.value);
       if (e.target.id !== 'post-body') return;
       feed.draft = e.target.value;
+      growComposer(e.target);
       const c = e.target.closest('form').querySelector('.post-count');
       if (c) { c.textContent = feed.draft.length ? `${feed.draft.length} / 2,000` : ''; c.classList.toggle('near', feed.draft.length > 1800); }
     });
