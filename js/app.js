@@ -1833,10 +1833,12 @@
   const ARCHIVE_TAB_NAMES = { records: 'Records', career: 'Careers', rivalries: 'Rivalries', history: 'League History' };
   const ARCHIVE_KICKERS = { records: 'All-time bests and worsts', career: 'Every manager, all seasons', rivalries: 'Head to head', history: 'Champions and seasons past' };
 
+  // sub 'manager' is a manager's page, under the Careers tab.
   function renderArchives(sub, params) {
     const p = PLACEHOLDERS.archives;
+    const tab = sub === 'manager' ? 'career' : sub;
     document.body.dataset.theme = 'home';
-    document.title = `${ARCHIVE_TAB_NAMES[sub]} · Archives · Microgen Fantasy Football`;
+    document.title = `${ARCHIVE_TAB_NAMES[tab]} · Archives · Microgen Fantasy Football`;
     main.innerHTML = `
       <section class="league-hero cross-hero">
         <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png?v=2" alt="Microgen Fantasy Football logo" width="96" height="96">
@@ -1846,10 +1848,11 @@
         </div>
       </section>
       <nav class="subtabs four" aria-label="Archives sections">
-        ${ARCHIVE_TABS.map((s) => `<a href="#/archives/${s}" class="${s === sub ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${ARCHIVE_TAB_NAMES[s]}</a>`).join('')}
+        ${ARCHIVE_TABS.map((s) => `<a href="#/archives/${s}" class="${s === tab ? 'active' : ''}" ${s === sub ? 'aria-current="page"' : ''}>${ARCHIVE_TAB_NAMES[s]}</a>`).join('')}
       </nav>
-      <div id="league-body">${loading(sub === 'history' ? 'Loading league history' : sub === 'career' ? 'Loading careers' : sub === 'rivalries' ? 'Loading rivalries' : 'Loading records')}</div>`;
+      <div id="league-body">${loading(sub === 'history' ? 'Loading league history' : sub === 'manager' ? 'Loading manager' : sub === 'career' ? 'Loading careers' : sub === 'rivalries' ? 'Loading rivalries' : 'Loading records')}</div>`;
     if (sub === 'history') renderHistory(params);
+    else if (sub === 'manager') renderManager(params);
     else if (sub === 'career') renderCareer();
     else if (sub === 'rivalries') renderRivalries(params);
     else renderRecords();
@@ -1859,25 +1862,25 @@
   // One row per manager (by the name the league uses), across every season. Finished seasons' records come from
   // data/history.json, as League History shows them; this season's from data/standings.json, as Standings shows it.
   // Playoff games, streaks and points per game come from the saved games (games.json, playoffs.json).
-  async function renderCareer() {
-    const token = renderToken;
-    const body = () => document.getElementById('league-body');
+  let careerData = null;
+  function loadCareerData() {
+    if (!careerData) careerData = buildCareerData().catch((err) => { careerData = null; throw err; });
+    return careerData;
+  }
+  async function buildCareerData() {
     const json = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
     const past = SEASON_PAGES.filter((y) => y !== SEASON);
     const [history, current, mine, ...files] = await Promise.all([
       json('data/history.json'), json('data/standings.json'), json('data/games.json'),
       ...past.flatMap((y) => [json('data/seasons/' + y + '/games.json'), json('data/seasons/' + y + '/playoffs.json'), json('data/seasons/' + y + '/standings.json')]),
     ]);
-    if (token !== renderToken) return;
-    if (!history || !current) {
-      body().innerHTML = '<div class="state state-error" role="alert"><strong>Couldn\'t load careers.</strong><a class="btn" href="#/archives/career" onclick="window.dispatchEvent(new HashChangeEvent(\'hashchange\'));return false;">Try again</a></div>';
-      return;
-    }
+    if (!history || !current) throw new Error('Couldn’t load the saved seasons');
     const people = new Map();
     const person = (owner) => {
       if (!people.has(owner)) {
         people.set(owner, { owner, seasons: 0, w: 0, l: 0, t: 0, inW: 0, inL: 0, inT: 0, xW: 0, xL: 0, xT: 0, pw: 0, pl: 0,
-          winRun: 0, lossRun: 0, pts: 0, weeks: 0, grand: 0, losses: 0, titles: [], last: null });
+          winRun: 0, lossRun: 0, pts: 0, weeks: 0, grand: 0, losses: 0, titles: [], last: null,
+          list: [], scores: [] });
       }
       return people.get(owner);
     };
@@ -1903,9 +1906,19 @@
         if (season.ultimateLoser === t.owner) p.losses++;
         if (season.champions[t.league] === t.owner) p.titles.push(t.league);
         p.last = { year: y, team: t.team, league: leagueOf(t.league), logo: logos.get(t.league + ':' + t.owner) };
+        p.list.push({ ...p.last, w: t.w, l: t.l, t: t.t || 0, inW: t.inW, inL: t.inL, inT: t.inT || 0, xW: t.xW, xL: t.xL, xT: t.xT || 0,
+          pf: t.pf, pa: t.pa, seed: t.seed, finish: t.finish, final: t.final, of: season.teams.length,
+          grand: season.grandChampion === t.owner, loser: season.ultimateLoser === t.owner, champ: season.champions[t.league] === t.owner,
+          link: SEASON_PAGES.includes(y) ? y + '.html#/home/final-standings' : '#/archives/history?year=' + y });
       }
       // Playoff record: every playoffs-bracket game a playoff team played; the top score of the game wins it.
       const seeds = new Map(season.teams.map((t) => [t.owner, t.seed]));
+      ((saved.playoffs && saved.playoffs.games) || []).forEach((g, j) => {
+        for (const x of g.teams) {
+          const team = (season.teams.find((t) => t.owner === x.owner) || {}).team;
+          person(x.owner).scores.push({ year: y, week: g.week, pf: x.score, team, label: g.bracket === 'toilet' ? 'Toilet Bowl' : 'Playoffs', link: SEASON_PAGES.includes(y) ? y + '.html' + playoffGameLink(g, j) : '' });
+        }
+      });
       for (const g of (saved.playoffs && saved.playoffs.games) || []) {
         if (g.bracket !== 'playoffs') continue;
         const best = Math.max(...g.teams.map((x) => x.score));
@@ -1918,20 +1931,34 @@
     }
     // This season so far, as Standings has it.
     for (const [slug, l] of Object.entries(current.leagues)) {
-      for (const t of l.teams) {
+      l.teams.forEach((t, i) => {
         const p = person(t.owner);
         add(p, { w: t.wins, l: t.losses, t: t.ties, inW: t.inW, inL: t.inL, inT: t.inT, xW: t.xW, xL: t.xL, xT: t.xT });
-        p.last = { year: SEASON, team: t.name, league: leagueOf(slug), logo: t.logo, current: true };
-      }
+        p.last = { year: SEASON, team: t.name, league: leagueOf(slug), logo: t.logo, current: true, id: t.id };
+        p.list.push({ ...p.last, w: t.wins, l: t.losses, t: t.ties || 0, inW: t.inW, inL: t.inL, inT: t.inT || 0, xW: t.xW, xL: t.xL, xT: t.xT || 0,
+          pf: t.pf, pa: t.pa, rank: i + 1, of: l.teams.length, week: current.week, link: '#/' + slug + '/standings' });
+      });
     }
     // Streaks (longest within one season) and points per game, from every season's saved games.
     const gameFiles = past.map((y) => [y, byYear.get(y).games]).concat([[SEASON, mine]]).filter(([y, g]) => g && g.season === y);
-    for (const [, file] of gameFiles) {
+    for (const [year, file] of gameFiles) {
       const weeks = teamWeeks(file);
+      // Each week's score once, linked to that week's in-league game (or its first game, on a bye)
+      const links = new Map();
+      for (const [week, a, , b, , hash] of file.games) {
+        for (const key of [a, b]) {
+          const id = key + '|' + week;
+          if (key !== 'median' && (!links.has(id) || hash.includes('/matchups'))) links.set(id, hash);
+        }
+      }
+      const at = (hash) => (year === SEASON ? hash : year + '.html' + hash);
       for (const w of weeks) {
         const p = person(file.teams[w.key][1]);
         p.pts += w.pf;
         p.weeks++;
+        const row = p.list.find((x) => x.year === year);
+        if (row) { row.pts = (row.pts || 0) + w.pf; row.weeks = (row.weeks || 0) + 1; }
+        p.scores.push({ year, week: w.week, pf: w.pf, team: file.teams[w.key][0], label: 'Regular season', link: at(links.get(w.key + '|' + w.week) || '') });
       }
       for (const r of seasonRuns(weeks, Infinity)) {
         const p = person(file.teams[r.key][1]);
@@ -1939,7 +1966,20 @@
         else p.lossRun = Math.max(p.lossRun, r.n);
       }
     }
+    return { people, years, history };
+  }
 
+  async function renderCareer() {
+    const token = renderToken;
+    const body = () => document.getElementById('league-body');
+    let data;
+    try { data = await loadCareerData(); } catch (err) { console.error(err); data = null; }
+    if (token !== renderToken) return;
+    if (!data) {
+      body().innerHTML = '<div class="state state-error" role="alert"><strong>Couldn\'t load careers.</strong><a class="btn" href="#/archives/career" onclick="window.dispatchEvent(new HashChangeEvent(\'hashchange\'));return false;">Try again</a></div>';
+      return;
+    }
+    const { people, years, history } = data;
     const list = [...people.values()].filter((p) => p.last);
     const pct = (w, l, t) => (w + l + t ? (w + t / 2) / (w + l + t) : 0);
     const val = {
@@ -1957,9 +1997,9 @@
     const row = (p) => {
       const lg = p.last.league;
       return '<tr class="lg-row" style="--lc:var(--' + lg.theme + ')">'
-        + '<td class="c-team"><div class="team-cell">' + teamLogo({ logo: p.last.logo }, lg)
+        + '<td class="c-team"><a class="team-cell" href="' + managerHref(p.owner) + '">' + teamLogo({ logo: p.last.logo }, lg)
         + '<span><strong>' + esc(p.owner) + '</strong><small>' + esc(p.last.team) + badges(p) + '</small>'
-        + '<small class="lg-name">' + (p.last.current ? esc(lg.name) : 'Last played ' + p.last.year) + '</small></span></div></td>'
+        + '<small class="lg-name">' + (p.last.current ? esc(lg.name) : 'Last played ' + p.last.year) + '</small></span></a></td>'
         + '<td class="c-num hide-sm">' + p.seasons + '</td>'
         + '<td class="c-num c-ppg">' + (p.weeks ? f2(p.pts / p.weeks) : '—') + '</td>'
         + '<td class="c-num c-rec">' + rec(p.w, p.l, p.t) + '</td>'
@@ -1989,6 +2029,7 @@
         + '</tr></thead><tbody>' + sorted.map(row).join('') + '</tbody></table>';
     };
     body().innerHTML = '<p class="pw-status">All ' + list.length + ' managers since ' + years.concat(SEASON)[0] + ', including ' + SEASON + ' so far.</p>'
+      + '<p class="mg-note">Tap a manager to open their page: every season, best and worst weeks, and their record against everyone they’ve played.</p>'
       + '<p class="pw-sort">Table sortable by Seasons, PPG, Overall, League, Cross, Playoffs and streaks</p>'
       + '<div class="panel st-panel ' + (standingsExpanded ? 'st-expanded' : '') + '">'
       + '<button class="toggle st-expand" type="button" aria-expanded="' + standingsExpanded + '">' + (standingsExpanded ? 'Show fewer columns' : 'Show all columns') + '</button>'
@@ -2003,6 +2044,162 @@
       sort = key === sort.key ? { key, dir: sort.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' };
       wrap.innerHTML = table();
       wrap.querySelector('th button[data-sort="' + key + '"]').focus();
+    });
+  }
+
+  // ---------- manager pages ----------
+  // One manager's whole history: #/archives/manager?name=Bryce. Built from the same data as Careers (records,
+  // titles, weekly scores) and Rivalries (every head-to-head game).
+  const managerHref = (name) => `#/archives/manager?name=${encodeURIComponent(name)}`;
+
+  async function renderManager(params) {
+    const token = renderToken;
+    const body = () => document.getElementById('league-body');
+    let data, rivals;
+    try { [data, rivals] = await Promise.all([loadCareerData(), loadRivalData()]); } catch (err) { console.error(err); }
+    if (token !== renderToken) return;
+    if (!data) {
+      body().innerHTML = `<div class="state state-error" role="alert"><strong>Couldn't load this manager.</strong><a class="btn" href="${managerHref(params.get('name') || '')}" onclick="window.dispatchEvent(new HashChangeEvent('hashchange'));return false;">Try again</a></div>`;
+      return;
+    }
+    const all = [...data.people.values()].filter((x) => x.last);
+    const names = all.map((x) => x.owner).sort((a, b) => a.localeCompare(b));
+    const name = params.get('name');
+    const p = data.people.get(name);
+    const picker = `<label class="select mg-pick"><span class="sr-only">Choose a manager</span><select id="mg-select">
+      ${p ? '' : '<option value="" selected>Choose a manager</option>'}${names.map((n) => `<option value="${esc(n)}" ${n === name ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
+    const bind = () => body().querySelector('#mg-select').addEventListener('change', (e) => { if (e.target.value) location.hash = managerHref(e.target.value); });
+    if (!p || !p.last) {
+      body().innerHTML = `<div class="mg-bar"><a class="mg-back" href="#/archives/career">‹ All managers</a>${picker}</div>
+        <div class="state"><strong>${name ? `No manager named “${esc(name)}”.` : 'Pick a manager.'}</strong></div>`;
+      bind();
+      return;
+    }
+    document.title = `${p.owner} · Archives · Microgen Fantasy Football`;
+    const lg = p.last.league;
+    const rec = (w, l, t) => `${w}-${l}${t ? `-${t}` : ''}`;
+    const pctOf = (w, l, t) => (w + l + t ? (w + t / 2) / (w + l + t) : 0);
+    const pct3 = (x) => x.toFixed(3).replace(/^0/, '');
+    const seasons = p.list.slice().sort((a, b) => b.year - a.year);
+    const done = seasons.filter((x) => !x.current);
+    const first = Math.min(...seasons.map((x) => x.year));
+
+    // ----- headline numbers -----
+    const best = done.length ? done.reduce((a, b) => (b.finish < a.finish ? b : a)) : null;
+    const titleCount = p.titles.length;
+    const tiles = [
+      ['Seasons', p.seasons, `Since ${first}`],
+      ['Overall record', rec(p.w, p.l, p.t), `${pct3(pctOf(p.w, p.l, p.t))} win rate`],
+      ['Points per game', p.weeks ? f2(p.pts / p.weeks) : '—', 'Regular season'],
+      ['Playoffs', p.pw + p.pl ? rec(p.pw, p.pl) : '—', p.pw + p.pl ? 'Playoff-bracket games' : 'No playoff games yet'],
+      ['League titles', titleCount, [p.grand ? `${p.grand} grand championship${p.grand > 1 ? 's' : ''}` : '', p.losses ? `${p.losses} Ultimate Loser` : ''].filter(Boolean).join(' · ') || (titleCount ? 'League champion' : 'Not yet')],
+      ['Best finish', best ? ordinal(best.finish) : '—', best ? `of ${best.of}, ${best.year}` : 'First season in progress'],
+      ['Longest win streak', p.winRun ? `W${p.winRun}` : '—', 'Within a season'],
+      ['Longest losing streak', p.lossRun ? `L${p.lossRun}` : '—', 'Within a season'],
+    ];
+
+    // ----- season by season -----
+    const finishText = (x) => {
+      if (x.current) return `<b>${ordinal(x.rank)}</b><small>in ${esc(x.league.name)} · through Week ${x.week - 1}</small>`;
+      const honors = [x.grand ? 'Grand champion' : '', x.champ && !x.grand ? `${esc(x.league.name)} champion` : '', x.loser ? 'Ultimate loser' : ''].filter(Boolean);
+      const final = x.final ? `${x.final.won ? 'Won' : 'Lost'} ${esc(x.final.label)}` : '';
+      return `<b>${ordinal(x.finish)}</b><small>${honors.length ? honors.join(' · ') : final}${x.seed ? ` · ${ordinal(x.seed)} seed` : ''}</small>`;
+    };
+    const seasonRows = seasons.map((x) => {
+      // As Standings and Final Standings show it: this season from ESPN's weekly scores, finished seasons from
+      // their official PF over the weeks played (two games a week).
+      const ppg = x.current && x.weeks ? x.pts / x.weeks : x.pf / ((x.w + x.l + x.t) / 2 || 1);
+      return `
+        <tr class="lg-row" style="--lc:var(--${x.league.theme})">
+          <td class="c-rank"><a class="mg-year" href="${x.link}">${x.year}</a></td>
+          <td class="c-team"><a class="team-cell" href="${x.link}">${teamLogo({ logo: x.current ? customLogo({ id: x.id }, x.league) || x.logo : x.logo }, x.league)}
+            <span><strong>${esc(x.team)}</strong><small class="lg-name">${esc(x.league.name)}</small></span></a></td>
+          <td class="c-num c-rec">${rec(x.w, x.l, x.t)}</td>
+          <td class="c-num hide-sm muted">${rec(x.inW, x.inL, x.inT)}</td>
+          <td class="c-num hide-sm muted">${rec(x.xW, x.xL, x.xT)}</td>
+          <td class="c-num hide-sm">${f2(x.pf)}</td>
+          <td class="c-num">${f2(ppg)}</td>
+          <td class="mg-finish">${finishText(x)}</td>
+        </tr>`;
+    }).join('');
+
+    // ----- best and worst weeks -----
+    const scored = p.scores.filter((x) => x.pf > 0);
+    const weekList = (list) => list.map((x) => `
+      <li><a href="${x.link || '#'}"><b>${f2(x.pf)}</b><span>${x.year} · Week ${x.week}${x.label !== 'Regular season' ? ` · ${esc(x.label)}` : ''}<small>${esc(x.team || '')}</small></span></a></li>`).join('');
+    const top = scored.slice().sort((a, b) => b.pf - a.pf).slice(0, 5);
+    const bottom = scored.slice().sort((a, b) => a.pf - b.pf).slice(0, 5);
+
+    // ----- head to head -----
+    const vs = new Map();
+    for (const m of (rivals && rivals.meetings) || []) {
+      const me = m.x.owner === p.owner ? m.x : m.y.owner === p.owner ? m.y : null;
+      if (!me) continue;
+      const them = me === m.x ? m.y : m.x;
+      const r = vs.get(them.owner) || vs.set(them.owner, { owner: them.owner, w: 0, l: 0, t: 0, pf: 0, pa: 0 }).get(them.owner);
+      r[me.score > them.score ? 'w' : me.score < them.score ? 'l' : 't']++;
+      r.pf += me.score;
+      r.pa += them.score;
+    }
+    const opps = [...vs.values()].map((r) => Object.assign(r, { n: r.w + r.l + r.t, pct: pctOf(r.w, r.l, r.t) }));
+    const enough = opps.filter((r) => r.n >= 3);
+    const fav = enough.slice().sort((a, b) => b.pct - a.pct || b.n - a.n)[0];
+    const nem = enough.slice().sort((a, b) => a.pct - b.pct || b.n - a.n)[0];
+    const rivalHref = (o) => `#/archives/rivalries?a=${encodeURIComponent(p.owner)}&b=${encodeURIComponent(o)}`;
+    const callout = (label, r, cls) => (r ? `
+      <a class="mg-callout ${cls}" href="${rivalHref(r.owner)}"><small>${label}</small><strong>${esc(r.owner)}</strong><span>${rec(r.w, r.l, r.t)} in ${r.n} games</span></a>` : '');
+    const rivalRow = (r) => `
+        <tr>
+          <td><a href="${managerHref(r.owner)}">${esc(r.owner)}</a></td>
+          <td class="c-num">${r.n}</td>
+          <td class="c-num c-rec ${r.w > r.l ? 'mg-up' : r.w < r.l ? 'mg-down' : ''}">${rec(r.w, r.l, r.t)}</td>
+          <td class="c-num hide-sm">${f2(r.pf / r.n)}</td>
+          <td class="c-num hide-sm muted">${f2(r.pa / r.n)}</td>
+          <td class="c-num"><a class="mg-h2h" href="${rivalHref(r.owner)}">Head to head ›</a></td>
+        </tr>`;
+    const sortedOpps = opps.sort((a, b) => b.n - a.n || b.pct - a.pct || a.owner.localeCompare(b.owner));
+
+    body().innerHTML = `
+      <div class="mg-bar"><a class="mg-back" href="#/archives/career">‹ All managers</a>${picker}</div>
+      <section class="panel mg-head" style="--lc:var(--${lg.theme})">
+        ${teamLogo({ logo: p.last.current ? customLogo({ id: p.last.id }, lg) || p.last.logo : p.last.logo }, lg, 'avatar mg-logo')}
+        <div class="mg-who">
+          <p class="eyebrow">${p.last.current ? `${esc(lg.name)} · ${SEASON}` : `Last played ${p.last.year}`}</p>
+          <h2>${esc(p.owner)}</h2>
+          <p class="mg-team">${esc(p.last.team)}${champBadges({ grandTitles: p.grand, ultimateLosses: p.losses, titles: p.titles })}</p>
+        </div>
+      </section>
+      <div class="mg-tiles">${tiles.map(([label, value, sub]) => `<div class="panel mg-tile"><small>${label}</small><b>${value}</b><span>${sub}</span></div>`).join('')}</div>
+
+      <h3 class="section-label">Season by season</h3>
+      <div class="panel"><div class="table-wrap"><table class="standings mg-seasons">
+        <thead><tr><th class="c-rank">Year</th><th>Team</th><th class="c-num">Overall</th><th class="c-num hide-sm">League</th><th class="c-num hide-sm">Cross</th><th class="c-num hide-sm">PF</th><th class="c-num" title="Points per game: average weekly score">PPG</th><th>Finish</th></tr></thead>
+        <tbody>${seasonRows}</tbody>
+      </table></div></div>
+
+      <div class="mg-weeks">
+        <section class="panel"><h3 class="section-label">Best weeks</h3><ol class="mg-list">${weekList(top)}</ol></section>
+        <section class="panel"><h3 class="section-label">Worst weeks</h3><ol class="mg-list">${weekList(bottom)}</ol></section>
+      </div>
+
+      <h3 class="section-label">Head to head</h3>
+      ${fav || nem ? `<div class="mg-callouts">${callout('Best record against', fav, 'up')}${callout('Toughest opponent', nem, 'down')}</div>` : ''}
+      ${sortedOpps.length ? `<div class="panel"><div class="table-wrap"><table class="standings mg-rivals">
+        <thead><tr><th>Opponent</th><th class="c-num">Games</th><th class="c-num">Record</th><th class="c-num hide-sm" title="${esc(p.owner)}’s average score against them">Scored</th><th class="c-num hide-sm" title="Their average score against ${esc(p.owner)}">Allowed</th><th class="c-num"><span class="sr-only">Head to head</span></th></tr></thead>
+        <tbody>${sortedOpps.slice(0, 10).map(rivalRow).join('')}</tbody>
+        ${sortedOpps.length > 10 ? `<tbody class="mg-more" hidden>${sortedOpps.slice(10).map(rivalRow).join('')}</tbody>` : ''}
+      </table></div>
+      ${sortedOpps.length > 10 ? `<button class="toggle mg-show" type="button" aria-expanded="false">Show all ${sortedOpps.length} opponents</button>` : ''}</div>`
+        : '<div class="state"><strong>No head-to-head games yet.</strong></div>'}
+      <p class="fineprint">Records are regular season (finished seasons as League History shows them, ${SEASON} as Standings shows it). Finish is the final place after the playoffs, out of every team that season. Best and worst weeks include past seasons’ playoff and Toilet Bowl games. Head to head counts every game against each manager, playoffs included, as Rivalries does; best record and toughest opponent need at least 3 games. Tap a season, week or opponent to see it.</p>`;
+    bind();
+    const more = body().querySelector('.mg-show');
+    if (more) more.addEventListener('click', () => {
+      const extra = body().querySelector('.mg-more');
+      const open = extra.hidden;
+      extra.hidden = !open;
+      more.setAttribute('aria-expanded', String(open));
+      more.textContent = open ? 'Show fewer' : `Show all ${sortedOpps.length} opponents`;
     });
   }
 
@@ -5587,7 +5784,7 @@
     } else if (key === 'archives') {
       renderToken++;
       setActiveNav('archives');
-      renderArchives(ARCHIVE_TABS.includes(parts[1]) ? parts[1] : 'records', params);
+      renderArchives(ARCHIVE_TABS.includes(parts[1]) || parts[1] === 'manager' ? parts[1] : 'records', params);
     } else if (key === 'account' && ACCOUNT && !ARCHIVE) {
       setActiveNav('');
       renderAccount();

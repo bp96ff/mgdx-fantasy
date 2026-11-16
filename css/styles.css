@@ -1634,3 +1634,71 @@ button.react-chip:hover { border-color: var(--accent); }
 .ptr.spin svg { animation: ptr-spin .7s linear infinite; }
 @keyframes ptr-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @media (display-mode: standalone) { html, body { overscroll-behavior-y: none; } }
+
+/* ---------- Manager pages (Archives) ---------- */
+.mg-note { margin: -4px 2px 12px; color: var(--accent-soft); font-size: 14px; font-weight: 600; }
+.career-table .team-cell { color: inherit; text-decoration: none; }
+.career-table a.team-cell:hover strong, .career-table a.team-cell:focus-visible strong { text-decoration: underline; text-underline-offset: 3px; }
+.mg-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.mg-back { color: var(--accent-soft); font-weight: 700; text-decoration: none; }
+.mg-back:hover { text-decoration: underline; }
+.mg-pick select { min-width: 200px; }
+.mg-head { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-left: 5px solid var(--lc);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--lc) 18%, var(--surface)), var(--surface) 65%); }
+.mg-head .mg-logo { width: 84px; height: 84px; border: 3px solid var(--lc); }
+.mg-who { min-width: 0; }
+.mg-who .eyebrow { margin: 0 0 4px; }
+.mg-who h2 { margin: 0; font: 800 40px/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.mg-team { margin: 6px 0 0; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mg-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 6px; }
+.mg-tile { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mg-tile small { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.mg-tile b { font: 800 28px/1.05 var(--display); font-variant-numeric: tabular-nums; }
+.mg-tile span { color: var(--muted); font-size: 13px; }
+.mg-year { font: 800 18px/1 var(--display); color: inherit; text-decoration: none; }
+.mg-seasons .team-cell { color: inherit; text-decoration: none; }
+.mg-finish b { display: block; font: 800 18px/1.1 var(--display); }
+.mg-finish small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.mg-weeks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.mg-weeks .panel { padding: 14px 16px; }
+.mg-weeks .section-label { margin: 0 0 10px; }
+.mg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.mg-list a { display: flex; align-items: center; gap: 12px; padding: 7px 8px; border-radius: 8px; color: inherit; text-decoration: none; }
+.mg-list a:hover { background: var(--surface-2); }
+.mg-list b { width: 72px; flex: none; font: 800 20px/1 var(--display); font-variant-numeric: tabular-nums; }
+.mg-list span { font-size: 14px; font-weight: 600; min-width: 0; }
+.mg-list span small { display: block; color: var(--muted); font-weight: 500; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-callouts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0 10px; }
+.mg-callout { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--surface); color: inherit; text-decoration: none; }
+.mg-callout.up { border-left: 4px solid var(--win); }
+.mg-callout.down { border-left: 4px solid var(--loss); }
+.mg-callout small { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.mg-callout strong { font: 800 22px/1.1 var(--display); }
+.mg-callout span { color: var(--muted); font-size: 13px; }
+.mg-callout:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.mg-rivals td a { color: inherit; font-weight: 700; text-decoration: none; }
+.mg-rivals td a:hover { text-decoration: underline; }
+.mg-rivals .mg-up { color: var(--win); }
+.mg-rivals .mg-down { color: var(--loss); }
+.mg-rivals a.mg-h2h { color: var(--accent-soft); font-size: 13px; white-space: nowrap; }
+.mg-show { margin: 0 12px 12px; }
+@media (max-width: 760px) {
+  .mg-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mg-weeks, .mg-callouts { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .mg-head { padding: 16px; gap: 14px; }
+  .mg-head .mg-logo { width: 62px; height: 62px; }
+  .mg-who h2 { font-size: 30px; }
+  .mg-tile b { font-size: 23px; }
+  .mg-pick, .mg-pick select { width: 100%; }
+  /* The season table on a phone: names wrap instead of cutting off; the logo makes room */
+  .mg-seasons .team-cell .avatar { display: none; }
+  .mg-seasons .team-cell strong { font-size: 14px; overflow-wrap: normal; }
+  .mg-seasons .team-cell small.lg-name { white-space: normal; }
+  .mg-seasons td, .mg-seasons th { padding-left: 6px; padding-right: 6px; }
+  .mg-seasons .mg-year { font-size: 16px; }
+  .mg-seasons .mg-finish { min-width: 84px; }
+  .mg-finish small { font-size: 11px; }
+}
