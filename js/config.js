@@ -3,9 +3,9 @@ window.MGDX = {
   SEASON: 2026,
   // How often (ms) the current week's matchups refresh while the page is open.
   LIVE_REFRESH_MS: 60000,
-  // Cross-league schedule lives in a public Google Sheet: one tab per week.
-  // weekGids maps week number -> the tab's gid (the number after "gid=" in the tab's URL).
-  // Add a line here if you add a tab (e.g. playoff weeks).
+  // Cross-league schedule: the pairings are saved in data/cross-schedule.json (from the old Google Sheet, which
+  // the site no longer reads). weekGids' week numbers are the weeks with cross-league games; the gids are the
+  // Sheet tabs they came from.
   CROSS_LEAGUE: {
     sheetId: '1a8lCw8MYyGMoS5mHOOmkPIZP976QCEInzlGomA_WQaE',
     weekGids: {

@@ -1,5 +1,5 @@
 // The app's service worker: shows push notifications, and keeps a copy of the pages and data last seen so the
-// app still opens without a signal. Everything is fetched fresh first; the saved copy is only a fallback.
+// app still opens without a signal, and opens faster: versioned files and images come from the saved copy.
 // Change CACHE to throw away every saved copy.
 const CACHE = 'mgdx-1';
 
@@ -10,23 +10,42 @@ self.addEventListener('activate', (e) => {
     .then(() => self.clients.claim()));
 });
 
-// Same-site GET requests only (not ESPN, Supabase or GIPHY): network first, the saved copy when offline.
+// Same-site GET requests only (not ESPN, Supabase or GIPHY):
+//   - files with a ?v= version (scripts, styles, icons): the saved copy if there is one, since a new
+//     version comes with a new ?v=;
+//   - images: the saved copy at once, refreshed in the background for next time;
+//   - everything else (pages, data): network first, the saved copy when offline.
+const isImage = (url) => /\.(png|jpe?g|webp|gif|svg|ico)$/i.test(url.pathname);
+
+async function save(cache, req, res) {
+  if (!res.ok || res.type !== 'basic') return;
+  const url = new URL(req.url);
+  // One copy per file: drop older ?v= versions of the same path.
+  const keys = await cache.keys();
+  await Promise.all(keys.filter((k) => { const u = new URL(k.url); return u.pathname === url.pathname && u.search !== url.search; })
+    .map((k) => cache.delete(k)));
+  await cache.put(req, res);
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Pages are never served this way, even with ?v= in their address.
+  const page = req.mode === 'navigate' || /(\/|\.html?)$/i.test(url.pathname);
+  const versioned = !page && url.searchParams.has('v');
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
+    if (versioned || (!page && isImage(url))) {
+      const hit = await cache.match(req);
+      if (hit) {
+        if (!versioned) e.waitUntil(fetch(req.url, { cache: 'no-cache' }).then((res) => save(cache, req, res)).catch(() => {}));
+        return hit;
+      }
+    }
     try {
       const res = await fetch(req);
-      if (res.ok && res.type === 'basic') {
-        const copy = res.clone();
-        // One copy per file: drop older ?v= versions of the same path.
-        const keys = await cache.keys();
-        await Promise.all(keys.filter((k) => { const u = new URL(k.url); return u.pathname === url.pathname && u.search !== url.search; })
-          .map((k) => cache.delete(k)));
-        await cache.put(req, copy);
-      }
+      e.waitUntil(save(cache, req, res.clone()));
       return res;
     } catch (err) {
       const hit = await cache.match(req) || await cache.match(req, { ignoreSearch: true })

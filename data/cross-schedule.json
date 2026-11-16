@@ -1,0 +1,1489 @@
+{
+ "source": "Cross-league Google Sheet, saved 2026-11-16; the Sheet is no longer read",
+ "weeks": {
+  "1": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Nick",
+      "Courtney"
+     ],
+     [
+      "Bryce",
+      "Kat"
+     ],
+     [
+      "Trace",
+      "Jana"
+     ],
+     [
+      "Julia",
+      "Sidney"
+     ],
+     [
+      "Rocio",
+      "Destiny"
+     ],
+     [
+      "Marsha",
+      "Kayla"
+     ],
+     [
+      "Celina",
+      "Xenia"
+     ],
+     [
+      "Karen",
+      "Amanda"
+     ],
+     [
+      "Ryan",
+      "Sarah"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Ciana",
+      "Sloan"
+     ],
+     [
+      "Tiffany",
+      "Darbie"
+     ],
+     [
+      "Jenna",
+      "Purcella"
+     ],
+     [
+      "Emma",
+      "Laith"
+     ],
+     [
+      "Jake",
+      "Haley"
+     ],
+     [
+      "Dago",
+      "Daniel"
+     ],
+     [
+      "Craig",
+      "Tisha"
+     ],
+     [
+      "Hoai-Nha",
+      "Alan"
+     ],
+     [
+      "Darcy",
+      "Jen"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Trace",
+      "Jen"
+     ],
+     [
+      "Jake",
+      "Amanda"
+     ]
+    ]
+   }
+  ],
+  "2": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Ryan",
+      "Laith"
+     ],
+     [
+      "Karen",
+      "Purcella"
+     ],
+     [
+      "Julia",
+      "Darbie"
+     ],
+     [
+      "Marsha",
+      "Haley"
+     ],
+     [
+      "Celina",
+      "Sloan"
+     ],
+     [
+      "Bryce",
+      "Jen"
+     ],
+     [
+      "Nick",
+      "Daniel"
+     ],
+     [
+      "Trace",
+      "Tisha"
+     ],
+     [
+      "Rocio",
+      "Alan"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Jenna",
+      "Jana"
+     ],
+     [
+      "Jake",
+      "Destiny"
+     ],
+     [
+      "Tiffany",
+      "Sidney"
+     ],
+     [
+      "Dago",
+      "Kat"
+     ],
+     [
+      "Emma",
+      "Kayla"
+     ],
+     [
+      "Hoai-Nha",
+      "Xenia"
+     ],
+     [
+      "Darcy",
+      "Courtney"
+     ],
+     [
+      "Ciana",
+      "Amanda"
+     ],
+     [
+      "Craig",
+      "Sarah"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Bryce",
+      "Hoai-Nha"
+     ],
+     [
+      "Courtney",
+      "Laith"
+     ]
+    ]
+   }
+  ],
+  "3": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Research Rodents"
+    ],
+    "games": [
+     [
+      "Karen",
+      "Craig"
+     ],
+     [
+      "Celina",
+      "Jake"
+     ],
+     [
+      "Marsha",
+      "Dago"
+     ],
+     [
+      "Rocio",
+      "Jenna"
+     ],
+     [
+      "Julia",
+      "Tiffany"
+     ],
+     [
+      "Nick",
+      "Ciana"
+     ],
+     [
+      "Bryce",
+      "Emma"
+     ],
+     [
+      "Ryan",
+      "Hoai-Nha"
+     ],
+     [
+      "Trace",
+      "Darcy"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Molecular Mice",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Amanda",
+      "Sloan"
+     ],
+     [
+      "Sarah",
+      "Haley"
+     ],
+     [
+      "Xenia",
+      "Daniel"
+     ],
+     [
+      "Kat",
+      "Tisha"
+     ],
+     [
+      "Jana",
+      "Darbie"
+     ],
+     [
+      "Destiny",
+      "Laith"
+     ],
+     [
+      "Sidney",
+      "Alan"
+     ],
+     [
+      "Courtney",
+      "Purcella"
+     ],
+     [
+      "Kayla",
+      "Jen"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Karen",
+      "Jana"
+     ],
+     [
+      "Tiffany",
+      "Purcella"
+     ]
+    ]
+   }
+  ],
+  "4": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Karen",
+      "Kayla"
+     ],
+     [
+      "Ryan",
+      "Courtney"
+     ],
+     [
+      "Trace",
+      "Sarah"
+     ],
+     [
+      "Julia",
+      "Amanda"
+     ],
+     [
+      "Nick",
+      "Destiny"
+     ],
+     [
+      "Rocio",
+      "Xenia"
+     ],
+     [
+      "Marsha",
+      "Kat"
+     ],
+     [
+      "Celina",
+      "Sidney"
+     ],
+     [
+      "Bryce",
+      "Jana"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Hoai-Nha",
+      "Darbie"
+     ],
+     [
+      "Tiffany",
+      "Jen"
+     ],
+     [
+      "Darcy",
+      "Laith"
+     ],
+     [
+      "Ciana",
+      "Haley"
+     ],
+     [
+      "Craig",
+      "Purcella"
+     ],
+     [
+      "Jenna",
+      "Alan"
+     ],
+     [
+      "Emma",
+      "Tisha"
+     ],
+     [
+      "Jake",
+      "Daniel"
+     ],
+     [
+      "Dago",
+      "Sloan"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Ryan",
+      "Darbie"
+     ],
+     [
+      "Emma",
+      "Sarah"
+     ]
+    ]
+   }
+  ],
+  "5": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Marsha",
+      "Jen"
+     ],
+     [
+      "Ryan",
+      "Alan"
+     ],
+     [
+      "Nick",
+      "Laith"
+     ],
+     [
+      "Trace",
+      "Sloan"
+     ],
+     [
+      "Rocio",
+      "Purcella"
+     ],
+     [
+      "Julia",
+      "Tisha"
+     ],
+     [
+      "Karen",
+      "Darbie"
+     ],
+     [
+      "Bryce",
+      "Daniel"
+     ],
+     [
+      "Celina",
+      "Haley"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Jake",
+      "Kayla"
+     ],
+     [
+      "Darcy",
+      "Sarah"
+     ],
+     [
+      "Emma",
+      "Kat"
+     ],
+     [
+      "Tiffany",
+      "Jana"
+     ],
+     [
+      "Dago",
+      "Courtney"
+     ],
+     [
+      "Ciana",
+      "Sidney"
+     ],
+     [
+      "Craig",
+      "Xenia"
+     ],
+     [
+      "Hoai-Nha",
+      "Amanda"
+     ],
+     [
+      "Jenna",
+      "Destiny"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Nick",
+      "Dago"
+     ],
+     [
+      "Destiny",
+      "Haley"
+     ]
+    ]
+   }
+  ],
+  "6": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Research Rodents"
+    ],
+    "games": [
+     [
+      "Rocio",
+      "Dago"
+     ],
+     [
+      "Julia",
+      "Craig"
+     ],
+     [
+      "Marsha",
+      "Jake"
+     ],
+     [
+      "Ryan",
+      "Tiffany"
+     ],
+     [
+      "Nick",
+      "Darcy"
+     ],
+     [
+      "Celina",
+      "Jenna"
+     ],
+     [
+      "Karen",
+      "Ciana"
+     ],
+     [
+      "Trace",
+      "Emma"
+     ],
+     [
+      "Bryce",
+      "Hoai-Nha"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Molecular Mice",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Courtney",
+      "Laith"
+     ],
+     [
+      "Sidney",
+      "Purcella"
+     ],
+     [
+      "Amanda",
+      "Alan"
+     ],
+     [
+      "Destiny",
+      "Tisha"
+     ],
+     [
+      "Kayla",
+      "Darbie"
+     ],
+     [
+      "Xenia",
+      "Haley"
+     ],
+     [
+      "Sarah",
+      "Sloan"
+     ],
+     [
+      "Kat",
+      "Jen"
+     ],
+     [
+      "Jana",
+      "Daniel"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Celina",
+      "Kayla"
+     ],
+     [
+      "Jenna",
+      "Tisha"
+     ]
+    ]
+   }
+  ],
+  "7": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Rocio",
+      "Courtney"
+     ],
+     [
+      "Ryan",
+      "Kayla"
+     ],
+     [
+      "Nick",
+      "Amanda"
+     ],
+     [
+      "Trace",
+      "Sidney"
+     ],
+     [
+      "Julia",
+      "Jana"
+     ],
+     [
+      "Bryce",
+      "Destiny"
+     ],
+     [
+      "Marsha",
+      "Xenia"
+     ],
+     [
+      "Karen",
+      "Kat"
+     ],
+     [
+      "Celina",
+      "Sarah"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Hoai-Nha",
+      "Purcella"
+     ],
+     [
+      "Darcy",
+      "Tisha"
+     ],
+     [
+      "Jenna",
+      "Sloan"
+     ],
+     [
+      "Tiffany",
+      "Haley"
+     ],
+     [
+      "Jake",
+      "Laith"
+     ],
+     [
+      "Dago",
+      "Darbie"
+     ],
+     [
+      "Emma",
+      "Jen"
+     ],
+     [
+      "Craig",
+      "Alan"
+     ],
+     [
+      "Ciana",
+      "Daniel"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Julia",
+      "Daniel"
+     ],
+     [
+      "Craig",
+      "Kat"
+     ]
+    ]
+   }
+  ],
+  "8": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Bryce",
+      "Laith"
+     ],
+     [
+      "Karen",
+      "Daniel"
+     ],
+     [
+      "Trace",
+      "Jen"
+     ],
+     [
+      "Celina",
+      "Darbie"
+     ],
+     [
+      "Nick",
+      "Tisha"
+     ],
+     [
+      "Ryan",
+      "Sloan"
+     ],
+     [
+      "Rocio",
+      "Haley"
+     ],
+     [
+      "Julia",
+      "Alan"
+     ],
+     [
+      "Marsha",
+      "Purcella"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Craig",
+      "Destiny"
+     ],
+     [
+      "Emma",
+      "Courtney"
+     ],
+     [
+      "Jake",
+      "Xenia"
+     ],
+     [
+      "Darcy",
+      "Jana"
+     ],
+     [
+      "Jenna",
+      "Sidney"
+     ],
+     [
+      "Tiffany",
+      "Amanda"
+     ],
+     [
+      "Hoai-Nha",
+      "Kat"
+     ],
+     [
+      "Ciana",
+      "Sarah"
+     ],
+     [
+      "Dago",
+      "Kayla"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Rocio",
+      "Ciana"
+     ],
+     [
+      "Xenia",
+      "Sloan"
+     ]
+    ]
+   }
+  ],
+  "9": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Research Rodents"
+    ],
+    "games": [
+     [
+      "Karen",
+      "Dago"
+     ],
+     [
+      "Celina",
+      "Emma"
+     ],
+     [
+      "Julia",
+      "Jenna"
+     ],
+     [
+      "Ryan",
+      "Jake"
+     ],
+     [
+      "Marsha",
+      "Darcy"
+     ],
+     [
+      "Trace",
+      "Ciana"
+     ],
+     [
+      "Bryce",
+      "Craig"
+     ],
+     [
+      "Rocio",
+      "Hoai-Nha"
+     ],
+     [
+      "Nick",
+      "Tiffany"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Molecular Mice",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Jana",
+      "Sloan"
+     ],
+     [
+      "Xenia",
+      "Alan"
+     ],
+     [
+      "Sidney",
+      "Darbie"
+     ],
+     [
+      "Destiny",
+      "Jen"
+     ],
+     [
+      "Courtney",
+      "Haley"
+     ],
+     [
+      "Amanda",
+      "Tisha"
+     ],
+     [
+      "Kat",
+      "Daniel"
+     ],
+     [
+      "Kayla",
+      "Laith"
+     ],
+     [
+      "Sarah",
+      "Purcella"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Marsha",
+      "Sidney"
+     ],
+     [
+      "Darcy",
+      "Alan"
+     ]
+    ]
+   }
+  ],
+  "10": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Trace",
+      "Kat"
+     ],
+     [
+      "Karen",
+      "Sarah"
+     ],
+     [
+      "Marsha",
+      "Amanda"
+     ],
+     [
+      "Bryce",
+      "Courtney"
+     ],
+     [
+      "Julia",
+      "Xenia"
+     ],
+     [
+      "Rocio",
+      "Kayla"
+     ],
+     [
+      "Ryan",
+      "Destiny"
+     ],
+     [
+      "Celina",
+      "Jana"
+     ],
+     [
+      "Nick",
+      "Sidney"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Hoai-Nha",
+      "Tisha"
+     ],
+     [
+      "Jenna",
+      "Daniel"
+     ],
+     [
+      "Dago",
+      "Purcella"
+     ],
+     [
+      "Tiffany",
+      "Laith"
+     ],
+     [
+      "Craig",
+      "Jen"
+     ],
+     [
+      "Emma",
+      "Alan"
+     ],
+     [
+      "Ciana",
+      "Darbie"
+     ],
+     [
+      "Jake",
+      "Sloan"
+     ],
+     [
+      "Darcy",
+      "Haley"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Trace",
+      "Jen"
+     ],
+     [
+      "Jake",
+      "Amanda"
+     ]
+    ]
+   }
+  ],
+  "11": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Ryan",
+      "Purcella"
+     ],
+     [
+      "Rocio",
+      "Sloan"
+     ],
+     [
+      "Bryce",
+      "Haley"
+     ],
+     [
+      "Karen",
+      "Jen"
+     ],
+     [
+      "Marsha",
+      "Laith"
+     ],
+     [
+      "Nick",
+      "Darbie"
+     ],
+     [
+      "Celina",
+      "Tisha"
+     ],
+     [
+      "Julia",
+      "Daniel"
+     ],
+     [
+      "Trace",
+      "Alan"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Darcy",
+      "Sidney"
+     ],
+     [
+      "Ciana",
+      "Courtney"
+     ],
+     [
+      "Dago",
+      "Amanda"
+     ],
+     [
+      "Jake",
+      "Sarah"
+     ],
+     [
+      "Craig",
+      "Kayla"
+     ],
+     [
+      "Tiffany",
+      "Destiny"
+     ],
+     [
+      "Emma",
+      "Xenia"
+     ],
+     [
+      "Jenna",
+      "Kat"
+     ],
+     [
+      "Hoai-Nha",
+      "Jana"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Bryce",
+      "Hoai-Nha"
+     ],
+     [
+      "Courtney",
+      "Laith"
+     ]
+    ]
+   }
+  ],
+  "12": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Research Rodents"
+    ],
+    "games": [
+     [
+      "Rocio",
+      "Tiffany"
+     ],
+     [
+      "Nick",
+      "Jenna"
+     ],
+     [
+      "Bryce",
+      "Darcy"
+     ],
+     [
+      "Julia",
+      "Jake"
+     ],
+     [
+      "Ryan",
+      "Emma"
+     ],
+     [
+      "Marsha",
+      "Ciana"
+     ],
+     [
+      "Karen",
+      "Hoai-Nha"
+     ],
+     [
+      "Trace",
+      "Dago"
+     ],
+     [
+      "Celina",
+      "Craig"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Molecular Mice",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Sarah",
+      "Alan"
+     ],
+     [
+      "Courtney",
+      "Sloan"
+     ],
+     [
+      "Xenia",
+      "Tisha"
+     ],
+     [
+      "Sidney",
+      "Daniel"
+     ],
+     [
+      "Amanda",
+      "Jen"
+     ],
+     [
+      "Destiny",
+      "Darbie"
+     ],
+     [
+      "Jana",
+      "Haley"
+     ],
+     [
+      "Kat",
+      "Laith"
+     ],
+     [
+      "Kayla",
+      "Purcella"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Karen",
+      "Jana"
+     ],
+     [
+      "Tiffany",
+      "Purcella"
+     ]
+    ]
+   }
+  ],
+  "13": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Nick",
+      "Kat"
+     ],
+     [
+      "Marsha",
+      "Courtney"
+     ],
+     [
+      "Celina",
+      "Kayla"
+     ],
+     [
+      "Ryan",
+      "Jana"
+     ],
+     [
+      "Bryce",
+      "Sidney"
+     ],
+     [
+      "Trace",
+      "Destiny"
+     ],
+     [
+      "Julia",
+      "Sarah"
+     ],
+     [
+      "Karen",
+      "Xenia"
+     ],
+     [
+      "Rocio",
+      "Amanda"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Hoai-Nha",
+      "Daniel"
+     ],
+     [
+      "Emma",
+      "Sloan"
+     ],
+     [
+      "Jake",
+      "Darbie"
+     ],
+     [
+      "Dago",
+      "Jen"
+     ],
+     [
+      "Jenna",
+      "Tisha"
+     ],
+     [
+      "Tiffany",
+      "Purcella"
+     ],
+     [
+      "Craig",
+      "Haley"
+     ],
+     [
+      "Ciana",
+      "Laith"
+     ],
+     [
+      "Darcy",
+      "Alan"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Ryan",
+      "Darbie"
+     ],
+     [
+      "Emma",
+      "Sarah"
+     ]
+    ]
+   }
+  ],
+  "14": [
+   {
+    "bye": false,
+    "leagues": [
+     "Lab Rats",
+     "Genomic Gerbils"
+    ],
+    "games": [
+     [
+      "Julia",
+      "Haley"
+     ],
+     [
+      "Karen",
+      "Sloan"
+     ],
+     [
+      "Nick",
+      "Alan"
+     ],
+     [
+      "Bryce",
+      "Purcella"
+     ],
+     [
+      "Celina",
+      "Daniel"
+     ],
+     [
+      "Marsha",
+      "Darbie"
+     ],
+     [
+      "Ryan",
+      "Jen"
+     ],
+     [
+      "Rocio",
+      "Tisha"
+     ],
+     [
+      "Trace",
+      "Laith"
+     ]
+    ]
+   },
+   {
+    "bye": false,
+    "leagues": [
+     "Research Rodents",
+     "Molecular Mice"
+    ],
+    "games": [
+     [
+      "Dago",
+      "Kayla"
+     ],
+     [
+      "Darcy",
+      "Xenia"
+     ],
+     [
+      "Craig",
+      "Destiny"
+     ],
+     [
+      "Jake",
+      "Kat"
+     ],
+     [
+      "Hoai-Nha",
+      "Amanda"
+     ],
+     [
+      "Tiffany",
+      "Sarah"
+     ],
+     [
+      "Ciana",
+      "Jana"
+     ],
+     [
+      "Emma",
+      "Courtney"
+     ],
+     [
+      "Jenna",
+      "Sidney"
+     ]
+    ]
+   },
+   {
+    "bye": true,
+    "leagues": null,
+    "games": [
+     [
+      "Nick",
+      "Dago"
+     ],
+     [
+      "Destiny",
+      "Haley"
+     ]
+    ]
+   }
+  ]
+ }
+}

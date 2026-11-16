@@ -103,19 +103,37 @@
 
   // ---------- custom team logos ----------
   // 'league:teamId' -> image URL, for this season's teams whose manager uploaded a logo. Loaded with a plain
-  // request (no sign-in needed) so every visitor sees them; app.js waits briefly for it before the first page.
+  // request (no sign-in needed) so every visitor sees them. This device remembers the last list
+  // (logosCached), so app.js draws the first page right away with it; otherwise it waits briefly for the
+  // request. logosReady resolves to true when the list came back different from what the page started with.
   const BUCKET = 'team-logos';
+  const LOGO_STORE = 'mgdx-team-logos';
   const logos = new Map();
   const logoListeners = new Set();
   const logoUrl = (p) => `${cfg.url}/storage/v1/object/public/${BUCKET}/${p.split('/').map(encodeURIComponent).join('/')}`;
-  const logosReady = !enabled ? Promise.resolve() : fetch(`${cfg.url}/rest/v1/rpc/current_team_logos`, {
+  const saveLogos = () => { try { localStorage.setItem(LOGO_STORE, JSON.stringify([...logos])); } catch { /* storage off */ } };
+  let logosCached = false;
+  if (enabled) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LOGO_STORE) || 'null');
+      if (Array.isArray(saved)) { saved.forEach(([k, v]) => logos.set(k, v)); logosCached = true; }
+    } catch { /* storage off or unreadable */ }
+  }
+  const logosReady = !enabled ? Promise.resolve(false) : fetch(`${cfg.url}/rest/v1/rpc/current_team_logos`, {
     method: 'POST',
     headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' },
     body: '{}',
-  }).then((r) => (r.ok ? r.json() : []))
-    .then((rows) => { for (const r of rows) logos.set(`${r.league}:${r.team_id}`, logoUrl(r.path)); })
-    .catch((err) => console.error('Couldn’t load team logos', err));
-  const logosChanged = () => logoListeners.forEach((fn) => fn());
+  }).then((r) => {
+    if (!r.ok) throw new Error(`Team logos responded ${r.status}`);
+    return r.json();
+  }).then((rows) => {
+    const before = JSON.stringify([...logos].sort());
+    logos.clear();
+    for (const r of rows) logos.set(`${r.league}:${r.team_id}`, logoUrl(r.path));
+    saveLogos();
+    return JSON.stringify([...logos].sort()) !== before;
+  }).catch((err) => { console.error('Couldn’t load team logos', err); return false; });
+  const logosChanged = () => { saveLogos(); logoListeners.forEach((fn) => fn()); };
   const removeFile = (p) => p && client.storage.from(BUCKET).remove([p]).then(({ error }) => { if (error) console.error(error); });
 
   // Public database functions (posts, reactions) by plain request, so reading needs no sign-in or SDK.
@@ -197,6 +215,7 @@
 
     logos,
     logosReady,
+    logosCached,
     onLogosChange(fn) { logoListeners.add(fn); return () => logoListeners.delete(fn); },
     // Uploads an image (already shrunk by the page) as the signed-in manager's logo.
     async uploadLogo(blob) {

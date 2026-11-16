@@ -1010,7 +1010,7 @@ td.c-score.over small, td.c-score.under small { color: #d5e0ea; }
   .nav-list a::before { content: ""; width: 34px; height: 34px; max-width: 100%; background: center / contain no-repeat; }
   .nav-list .dot { display: none; }
   .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .nav-list a[data-route="home"]::before { background-image: url("../assets/img/mgdx-seal.png"); border-radius: 50%; }
+  .nav-list a[data-route="home"]::before { background-image: url("../assets/img/mgdx-seal.png?v=2"); border-radius: 50%; }
   .nav-list a[data-route="lab-rats"]::before { background-image: url("../assets/img/champs/lab-rats.png?v=2"); width: 37px; }
   .nav-list a[data-route="molecular-mice"]::before { background-image: url("../assets/img/champs/molecular-mice.png?v=2"); width: 37px; }
   .nav-list a[data-route="genomic-gerbils"]::before { background-image: url("../assets/img/champs/genomic-gerbils.png?v=2"); width: 37px; }

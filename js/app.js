@@ -146,7 +146,7 @@
     document.title = `${BLOG_TAB_NAMES[sub]} · Blog · Microgen Fantasy Football`;
     main.innerHTML = `
       <section class="league-hero cross-hero">
-        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png?v=2" alt="Microgen Fantasy Football logo" width="96" height="96">
         <div class="league-hero-text">
           <p class="eyebrow">${esc(p.kicker)}</p>
           <h1 class="page-title">${esc(p.title)}</h1>
@@ -1487,7 +1487,7 @@
     document.title = 'Your Account · Microgen Fantasy Football';
     main.innerHTML = `
       <section class="league-hero cross-hero">
-        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png?v=2" alt="Microgen Fantasy Football logo" width="96" height="96">
         <div class="league-hero-text">
           <p class="eyebrow">Managers only</p>
           <h1 class="page-title">Your Account</h1>
@@ -1839,7 +1839,7 @@
     document.title = `${ARCHIVE_TAB_NAMES[sub]} · Archives · Microgen Fantasy Football`;
     main.innerHTML = `
       <section class="league-hero cross-hero">
-        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png?v=2" alt="Microgen Fantasy Football logo" width="96" height="96">
         <div class="league-hero-text">
           <p class="eyebrow">${esc(p.kicker)}</p>
           <h1 class="page-title">${esc(p.title)}</h1>
@@ -4301,7 +4301,7 @@
     document.title = 'Home · Microgen Fantasy Football';
     main.innerHTML = `
       <section class="league-hero cross-hero">
-        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png?v=2" alt="Microgen Fantasy Football logo" width="96" height="96">
         <div class="league-hero-text">
           <p class="eyebrow" id="home-eyebrow">${SEASON}</p>
           <h1 class="page-title home-title">Microgen Fantasy Football</h1>
@@ -5340,7 +5340,7 @@
         return `
           <div class="side ${align} ${lead ? 'leading' : ''}">
             <div class="side-id"><span class="side-name">Weekly median</span><span class="side-owner">Bye-week opponent</span></div>
-            <img class="avatar lg" src="assets/img/mgdx-seal.png" alt="">
+            <img class="avatar lg" src="assets/img/mgdx-seal.png?v=2" alt="">
             <div class="side-score"><span class="score">${f2(s.score)}</span></div>
           </div>`;
       }
@@ -5382,7 +5382,7 @@
   function crossShell() {
     return `
       <section class="league-hero cross-hero">
-        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png" alt="Microgen Fantasy Football logo" width="96" height="96">
+        <img class="league-hero-logo seal" src="assets/img/mgdx-seal.png?v=2" alt="Microgen Fantasy Football logo" width="96" height="96">
         <div class="league-hero-text">
           <p class="eyebrow">Microgen Fantasy Football · ${SEASON}</p>
           <h1 class="page-title">Cross-League</h1>
@@ -5610,11 +5610,16 @@
     route();
   });
   lastLeagueKey = parseHash().parts.slice(0, 2).join('/');
-  // Custom logos usually arrive in well under a second; wait for them (up to 1.5s) so the first page doesn't
-  // flash ESPN's. If they come later, or a logo changes, the page redraws.
-  if (ACCOUNT && ACCOUNT.enabled && !ARCHIVE) {
+  // Custom logos: with the list this device saved last time, draw at once and redraw only if it changed.
+  // On a first visit, wait for them (up to 1.5s) so the first page doesn't flash ESPN's; if they come later,
+  // the page redraws. A logo changed on this device redraws too.
+  if (ACCOUNT && ACCOUNT.enabled && !ARCHIVE && ACCOUNT.logosCached) {
+    route();
+    ACCOUNT.logosReady.then((changed) => { if (changed) route(); });
+    ACCOUNT.onLogosChange(route);
+  } else if (ACCOUNT && ACCOUNT.enabled && !ARCHIVE) {
     let first = true;
-    const late = ACCOUNT.logosReady.then(() => { if (!first && ACCOUNT.logos.size) route(); });
+    const late = ACCOUNT.logosReady.then((changed) => { if (!first && changed) route(); });
     Promise.race([late, new Promise((r) => setTimeout(r, 1500))]).then(() => { first = false; route(); });
     ACCOUNT.onLogosChange(route);
   } else route();
