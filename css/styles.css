@@ -1623,3 +1623,14 @@ button.react-chip:hover { border-color: var(--accent); }
 .app-prefs[disabled] { opacity: .5; }
 .app-pref { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .app-pref input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+
+/* Pull down to refresh (installed app only; see app.js) */
+.ptr { position: fixed; top: 0; left: 50%; z-index: 1000; width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--bg-2); color: var(--accent); border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 4px 14px rgba(0,0,0,.45); transform: translate(-50%, -50px); opacity: 0; pointer-events: none;
+  margin-top: env(safe-area-inset-top); }
+.ptr.ready { color: #f2c94c; }
+.ptr.back { transition: transform .2s ease, opacity .2s ease; }
+.ptr.spin svg { animation: ptr-spin .7s linear infinite; }
+@keyframes ptr-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (display-mode: standalone) { html, body { overscroll-behavior-y: none; } }

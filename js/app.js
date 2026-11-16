@@ -1585,6 +1585,56 @@
   let installPrompt = null; // Chrome/Android's install offer, kept for the Install button
   let deviceSaved = false; // this visit re-saved the device's subscription (its address can change)
   const appStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  // Pull down to refresh, in the installed app only (a browser tab has its own). Starts only at the top of the
+  // page, outside text boxes and scrolled panels, and gives way to sideways swipes.
+  if (appStandalone() && 'ontouchstart' in window) {
+    const READY = 70;
+    const ptr = document.createElement('div');
+    ptr.className = 'ptr';
+    ptr.setAttribute('aria-hidden', 'true');
+    ptr.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    document.body.appendChild(ptr);
+    let start = null, dist = 0;
+    const draw = () => {
+      ptr.style.transform = `translate(-50%, ${dist - 50}px)`;
+      ptr.style.opacity = Math.min(dist / READY, 1);
+      ptr.firstChild.style.transform = `rotate(${dist * 3}deg)`;
+      ptr.classList.toggle('ready', dist >= READY);
+    };
+    const inScrolled = (el) => { for (; el && el !== document.body; el = el.parentElement) if (el.scrollTop > 0) return true; return false; };
+    window.addEventListener('touchstart', (e) => {
+      dist = 0;
+      const t = e.target;
+      start = e.touches.length === 1 && window.scrollY <= 0 && !inScrolled(t)
+        && !(t.closest && t.closest('input, textarea, select, [contenteditable], dialog'))
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (!start) return;
+      const dx = e.touches[0].clientX - start.x, dy = e.touches[0].clientY - start.y;
+      if (!dist && (Math.abs(dx) > Math.abs(dy) || dy < 0)) { if (Math.abs(dx) > 8 || dy < -8) start = null; return; }
+      dist = Math.max(0, Math.min(dy * 0.5, 110));
+      if (e.cancelable) e.preventDefault();
+      draw();
+    }, { passive: false });
+    const release = () => {
+      if (!start) return;
+      start = null;
+      if (dist >= READY) {
+        ptr.classList.add('spin');
+        dist = READY;
+        draw();
+        location.reload();
+        return;
+      }
+      ptr.classList.add('back');
+      dist = 0;
+      draw();
+      setTimeout(() => ptr.classList.remove('back'), 200);
+    };
+    window.addEventListener('touchend', release);
+    window.addEventListener('touchcancel', release);
+  }
   const appIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   if ('serviceWorker' in navigator) {
