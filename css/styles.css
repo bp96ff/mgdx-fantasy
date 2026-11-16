@@ -1357,9 +1357,7 @@ button.react-chip:hover { border-color: var(--accent); }
 .react-menu button:hover, .react-menu button:focus-visible { background: var(--surface-3); }
 .matchup > .react { margin: 12px 0 0; justify-content: center; }
 .tw-card > .react { margin-top: 10px; }
-.rc-react { margin: 18px 0 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.rc-react .react { margin-top: 8px; }
-.rc-react .react:empty { display: flex; } /* keep the box from looking broken before reactions load */
+.rc-card > .react { margin-top: 16px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--k) 25%, var(--line)); }
 
 /* ===== Main Blog: posts ===== */
 .feed-body { max-width: 720px; margin: 0 auto; --media-h: 300px; }

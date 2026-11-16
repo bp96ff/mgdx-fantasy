@@ -171,7 +171,7 @@
   }
 
   // ---------- reactions ----------
-  // Members react to posts, recaps and Weekly Snapshot cards. A bar shows each reaction used so
+  // Members react to posts, recap sections and Weekly Snapshot cards. A bar shows each reaction used so
   // far with its count (hover for who); members toggle one by tapping it, or add another from the + menu.
   // Keys must match toggle_reaction() in supabase/schema.sql.
   const REACTIONS = [
@@ -2690,10 +2690,11 @@
       <div class="rc-hm">
         <p class="rc-hm-tag">${s.kind === 'funfact' ? `Fun fact #${i + 2}` : RECAP_HM[s.kind]}</p>
         ${recapBody(h.body)}
+        ${h.update ? `<div class="rc-update"><p class="rc-hm-tag">Update</p>${recapBody(h.update)}</div>` : ''}
         ${h.score ? recapScore(h.score, owners, week) : ''}
       </div>`).join('');
     return `
-      <article class="rc-card rc-${s.kind}">
+      <article class="rc-card rc-${s.kind}" data-kind="${esc(slugify(s.kind))}">
         <header class="rc-head">
           <svg class="rc-icon" viewBox="0 0 24 24" aria-hidden="true">${RECAP_ICONS[s.kind]}</svg>
           <h3>${recapText(s.label)}</h3>
@@ -2736,9 +2737,10 @@
     body().querySelector('#week-select').addEventListener('change', (e) => {
       location.hash = `#/blog/recaps?week=${e.target.value}`;
     });
-    const rc = body().querySelector('.recap');
-    rc.insertAdjacentHTML('beforeend', '<div class="rc-react"><p class="rc-hm-tag">React to this recap</p></div>');
-    attachReactions(body(), [{ el: rc.querySelector('.rc-react'), target: `recap:${SEASON}:w${recap.week}` }]);
+    // Each section gets its own reactions, e.g. recap:2026:w9:badbeat (a week's sections are all different kinds).
+    attachReactions(body(), [...body().querySelectorAll('.recap .rc-card[data-kind]')].map((el) => ({
+      el, target: `recap:${SEASON}:w${recap.week}:${el.dataset.kind}`,
+    })));
   }
 
   // ---------- league shell ----------

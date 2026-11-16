@@ -301,7 +301,7 @@ alter table public.posts drop constraint if exists posts_content_check;
 alter table public.posts add constraint posts_content_check check (char_length(body) > 0 or media is not null);
 
 -- One row per manager, thing and reaction. target names what was reacted to, e.g. 'post:<id>',
--- 'recap:2026:w9', 'match:2026:lab-rats:w10:1-12', 'xmatch:2026:w10:lab-rats.1-genomic-gerbils.8',
+-- 'recap:2026:w9:badbeat' (a recap section), 'match:2026:lab-rats:w10:1-12', 'xmatch:2026:w10:lab-rats.1-genomic-gerbils.8',
 -- 'snap:2026:w10:top-scores'.
 create table if not exists public.reactions (
   target text not null check (char_length(target) <= 120),
@@ -507,7 +507,7 @@ begin
       'cool', 'eyes', 'shocked', 'skull', 'clown', 'salt', 'fuming', 'cry', 'pray', 'lucky', 'trash'])) then
     raise exception 'Unknown reaction';
   end if;
-  if p_target is null or p_target !~ ('^(post:[0-9a-f-]{36}|recap:[0-9]{4}:w[0-9]{1,2}'
+  if p_target is null or p_target !~ ('^(post:[0-9a-f-]{36}|recap:[0-9]{4}:w[0-9]{1,2}(:[a-z0-9-]+)?'
       || '|match:[0-9]{4}:[a-z-]+:w[0-9]{1,2}:[0-9]+-[0-9]+'
       || '|xmatch:[0-9]{4}:w[0-9]{1,2}:[a-z-]+\.[0-9]+-[a-z-]+\.[0-9]+'
       || '|snap:[0-9]{4}:w[0-9]{1,2}:[a-z0-9-]+)$') then

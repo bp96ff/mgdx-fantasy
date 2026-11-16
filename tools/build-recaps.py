@@ -33,8 +33,14 @@ STYLE = [
 ]
 
 # Updates posted on the site after the doc, shown under a section: (week, kind) -> paragraphs.
-# They go on the first section of that kind (the main one, not an honorable mention).
+# They go on the first section of that kind (the main one). (week, kind, n) puts one under that section's nth
+# honorable mention or extra fun fact instead (n = 1 is the first, e.g. "Fun fact #2").
 UPDATES = {
+    (1, 'funfact', 1): [
+        'Upon further review, I missed an instance in the early stages of the league back in Week 2 of 2023, where '
+        'Jana actually scored 164.26 points and lost both. Jana takes over for Jennifer on the Mount Rushmore of '
+        'Bad Beats.',
+    ],
     (9, 'funfact'): [
         'Slight update, I missed that 2024 Sloan did in fact go 5 straight weeks with only wins. Furthermore, '
         'due to how winning streaks are calculated, games to start or end the streak in 1-1 weeks add to the '
@@ -134,11 +140,11 @@ def build(text):
                     e['score'] = SCORES[(w['week'], n)]
                     n += 1
         assert all((w['week'], k) in SCORES for k in range(n))
-    for (week, kind), paras in UPDATES.items():
+    for (week, kind, *hm), paras in UPDATES.items():
         w = next((x for x in weeks if x['week'] == week), None)
         if w:
             s = next(s for s in w['sections'] if s['kind'] == kind)
-            s['update'] = paras
+            (s['hm'][hm[0] - 1] if hm else s)['update'] = paras
     return weeks
 
 
