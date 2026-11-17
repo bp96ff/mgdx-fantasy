@@ -13,6 +13,10 @@
 //                does nothing until then.
 //   recap      → "Week N recap is up", for the newest week in the live site's data/recaps.json, once a week.
 //                Anyone (the "Recap notification" GitHub workflow calls it after a recap is published).
+//   weekly     → Tuesday's notes for the week that just finished, from the live site's data/weekly-notes.json:
+//                each member's final result (with any playoff-race news), and any all-time top-10 records.
+//                Anyone (the database's weekly-notes timer calls it hourly on Tuesdays); the database only lets
+//                them out from 9 AM Central, once a week.
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -145,6 +149,35 @@ Deno.serve(async (req) => {
           note: { title: `Week ${week} recap is up`, body: '', url: `${SITE}#/blog/recaps?week=${week}`, tag: `recap-${week}` },
         })));
         return reply({ week, sent, due: (data as Device[]).length > 0 });
+      }
+
+      case 'weekly': {
+        // The notes come from the live site, so callers can't change what's sent.
+        const live = await fetch(`${SITE}data/weekly-notes.json?t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+        if (!live.ok) return reply({ error: `Couldn't read the weekly notes (${live.status})` }, 502);
+        const notes = await live.json() as {
+          season: number; week: number; records: { title: string; body: string } | null;
+          teams: Record<string, { result: { title: string; body: string }; url: string; race?: string }>;
+        };
+        const { data, error } = await db.rpc('push_weekly_recipients', { p_season: notes.season, p_week: notes.week });
+        if (error) throw error;
+        const rows = data as (Device & { league: string; team_id: number; results: boolean; race: boolean; records: boolean })[];
+        const list: { device: Device; note: Note }[] = [];
+        for (const r of rows) {
+          const team = notes.teams[`${r.league}:${r.team_id}`];
+          const race = r.race && team?.race;
+          if (team && r.results) {
+            list.push({ device: r, note: { title: team.result.title, body: race ? `${team.result.body} ${race}` : team.result.body,
+              url: `${SITE}${team.url}`, tag: `weekly-${notes.week}` } });
+          } else if (race) {
+            list.push({ device: r, note: { title: `Week ${notes.week}: playoff race`, body: race, url: `${SITE}#/${r.league}/standings`, tag: `weekly-${notes.week}` } });
+          }
+          if (r.records && notes.records) {
+            list.push({ device: r, note: { ...notes.records, url: `${SITE}#/archives/records`, tag: `records-${notes.week}` } });
+          }
+        }
+        const sent = await send(list);
+        return reply({ week: notes.week, sent, due: rows.length > 0 });
       }
 
       default:

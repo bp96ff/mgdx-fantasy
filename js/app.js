@@ -1696,7 +1696,9 @@
         <fieldset class="app-prefs"${sub ? '' : ' disabled'}>
           <legend class="sr-only">Send me a notification</legend>
           ${[['posts', 'Every new post on the Main Blog'], ['mentions', 'When someone @mentions me'], ['replies', 'When someone replies to my post'],
-            ['recaps', 'When the weekly recap is up'], ['picks', 'An hour before Predictions lock']]
+            ['recaps', 'When the weekly recap is up'], ['picks', 'An hour before Predictions lock'],
+       ['results', 'My final results each week (Tuesday 9 AM)'], ['race', 'Playoff race news (clinched, out, on the bubble)'],
+       ['records', 'When a result makes an all-time top 10']]
             .map(([k, label]) => `<label class="app-pref"><input type="checkbox" data-pref="${k}" ${settings[k] ? 'checked' : ''}><span>${label}</span></label>`).join('')}
         </fieldset>` : '';
       let state;

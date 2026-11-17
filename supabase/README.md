@@ -79,7 +79,10 @@ favorites" GitHub workflow saves shortly before each lock (`tools/run-pick-favor
 The site installs as an app (`manifest.webmanifest`, `sw.js`). Members turn notifications on under **Your
 Account**. The `push` Edge Function (`functions/push/index.ts`) sends them: new posts, @mentions, replies to
 your post, a reminder an hour before Predictions lock (a database timer in `schema.sql` asks for it),
-and "Week N recap is up" (the "Recap notification" workflow asks for it when `data/recaps.json` changes).
+"Week N recap is up" (the "Recap notification" workflow asks for it when `data/recaps.json` changes),
+and Tuesday 9 AM Central notes for the week just finished: each member's final result, playoff-race news, and
+any all-time top-10 records. The weekly data job writes those to `data/weekly-notes.json`
+(`tools/run-weekly-notes.js`), and the `weekly-notes` database timer asks for them every hour on Tuesdays.
 
 When `functions/push/index.ts` changes, paste it into the `push` function's **Code** tab in the dashboard and deploy.
 

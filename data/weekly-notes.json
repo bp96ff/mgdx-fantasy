@@ -1,0 +1,282 @@
+{
+ "season": 2026,
+ "week": 9,
+ "teams": {
+  "lab-rats:4": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 103.56. Lost to Trace 116.38–103.56. Lost to Hoai-Nha 107.18–103.56 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=4",
+   "race": "You’re on the bubble heading into Week 10: 4th in Lab Rats, 1 game ahead of the first team out."
+  },
+  "lab-rats:2": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 116.38. Beat Rocio 116.38–103.56. Beat Ciana 116.38–91.26 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=2"
+  },
+  "lab-rats:5": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 95.16. Lost to Bryce 138.84–95.16. Beat Jenna 95.16–70.74 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=5",
+   "race": "You’re on the bubble heading into Week 10: 7th in Lab Rats, 1 game behind the last playoff spot."
+  },
+  "lab-rats:1": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 138.84. Beat Julia 138.84–95.16. Beat Craig 138.84–133.64 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=1"
+  },
+  "lab-rats:7": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 154.48. Beat Karen 154.48–98.40. Beat Emma 154.48–93.46 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=7",
+   "race": "You’re on the bubble heading into Week 10: 3rd in Lab Rats, 2 games ahead of the first team out."
+  },
+  "lab-rats:11": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 98.40. Lost to Celina 154.48–98.40. Lost to Dago 115.88–98.40 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=11"
+  },
+  "lab-rats:3": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 96.94. Lost to Ryan 141.10–96.94. Lost to Tiffany 162.60–96.94 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=3",
+   "race": "You’re on the bubble heading into Week 10: 6th in Lab Rats, 1 game behind the last playoff spot."
+  },
+  "lab-rats:6": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 141.10. Beat Nick 141.10–96.94. Lost to Jake 151.50–141.10 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=6",
+   "race": "You’re on the bubble heading into Week 10: 5th in Lab Rats, 1 game ahead of the first team out."
+  },
+  "molecular-mice:5": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 88.58. Beat Amanda 88.58–86.38. Lost to Alan 115.36–88.58 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=5",
+   "race": "You’re on the bubble heading into Week 10: 7th in Molecular Mice, 1 game behind the last playoff spot."
+  },
+  "molecular-mice:9": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 86.38. Lost to Xenia 88.58–86.38. Lost to Tisha 187.70–86.38 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=9",
+   "race": "You’re on the bubble heading into Week 10: 8th in Molecular Mice, 2 games behind the last playoff spot."
+  },
+  "molecular-mice:1": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 94.62. Lost to Courtney 116.56–94.62. Lost to Daniel 95.96–94.62 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=1"
+  },
+  "molecular-mice:10": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 116.56. Beat Kat 116.56–94.62. Beat Haley 116.56–66.62 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=10"
+  },
+  "molecular-mice:7": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 127.54. Beat Jana 127.54–89.44. Beat Laith 127.54–83.96 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=7",
+   "race": "You’re on the bubble heading into Week 10: 6th in Molecular Mice, 1 game behind the last playoff spot."
+  },
+  "molecular-mice:4": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 89.44. Lost to Kayla 127.54–89.44. Lost to Sloan 120.04–89.44 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=4"
+  },
+  "molecular-mice:8": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 123.28. Lost to Sarah 130.94–123.28. Lost to Jen 132.56–123.28 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=8",
+   "race": "You’re on the bubble heading into Week 10: 5th in Molecular Mice, 1 game ahead of the first team out."
+  },
+  "molecular-mice:2": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 130.94. Beat Destiny 130.94–123.28. Beat Purcella 130.94–120.20 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=2"
+  },
+  "genomic-gerbils:9": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 120.04. Lost to Jen 132.56–120.04. Beat Jana 120.04–89.44 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=9",
+   "race": "You’re on the bubble heading into Week 10: 3rd in Genomic Gerbils, 1 game ahead of the first team out."
+  },
+  "genomic-gerbils:6": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 132.56. Beat Sloan 132.56–120.04. Beat Destiny 132.56–123.28 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=6"
+  },
+  "genomic-gerbils:5": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 95.96. Beat Laith 95.96–83.96. Beat Kat 95.96–94.62 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=5",
+   "race": "You’re on the bubble heading into Week 10: 4th in Genomic Gerbils, 1 game ahead of the first team out."
+  },
+  "genomic-gerbils:1": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 83.96. Lost to Daniel 95.96–83.96. Lost to Kayla 127.54–83.96 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=1",
+   "race": "You’re on the bubble heading into Week 10: 5th in Genomic Gerbils, right on the playoff line."
+  },
+  "genomic-gerbils:8": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 187.70. Beat Purcella 187.70–120.20. Beat Amanda 187.70–86.38 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=8"
+  },
+  "genomic-gerbils:2": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 120.20. Lost to Tisha 187.70–120.20. Lost to Sarah 130.94–120.20 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=2",
+   "race": "You’re on the bubble heading into Week 10: 7th in Genomic Gerbils, 2 games behind the last playoff spot."
+  },
+  "genomic-gerbils:4": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 66.62. Lost to Darbie 102.46–66.62. Lost to Courtney 116.56–66.62 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=4"
+  },
+  "genomic-gerbils:3": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 102.46. Beat Haley 102.46–66.62. Lost to Sidney 177.30–102.46 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=3",
+   "race": "You’re on the bubble heading into Week 10: 8th in Genomic Gerbils, 2 games behind the last playoff spot."
+  },
+  "research-rodents:2": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 91.26. Lost to Jake 151.50–91.26. Lost to Trace 116.38–91.26 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=2",
+   "race": "You’re on the bubble heading into Week 10: 6th in Research Rodents, 1 game behind the last playoff spot."
+  },
+  "research-rodents:3": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 151.50. Beat Ciana 151.50–91.26. Beat Ryan 151.50–141.10 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=3"
+  },
+  "research-rodents:8": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 133.64. Beat Hoai-Nha 133.64–107.18. Lost to Bryce 138.84–133.64 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=8"
+  },
+  "research-rodents:6": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 107.18. Lost to Craig 133.64–107.18. Beat Rocio 107.18–103.56 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=6",
+   "race": "You’re on the bubble heading into Week 10: 5th in Research Rodents, 1 game ahead of the first team out."
+  },
+  "research-rodents:7": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 70.74. Lost to Tiffany 162.60–70.74. Lost to Julia 95.16–70.74 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=7",
+   "race": "You’re on the bubble heading into Week 10: 9th in Research Rodents, 2 games behind the last playoff spot."
+  },
+  "research-rodents:4": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 162.60. Beat Jenna 162.60–70.74. Beat Nick 162.60–96.94 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=4"
+  },
+  "research-rodents:5": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 115.88. Beat Emma 115.88–93.46. Beat Karen 115.88–98.40 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=5",
+   "race": "You’re on the bubble heading into Week 10: 7th in Research Rodents, 1 game behind the last playoff spot."
+  },
+  "research-rodents:1": {
+   "result": {
+    "title": "Week 9 final: you went 0-2",
+    "body": "You scored 93.46. Lost to Dago 115.88–93.46. Lost to Celina 154.48–93.46 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=1"
+  },
+  "lab-rats:12": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 158.48. Beat Darcy 158.48–118.38 (cross-league). Lost to Sidney 177.30–158.48 (cross-league)."
+   },
+   "url": "#/lab-rats/matchups?week=9&team=12"
+  },
+  "research-rodents:9": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 118.38. Lost to Marsha 158.48–118.38 (cross-league). Beat Alan 118.38–115.36 (cross-league)."
+   },
+   "url": "#/research-rodents/matchups?week=9&team=9",
+   "race": "You’re on the bubble heading into Week 10: 8th in Research Rodents, 2 games behind the last playoff spot."
+  },
+  "genomic-gerbils:7": {
+   "result": {
+    "title": "Week 9 final: you went 1-1",
+    "body": "You scored 115.36. Beat Xenia 115.36–88.58 (cross-league). Lost to Darcy 118.38–115.36 (cross-league)."
+   },
+   "url": "#/genomic-gerbils/matchups?week=9&team=7",
+   "race": "You’re on the bubble heading into Week 10: 6th in Genomic Gerbils, right on the playoff line."
+  },
+  "molecular-mice:3": {
+   "result": {
+    "title": "Week 9 final: you went 2-0",
+    "body": "You scored 177.30. Beat Darbie 177.30–102.46 (cross-league). Beat Marsha 177.30–158.48 (cross-league)."
+   },
+   "url": "#/molecular-mice/matchups?week=9&team=3"
+  }
+ },
+ "records": {
+  "title": "Week 9: 5 new top-10 records",
+  "body": "Daniel’s 95.96: the 2nd-fewest points in a 2-0 week ever. Bryce’s 9-game winning streak: the 4th-longest winning streak ever. Tisha beating Amanda by 101.32: the 6th-biggest blowout ever. Tisha’s 187.70: the 8th-highest score ever. Marsha’s 158.48: the 10th-most points in a loss ever."
+ }
+}

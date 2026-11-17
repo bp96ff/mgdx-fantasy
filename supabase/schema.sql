@@ -653,6 +653,9 @@ alter table public.profiles add column if not exists push_replies boolean not nu
 alter table public.profiles add column if not exists push_picks boolean not null default true;
 alter table public.profiles add column if not exists push_posts boolean not null default true;
 alter table public.profiles add column if not exists push_recaps boolean not null default true;
+alter table public.profiles add column if not exists push_results boolean not null default true;
+alter table public.profiles add column if not exists push_race boolean not null default true;
+alter table public.profiles add column if not exists push_records boolean not null default true;
 
 -- What has been sent, so a post or a week's reminder only goes out once.
 create table if not exists public.push_sent (
@@ -685,21 +688,26 @@ $$;
 
 drop function if exists public.push_settings();
 create function public.push_settings()
-returns table (mentions boolean, replies boolean, picks boolean, posts boolean, recaps boolean, devices int)
+returns table (mentions boolean, replies boolean, picks boolean, posts boolean, recaps boolean,
+  results boolean, race boolean, records boolean, devices int)
 language sql stable security definer set search_path = public as $$
   select p.push_mentions, p.push_replies, p.push_picks, p.push_posts, p.push_recaps,
+    p.push_results, p.push_race, p.push_records,
     (select count(*)::int from push_devices d where d.user_id = p.user_id)
   from profiles p where p.user_id = auth.uid()
 $$;
 
 -- Null leaves a setting as it is.
 drop function if exists public.set_push_settings(boolean, boolean, boolean);
+drop function if exists public.set_push_settings(boolean, boolean, boolean, boolean, boolean);
 create or replace function public.set_push_settings(p_mentions boolean default null, p_replies boolean default null,
-  p_picks boolean default null, p_posts boolean default null, p_recaps boolean default null) returns void
+  p_picks boolean default null, p_posts boolean default null, p_recaps boolean default null,
+  p_results boolean default null, p_race boolean default null, p_records boolean default null) returns void
 language sql security definer set search_path = public as $$
   update profiles set push_mentions = coalesce(p_mentions, push_mentions), push_replies = coalesce(p_replies, push_replies),
     push_picks = coalesce(p_picks, push_picks), push_posts = coalesce(p_posts, push_posts),
-    push_recaps = coalesce(p_recaps, push_recaps)
+    push_recaps = coalesce(p_recaps, push_recaps), push_results = coalesce(p_results, push_results),
+    push_race = coalesce(p_race, push_race), push_records = coalesce(p_records, push_records)
   where user_id = auth.uid()
 $$;
 
@@ -781,6 +789,29 @@ begin
 end
 $$;
 
+-- For the push function only. The Tuesday notes (final results, playoff race, top-10 records) for a week, once:
+-- only on Tuesday from 9 AM Central, and only for the week whose Predictions locked in the last 6 days, so an
+-- old week's notes never go out. Every member's devices, with their team and which of the three they want.
+create or replace function public.push_weekly_recipients(p_season int, p_week int)
+returns table (endpoint text, p256dh text, auth text, league text, team_id int, results boolean, race boolean, records boolean)
+language plpgsql security definer set search_path = public as $$
+declare here timestamp := now() at time zone 'America/Chicago';
+begin
+  if p_season is distinct from current_season() or p_week is null or p_week not between 1 and 14 then return; end if;
+  if extract(isodow from here) <> 2 or extract(hour from here) < 9 then return; end if;
+  if not exists (select 1 from pick_locks l where l.season = p_season and l.week = p_week
+    and l.locks_at < now() and l.locks_at > now() - interval '6 days') then return; end if;
+  insert into push_sent (kind, key) values ('weekly', p_season || '-' || p_week) on conflict do nothing;
+  if not found then return; end if;
+  return query
+  select d.endpoint, d.p256dh, d.auth, s.league, s.team_id, pr.push_results, pr.push_race, pr.push_records
+  from profiles pr
+  join season_teams s on s.manager_id = pr.manager_id and s.season = p_season
+  join push_devices d on d.user_id = pr.user_id
+  where pr.push_results or pr.push_race or pr.push_records;
+end
+$$;
+
 -- For the push function only: a member's own devices (the "Send a test" button), and forgetting a device the
 -- push service says is gone.
 create or replace function public.push_user_devices(p_user uuid)
@@ -794,13 +825,13 @@ language sql security definer set search_path = public as $$
 $$;
 
 revoke execute on function public.save_push_device(text, text, text), public.remove_push_device(text),
-  public.push_settings(), public.set_push_settings(boolean, boolean, boolean, boolean, boolean) from public, anon;
+  public.push_settings(), public.set_push_settings(boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean) from public, anon;
 grant execute on function public.save_push_device(text, text, text), public.remove_push_device(text),
-  public.push_settings(), public.set_push_settings(boolean, boolean, boolean, boolean, boolean) to authenticated;
+  public.push_settings(), public.set_push_settings(boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean) to authenticated;
 revoke execute on function public.push_post_recipients(uuid, uuid), public.push_pick_recipients(), public.push_recap_recipients(int),
-  public.push_user_devices(uuid), public.forget_push_device(text) from public, anon, authenticated;
+  public.push_weekly_recipients(int, int), public.push_user_devices(uuid), public.forget_push_device(text) from public, anon, authenticated;
 grant execute on function public.push_post_recipients(uuid, uuid), public.push_pick_recipients(), public.push_recap_recipients(int),
-  public.push_user_devices(uuid), public.forget_push_device(text) to service_role;
+  public.push_weekly_recipients(int, int), public.push_user_devices(uuid), public.forget_push_device(text) to service_role;
 
 -- The Predictions reminder's timer: every 5 minutes, Wednesday through Friday (UTC, when every week's first
 -- game is), the database checks whether a lock is under an hour away with no reminder sent yet. Only then does
@@ -816,4 +847,14 @@ select cron.schedule('predictions-reminder', '*/5 * * * 3,4,5', $cron$
     select 1 from public.pick_locks l
     where l.season = public.current_season() and l.locks_at > now() and l.locks_at <= now() + interval '1 hour'
       and not exists (select 1 from public.push_sent x where x.kind = 'picks' and x.key = l.season || '-' || l.week))
+$cron$);
+
+-- The Tuesday notes' timer: every hour on Tuesday from 14:00 to 23:00 UTC (8 or 9 AM Central onward), it asks the
+-- push function to send them. The database only lets them out from 9 AM Central, once a week; later calls (or a
+-- week whose data isn't saved yet at 9) do nothing, and the next hour tries again.
+select cron.schedule('weekly-notes', '0 14-23 * * 2', $cron$
+  select net.http_post(
+    url := 'https://blfbdmrnrwvylvqakgck.supabase.co/functions/v1/push',
+    body := '{"action":"weekly"}'::jsonb,
+    headers := '{"Content-Type":"application/json"}'::jsonb)
 $cron$);
