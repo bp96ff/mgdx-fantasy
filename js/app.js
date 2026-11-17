@@ -5280,8 +5280,9 @@
       <div class="pcell">
         <img class="headshot ${p.isDst ? 'dst' : ''}" src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
         <div class="pinfo">
-          <span class="pname">${esc(p.name)}${p.proTeam && !p.isDst ? `<img class="nfl" src="${ESPN.nflLogo(p.proTeam.abbrev)}" alt="${esc(p.proTeam.abbrev)}" loading="lazy">` : ''}${p.injury ? `<em class="inj">${p.injury}</em>` : ''}</span>
+          <span class="pname">${opts.short ? `<span class="pn-full">${esc(p.name)}</span><span class="pn-short">${esc(shortName(p))}</span>` : esc(p.name)}${p.proTeam && !p.isDst ? `<img class="nfl" src="${ESPN.nflLogo(p.proTeam.abbrev)}" alt="${esc(p.proTeam.abbrev)}" loading="lazy">` : ''}${p.injury ? `<em class="inj">${p.injury}</em>` : ''}</span>
           <span class="pmeta">${opts.showPos ? `${esc(p.pos)} · ` : ''}${gameText(p.game)}</span>
+          ${opts.short ? `<span class="pmeta-short">${p.isDst ? 'D/ST' : `${p.proTeam ? `${esc(p.proTeam.abbrev)} · ` : ''}${esc(p.pos || '')}`}</span>` : ''}
           ${sub}
         </div>
       </div>`;
@@ -5739,20 +5740,28 @@
     const row = (p) => `
       <li>
         <span class="slot s-${p.slot.replace('/', '')}">${esc(p.slot)}</span>
-        ${playerCell(p, { withLine: true })}
+        ${playerCell(p, { withLine: true, short: true })}
         ${p.id ? (p.hasPlayed
           ? playedPts(p)
           : `<span class="lpts"><b>${f1(p.proj)}</b><small>Proj</small></span>`) : '<span></span>'}
       </li>`;
     return `
       <div class="lineup-col">
-        <h4>${teamLogo(side.team, league, 'avatar xs')}${esc(side.team.name)}</h4>
+        <h4>${teamLogo(side.team, league, 'avatar xs')}<span>${esc(side.team.name)}</span></h4>
         <ul class="lineup">${side.lineup.starters.map(row).join('')}</ul>
         <details class="bench">
           <summary>Bench (${side.lineup.bench.length})</summary>
           <ul class="lineup">${side.lineup.bench.map(row).join('')}</ul>
         </details>
       </div>`;
+  }
+
+  // The starting slots on their own, for the middle column of side-by-side lineups on phones (hidden otherwise).
+  function lineupSlots(a, b) {
+    const src = a.lineup || b.lineup;
+    if (!src) return '';
+    return `<div class="lineup-slots" aria-hidden="true"><h4></h4><ul class="lineup">${src.starters.map((p) =>
+      `<li><span class="slot s-${p.slot.replace('/', '')}">${esc(p.slot)}</span></li>`).join('')}</ul></div>`;
   }
 
   function matchupCard(g, league, top, closest, openIds, going, overall) {
@@ -5802,9 +5811,17 @@
         </div>
         <p class="prob-label">${g.decided ? 'Final' : 'Win probability'}</p>
         ${closest ? `<div class="banner"><span>${esc(closest)}</span></div>` : ''}
-        ${hasLineups ? lineupToggle(g, openIds, lineupColumn(g.home, league) + lineupColumn(g.away, league)) : ''}
+        ${hasLineups ? lineupToggle(g, openIds, lineupColumn(g.home, league) + lineupSlots(g.home, g.away) + lineupColumn(g.away, league), 'duo') : ''}
       </article>`;
   }
+
+  // Side-by-side lineups open and close both benches together, so their rows stay lined up.
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (!(d instanceof HTMLDetailsElement) || !d.classList.contains('bench')) return;
+    const box = d.closest('.lineups.duo');
+    if (box) box.querySelectorAll('details.bench').forEach((x) => { if (x.open !== d.open) x.open = d.open; });
+  }, true);
 
   function lineupToggle(g, openIds, inner, cls = '') {
     const open = openIds.has(g.id);
@@ -6252,7 +6269,7 @@
         </div>
         <p class="prob-label">${g.decided ? 'Final' : g.upcoming ? 'Upcoming' : 'Win probability'}</p>
         ${closest ? `<div class="banner"><span>${esc(closest)}</span></div>` : ''}
-        ${hasLineups ? lineupToggle(g, openIds, lineupColumn(g.home, g.home.league) + lineupColumn(g.away, g.away.league)) : ''}
+        ${hasLineups ? lineupToggle(g, openIds, lineupColumn(g.home, g.home.league) + lineupSlots(g.home, g.away) + lineupColumn(g.away, g.away.league), 'duo') : ''}
       </article>`;
   }
 

@@ -1786,3 +1786,44 @@ button.react-chip:hover { border-color: var(--accent); }
 .clinch-e { background: var(--surface-3); color: var(--muted); }
 .clinch-key { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .clinch-key span { display: inline-flex; align-items: center; }
+
+/* Matchup lineups: on phones (and the app), the two teams side by side, mirrored, with the starting slots in
+   their own column down the middle (.lineup-slots, hidden on wider screens). */
+.pn-short, .pmeta-short, .lineup-slots { display: none; }
+@media (max-width: 760px) {
+  .lineups.duo { grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr); gap: 0 3px; padding: 8px 5px 10px; }
+  .duo .lineup-col { min-width: 0; }
+  .duo .lineup-slots { display: block; }
+  .duo .lineup-col h4, .duo .lineup-slots h4 { gap: 5px; height: 22px; margin: 0 2px 5px; font-size: 12px; min-width: 0; }
+  .duo .lineup-col h4 span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .duo .lineup-col h4 .avatar { width: 20px; height: 20px; flex: none; }
+  .duo .lineup-col:last-child h4 { flex-direction: row-reverse; text-align: right; }
+  .duo .lineup { border-radius: 7px; }
+  .duo .lineup li { grid-template-columns: minmax(0, 1fr) 40px; height: 40px; }
+  .duo .lineup-col .slot { display: none; }
+  .duo .lineup-slots li { grid-template-columns: 1fr; }
+  .duo .lineup-slots .slot { min-height: 0; font-size: 9.5px; letter-spacing: 0; }
+  .duo .lineup .lpts { order: 2; align-items: center; padding: 0 2px; }
+  .duo .lineup .pcell { order: 1; gap: 4px; padding: 2px 3px 2px 4px; }
+  .duo .lineup-col:last-child .lineup li { grid-template-columns: 40px minmax(0, 1fr); }
+  .duo .lineup-col:last-child .lpts { order: 1; }
+  .duo .lineup-col:last-child .pcell { order: 2; flex-direction: row-reverse; padding: 2px 4px 2px 3px; }
+  .duo .lineup-col:last-child .pinfo { align-items: flex-end; text-align: right; }
+  .duo .lineup-col:last-child .lpts.over { box-shadow: inset -3px 0 0 var(--win); }
+  .duo .lineup-col:last-child .lpts.under { box-shadow: inset -3px 0 0 var(--loss); }
+  .duo .lineup-col:first-child .lpts.over { box-shadow: inset 3px 0 0 var(--win); }
+  .duo .lineup-col:first-child .lpts.under { box-shadow: inset 3px 0 0 var(--loss); }
+  .duo .headshot { width: 22px; height: 22px; border-radius: 50%; }
+  .duo .headshot.dst { padding: 2px; border-radius: 5px; }
+  .duo .pinfo { max-width: 100%; }
+  .duo .pname { font-size: 11.5px; line-height: 1.2; }
+  .duo .pn-full, .duo .pname .nfl, .duo .pline, .duo .pmeta { display: none; }
+  .duo .pn-short { display: inline; }
+  .duo .pmeta-short { display: block; color: var(--muted); font-size: 9.5px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .duo .inj { font-size: 8px; margin-left: 2px; }
+  .duo .lpts b { font-size: 12px; letter-spacing: -.02em; }
+  .duo .lpts small { font-size: 7px; letter-spacing: .04em; }
+  .duo .lpts.over, .duo .lpts.under { padding: 0 2px; }
+  .duo .bench { margin-top: 6px; }
+  .duo .bench summary { padding: 8px; font-size: 12px; border-radius: 8px; }
+}
