@@ -65,6 +65,18 @@ language sql stable security definer set search_path = public as $$
   )
 $$;
 
+-- Who can write and publish the weekly recaps on the site (Blog > Recaps). Only Bryce for now.
+alter table public.managers add column if not exists recap_editor boolean not null default false;
+update public.managers set recap_editor = true where id = 'bryce';
+
+create or replace function public.is_recap_editor() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from profiles p join managers m on m.id = p.manager_id
+    where p.user_id = auth.uid() and m.recap_editor
+  )
+$$;
+
 create or replace function public.is_moderator() returns boolean
 language sql stable security definer set search_path = public as $$
   select is_member() and exists (
@@ -78,7 +90,7 @@ $$;
 create or replace function public.me() returns json
 language sql stable security definer set search_path = public as $$
   select json_build_object(
-    'manager_id', m.id, 'name', m.name, 'moderator', m.is_moderator, 'season', current_season(),
+    'manager_id', m.id, 'name', m.name, 'moderator', m.is_moderator, 'recap_editor', m.recap_editor, 'season', current_season(),
     'league', s.league, 'team_id', s.team_id, 'team_name', s.team_name)
   from profiles p
   join managers m on m.id = p.manager_id
@@ -647,6 +659,90 @@ create index if not exists push_devices_user on public.push_devices (user_id);
 alter table public.push_devices enable row level security;
 revoke all on public.push_devices from anon, authenticated;
 
+-- ---------- Weekly recaps ----------
+-- Written and published on the site (Blog > Recaps) by recap editors. content is what readers see once
+-- published; draft holds the editor's unpublished changes (null when there are none). Both are
+-- { intro: [...], sections: [{ kind, label, body, media?, score?, update?, hm: [{ body, media?, score?, update? }] }] }
+-- where a body is a list of paragraphs, each a string or a list of bullet points. Weeks 1-9 of 2026 were
+-- written before the editor and stay in data/recaps.json; a week saved here takes their place.
+create table if not exists public.recaps (
+  season int not null,
+  week int not null check (week between 1 and 18),
+  content jsonb,
+  draft jsonb,
+  published_at timestamptz,
+  updated_at timestamptz not null default now(),
+  primary key (season, week)
+);
+alter table public.recaps enable row level security;
+revoke all on public.recaps from anon, authenticated;
+
+-- Published recaps, for everyone.
+create or replace function public.list_recaps(p_season int)
+returns table (week int, content jsonb, published_at timestamptz, updated_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select r.week, r.content, r.published_at, r.updated_at from recaps r
+  where r.season = p_season and r.published_at is not null order by r.week
+$$;
+
+-- Everything, drafts included, for recap editors.
+create or replace function public.recap_drafts()
+returns table (week int, content jsonb, draft jsonb, published_at timestamptz, updated_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not is_recap_editor() then raise exception 'Only recap editors can see drafts'; end if;
+  return query select r.week, r.content, r.draft, r.published_at, r.updated_at from recaps r
+    where r.season = current_season() order by r.week;
+end
+$$;
+
+-- Saves a week's draft (null throws the draft away). Returns the time it was saved.
+create or replace function public.save_recap(p_week int, p_draft jsonb) returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare t timestamptz := now();
+begin
+  if not is_recap_editor() then raise exception 'Only recap editors can save recaps'; end if;
+  if p_week is null or p_week not between 1 and 18 then raise exception 'Which week?'; end if;
+  if p_draft is not null and (jsonb_typeof(p_draft) <> 'object' or jsonb_typeof(p_draft -> 'sections') <> 'array'
+    or jsonb_typeof(p_draft -> 'intro') <> 'array') then raise exception 'That recap isn’t in the right shape'; end if;
+  if length(p_draft::text) > 300000 then raise exception 'That recap is too long'; end if;
+  insert into recaps (season, week, draft, updated_at) values (current_season(), p_week, p_draft, t)
+  on conflict (season, week) do update set draft = excluded.draft, updated_at = t;
+  delete from recaps where season = current_season() and week = p_week and content is null and draft is null;
+  return t;
+end
+$$;
+
+-- Publishes a week's draft: readers see it from now on. Returns true the first time a week is published.
+create or replace function public.publish_recap(p_week int) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare r recaps;
+begin
+  if not is_recap_editor() then raise exception 'Only recap editors can publish recaps'; end if;
+  select * into r from recaps where season = current_season() and week = p_week;
+  if r.draft is null then raise exception 'There’s nothing new to publish'; end if;
+  update recaps set content = r.draft, draft = null, published_at = coalesce(r.published_at, now()), updated_at = now()
+  where season = r.season and week = r.week;
+  return r.published_at is null;
+end
+$$;
+
+-- Takes a week's recap down (it goes back to being a draft).
+create or replace function public.unpublish_recap(p_week int) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_recap_editor() then raise exception 'Only recap editors can unpublish recaps'; end if;
+  update recaps set draft = coalesce(draft, content), content = null, published_at = null, updated_at = now()
+  where season = current_season() and week = p_week;
+end
+$$;
+
+revoke execute on function public.recap_drafts(), public.save_recap(int, jsonb), public.publish_recap(int),
+  public.unpublish_recap(int) from public, anon;
+grant execute on function public.recap_drafts(), public.save_recap(int, jsonb), public.publish_recap(int),
+  public.unpublish_recap(int) to authenticated;
+grant execute on function public.list_recaps(int) to anon, authenticated;
+
 -- Which notifications a member wants (all on until they turn one off).
 alter table public.profiles add column if not exists push_mentions boolean not null default true;
 alter table public.profiles add column if not exists push_replies boolean not null default true;
@@ -771,13 +867,15 @@ begin
 end
 $$;
 
--- For the push function only. Once per week: when that week's recap is up, every member's devices (with recap
--- notifications on). The function reads the week from the live site's data/recaps.json.
+-- For the push function only. Once per week: when that week's recap is published, every member's devices (with
+-- recap notifications on). The function asks for the newest published week.
 create or replace function public.push_recap_recipients(p_week int)
 returns table (endpoint text, p256dh text, auth text)
 language plpgsql security definer set search_path = public as $$
 begin
   if p_week is null or p_week not between 1 and 18 then return; end if;
+  if not exists (select 1 from recaps r where r.season = current_season() and r.week = p_week and r.published_at is not null)
+    then return; end if;
   insert into push_sent (kind, key) values ('recap', current_season() || '-' || p_week) on conflict do nothing;
   if not found then return; end if;
   return query

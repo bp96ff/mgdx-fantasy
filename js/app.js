@@ -2850,7 +2850,8 @@
     panel.bind(body());
   }
 
-  // Weekly recaps from data/recaps.json (tools/build-recaps.py). Each kind of section has its own look.
+  // Weekly recaps: written on the site (the recap editor below; supabase/schema.sql's recaps table), and Weeks 1-9
+  // of 2026 from data/recaps.json (tools/build-recaps.py). Each kind of section has its own look.
   const RECAP_ICONS = {
     game: '<ellipse cx="12" cy="12" rx="10" ry="6.2" transform="rotate(-35 12 12)"/><path d="M8.6 15.4l6.8-6.8M10 11.6l2.4 2.4M11.6 10l2.4 2.4M8.4 13.2l2.4 2.4" class="ink"/>',
     upset: '<path d="M13.5 2L4 13.5h6.5L9 22l10-12.5h-6.6z"/>',
@@ -2903,62 +2904,674 @@
     </${tag}>`;
   }
 
-  function recapSection(s, owners, week) {
+  // A section's (or honorable mention's) picture or GIF. Pictures are files in the editor's post-media folder.
+  function recapMedia(m) {
+    if (!m || !m.src || !m.w || !m.h) return '';
+    const gif = m.kind === 'gif';
+    if (gif ? !GIPHY_HOST.test(m.src) : !(ACCOUNT && /^[a-z0-9-]+\/[\w.-]+$/i.test(m.src))) return '';
+    const src = gif ? m.src : ACCOUNT.mediaUrl(m.src);
+    return `<a class="post-media rc-media" href="${esc(src)}" target="_blank" rel="noopener noreferrer">${mediaImg(src, m.w, m.h, gif ? 'GIF' : 'Picture')}</a>`;
+  }
+  const hasText = (body) => Array.isArray(body) && body.length > 0;
+
+  // key: the section's reactions key (its kind, plus -2, -3… when a week has more than one of a kind).
+  function recapSection(s, owners, week, key = slugify(s.kind)) {
     const hm = (s.hm || []).map((h, i) => `
       <div class="rc-hm">
         <p class="rc-hm-tag">${s.kind === 'funfact' ? `Fun fact #${i + 2}` : RECAP_HM[s.kind]}</p>
-        ${recapBody(h.body)}
-        ${h.update ? `<div class="rc-update"><p class="rc-hm-tag">Update</p>${recapBody(h.update)}</div>` : ''}
+        ${recapBody(h.body || [])}
+        ${recapMedia(h.media)}
+        ${hasText(h.update) ? `<div class="rc-update"><p class="rc-hm-tag">Update</p>${recapBody(h.update)}</div>` : ''}
         ${h.score ? recapScore(h.score, owners, week) : ''}
       </div>`).join('');
     return `
-      <article class="rc-card rc-${s.kind}" data-kind="${esc(slugify(s.kind))}">
+      <article class="rc-card rc-${esc(s.kind)}" data-kind="${esc(key)}">
         <header class="rc-head">
-          <svg class="rc-icon" viewBox="0 0 24 24" aria-hidden="true">${RECAP_ICONS[s.kind]}</svg>
-          <h3>${recapText(s.label)}</h3>
+          <svg class="rc-icon" viewBox="0 0 24 24" aria-hidden="true">${RECAP_ICONS[s.kind] || ''}</svg>
+          <h3>${recapText(s.label || '')}</h3>
         </header>
-        <div class="rc-body">${recapBody(s.body)}</div>
-        ${s.update ? `<div class="rc-update"><p class="rc-hm-tag">Update</p>${recapBody(s.update)}</div>` : ''}
+        ${hasText(s.body) ? `<div class="rc-body">${recapBody(s.body)}</div>` : ''}
+        ${recapMedia(s.media)}
+        ${hasText(s.update) ? `<div class="rc-update"><p class="rc-hm-tag">Update</p>${recapBody(s.update)}</div>` : ''}
         ${s.score ? recapScore(s.score, owners, week) : ''}
         ${hm}
       </article>`;
   }
+  // Reactions keys for a week's sections, in order.
+  function recapKeys(sections) {
+    const seen = new Map();
+    return sections.map((s) => {
+      const k = slugify(s.kind);
+      const n = (seen.get(k) || 0) + 1;
+      seen.set(k, n);
+      return n > 1 ? `${k}-${n}` : k;
+    });
+  }
+  function recapPage(recap, owners) {
+    const keys = recapKeys(recap.sections);
+    return `${hasText(recap.intro) ? `<div class="rc-lede">${recapBody(recap.intro)}</div>` : ''}
+      ${recap.sections.map((s, i) => recapSection(s, owners, recap.week, keys[i])).join('')}`;
+  }
 
-  async function renderRecaps(params) {
-    const token = renderToken;
-    const body = () => document.getElementById('league-body');
-    const json = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    const [file, standings] = await Promise.all([json('data/recaps.json'), json('data/standings.json')]);
-    if (token !== renderToken) return;
+  const fetchJson = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  function ownersFrom(standings) {
     const owners = new Map();
     for (const league of LEAGUES) {
       for (const team of (standings && standings.leagues[league.slug] || {}).teams || []) owners.set(team.owner, { team, league });
     }
-    if (!file || !file.weeks.length) {
+    return owners;
+  }
+  const recapsOnSite = () => Boolean(ACCOUNT && ACCOUNT.enabled && !ARCHIVE);
+  const isRecapEditor = () => Boolean(recapsOnSite() && ACCOUNT.state.me && ACCOUNT.state.me.recap_editor);
+
+  // Every recap readers can see: the ones written before the editor (data/recaps.json, Weeks 1-9), and the
+  // ones published on the site, which take a week's place. Null when neither could be read.
+  async function loadRecaps() {
+    const [file, rows] = await Promise.all([fetchJson('data/recaps.json'),
+      recapsOnSite() ? ACCOUNT.read('list_recaps', { p_season: SEASON }).catch(() => null) : Promise.resolve([])]);
+    if (!file && !rows) return null;
+    const weeks = new Map(((file && file.weeks) || []).map((w) => [w.week, w]));
+    for (const r of rows || []) if (r.content) weeks.set(r.week, { week: r.week, intro: r.content.intro || [], sections: r.content.sections || [] });
+    return [...weeks.values()].sort((a, b) => a.week - b.week);
+  }
+
+  let recapEditorShown = null; // whether the Recaps tab last drew with the editor's buttons
+  async function renderRecaps(params) {
+    if (params.has('edit')) return renderRecapEditor(Number(params.get('edit')));
+    const token = renderToken;
+    const body = () => document.getElementById('league-body');
+    const [weeks, standings] = await Promise.all([loadRecaps(), fetchJson('data/standings.json')]);
+    if (token !== renderToken) return;
+    const editor = isRecapEditor();
+    recapEditorShown = editor;
+    const owners = ownersFrom(standings);
+    if (!weeks || (!weeks.length && !editor)) {
       body().innerHTML = `<div class="state state-error" role="alert"><strong>Couldn't load the recaps.</strong><a class="btn" href="#/blog/recaps" onclick="window.dispatchEvent(new HashChangeEvent('hashchange'));return false;">Try again</a></div>`;
       return;
     }
-    const weeks = file.weeks.slice().sort((a, b) => a.week - b.week);
-    const latest = weeks[weeks.length - 1].week;
+    const latest = weeks.length ? weeks[weeks.length - 1].week : 0;
     const recap = weeks.find((w) => w.week === Number(params.get('week'))) || weeks[weeks.length - 1];
+    const next = Math.min(18, latest + 1);
+    const tools = editor ? `
+      <div class="re-entry">
+        <a class="btn" href="#/blog/recaps?edit=${next}">Write the Week ${next} recap</a>
+        ${recap ? `<a class="btn-quiet" href="#/blog/recaps?edit=${recap.week}">Edit Week ${recap.week}</a>` : ''}
+        <span>Only you can see these.</span>
+      </div>` : '';
+    if (!recap) {
+      body().innerHTML = `<div class="recap">${tools}</div>`;
+      return;
+    }
     const options = weeks.slice().reverse().map((w) =>
       `<option value="${w.week}" ${w === recap ? 'selected' : ''}>Week ${w.week}${w.week === latest ? ' · latest' : ''}</option>`).join('');
     body().innerHTML = `
       <div class="recap">
+        ${tools}
         <div class="matchups-bar">
           <div class="rc-title"><p class="eyebrow">${SEASON} · Weekly recap</p><h2>Week ${recap.week} Recap</h2></div>
           <label class="select"><span class="sr-only">Choose week</span><select id="week-select">${options}</select></label>
         </div>
-        <div class="rc-lede">${recapBody(recap.intro)}</div>
-        ${recap.sections.map((s) => recapSection(s, owners, recap.week)).join('')}
+        ${recapPage(recap, owners)}
       </div>`;
     body().querySelector('#week-select').addEventListener('change', (e) => {
       location.hash = `#/blog/recaps?week=${e.target.value}`;
     });
-    // Each section gets its own reactions, e.g. recap:2026:w9:badbeat (a week's sections are all different kinds).
+    // Each section gets its own reactions, e.g. recap:2026:w9:badbeat.
     attachReactions(body(), [...body().querySelectorAll('.recap .rc-card[data-kind]')].map((el) => ({
       el, target: `recap:${SEASON}:w${recap.week}:${el.dataset.kind}`,
     })));
+  }
+
+  // ---------- recap editor (recap editors only: managers.recap_editor in supabase/schema.sql) ----------
+  // Blog > Recaps > Write / Edit opens #/blog/recaps?edit=<week>. Changes save as a draft a moment after each
+  // edit; only editors see drafts. Publish shows the draft to everyone (and, the first time a week is published,
+  // sends the "recap is up" notification).
+  const RECAP_KINDS = [['game', 'Game of the Week'], ['upset', 'Upset of the Week'], ['badbeat', 'Bad beat of the week'],
+    ['lucky', 'Lucky team of the week'], ['dawg', 'Dawg of the week'], ['funfact', 'Fun fact of the week'],
+    ['challenger', 'A New Challenger Approaches']];
+  const RECAP_KIND_NAMES = Object.fromEntries(RECAP_KINDS);
+  const RECAP_KIND_COLORS = { game: 'dna', upset: 'rr', badbeat: 'loss', lucky: 'win', dawg: 'mm', funfact: 'dna', challenger: 'rr' };
+  const newRecap = () => ({ intro: [], sections: ['game', 'upset', 'badbeat', 'lucky', 'dawg', 'funfact']
+    .map((kind) => ({ kind, label: RECAP_KIND_NAMES[kind], body: [], hm: [] })) });
+  const cloneRecap = (r) => {
+    const c = JSON.parse(JSON.stringify({ intro: r.intro || [], sections: r.sections || [] }));
+    for (const s of c.sections) s.hm = (s.hm || []).map(({ kind, label, ...h }) => h); // the old file repeats these
+    return c;
+  };
+  // Text box <-> recap body: a blank line starts a new paragraph; lines starting with "- " are bullet points.
+  const bodyToText = (body) => (body || []).map((b) => (Array.isArray(b) ? b.map((li) => `- ${li}`).join('\n') : b)).join('\n\n');
+  function textToBody(text) {
+    return String(text || '').replace(/\r/g, '').split(/\n[ \t]*\n/).map((c) => c.trim()).filter(Boolean).map((chunk) => {
+      const lines = chunk.split('\n').map((l) => l.trim()).filter(Boolean);
+      return lines.every((l) => /^[-•]\s+/.test(l)) ? lines.map((l) => l.replace(/^[-•]\s+/, '')) : lines.join(' ');
+    });
+  }
+
+  let recapEd = null;
+  const edBody = () => document.getElementById('league-body');
+  // A block is a section ("s2") or one of its honorable mentions ("s2h0").
+  function edBlock(t) {
+    const m = /^s(\d+)(?:h(\d+))?$/.exec(t || '');
+    const sec = m && recapEd.data.sections[Number(m[1])];
+    if (!sec) return null;
+    return m[2] === undefined ? sec : (sec.hm || [])[Number(m[2])] || null;
+  }
+
+  async function renderRecapEditor(week) {
+    const token = renderToken;
+    const say = (html) => { if (token === renderToken && edBody()) edBody().innerHTML = `<div class="state">${html}</div>`; };
+    if (!(week >= 1 && week <= 18)) { location.hash = '#/blog/recaps'; return; }
+    if (!recapsOnSite()) return say('<strong>Recaps can only be written on the live site.</strong>');
+    if (!ACCOUNT.state.ready) return say('<strong>Checking your account…</strong>');
+    if (!isRecapEditor()) {
+      return say(`<strong>Only recap editors can write recaps.</strong><a class="btn" href="#/${ACCOUNT.state.user ? 'blog/recaps' : 'account'}">${ACCOUNT.state.user ? 'Back to recaps' : 'Sign in'}</a>`);
+    }
+    if (recapEd && recapEd.week === week) { if (recapEd.ready) { drawRecapEditor(); bindRecapEditor(); } return; }
+    recapEd = { week, ready: false };
+    edBody().innerHTML = loading('Loading the editor');
+    let rows;
+    try {
+      rows = await ACCOUNT.write('recap_drafts', {});
+    } catch (err) {
+      return say(`<strong>Couldn’t open the editor.</strong><span>${esc(err.message)}</span>`);
+    }
+    const [file, games, standings] = await Promise.all([fetchJson('data/recaps.json'), fetchJson('data/games.json'), fetchJson('data/standings.json')]);
+    if (token !== renderToken) return;
+    const row = rows.find((r) => r.week === week);
+    const fromFile = ((file && file.weeks) || []).find((w) => w.week === week) || null;
+    const onSite = row && row.published_at ? row.content : null;
+    const published = onSite || fromFile;
+    recapEd = {
+      week, ready: true,
+      data: cloneRecap((row && row.draft) || published || newRecap()),
+      published: published ? cloneRecap(published) : null,
+      onSite: Boolean(onSite), fromFile: fromFile ? cloneRecap(fromFile) : null,
+      hasDraft: Boolean(row && row.draft),
+      weeks: new Map(rows.map((r) => [r.week, r.published_at ? (r.draft ? 'changes' : 'published') : 'draft'])),
+      fileWeeks: new Set(((file && file.weeks) || []).map((w) => w.week)),
+      games, owners: ownersFrom(standings),
+      savedAt: row && row.draft ? row.updated_at : null,
+      pending: false, saving: null, timer: 0, msg: '', error: false, view: 'edit', gif: null, pick: null, busy: '', field: null,
+    };
+    drawRecapEditor();
+    bindRecapEditor();
+  }
+
+  function edStatusText(ed) {
+    const state = ed.published ? (ed.hasDraft || ed.pending ? 'Published · with changes only you can see' : 'Published')
+      : ed.hasDraft || ed.pending ? 'Draft · only you can see it' : 'New · not saved yet';
+    const save = ed.saving ? 'Saving…' : ed.pending ? 'Unsaved changes' : ed.savedAt ? `Saved ${new Date(ed.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '';
+    return `<b>${state}</b>${save ? ` · ${save}` : ''}`;
+  }
+  function edFoot() {
+    const ed = recapEd;
+    const changes = ed.hasDraft || ed.pending;
+    const busy = Boolean(ed.busy);
+    return `<div class="panel re-foot">
+      <p class="re-status" aria-live="polite">${ed.busy ? esc(ed.busy) : edStatusText(ed)}</p>
+      <div class="re-actions">
+        ${changes && ed.published ? `<button type="button" class="btn-quiet" data-ed="discard"${busy ? ' disabled' : ''}>Discard changes</button>` : ''}
+        ${changes && !ed.published ? `<button type="button" class="btn-quiet danger" data-ed="discard"${busy ? ' disabled' : ''}>Delete draft</button>` : ''}
+        ${ed.onSite ? `<button type="button" class="btn-quiet danger" data-ed="unpublish"${busy ? ' disabled' : ''}>Unpublish</button>` : ''}
+        <button type="button" class="btn" data-ed="publish"${!changes || busy ? ' disabled' : ''}>${ed.published ? 'Publish changes' : 'Publish'}</button>
+      </div>
+      ${ed.msg ? `<p class="acct-msg${ed.error ? ' error' : ''}" role="${ed.error ? 'alert' : 'status'}">${esc(ed.msg)}</p>` : ''}
+    </div>`;
+  }
+  function edRedrawFoot() {
+    const el = edBody() && edBody().querySelector('.re-foot');
+    if (el && recapEd && recapEd.ready) el.outerHTML = edFoot();
+  }
+
+  const PHOTO_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.8" fill="currentColor"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L19 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const textRows = (text, min) => Math.max(min, Math.min(18, Math.ceil(text.length / 70) + (text.match(/\n/g) || []).length + 1));
+  function edText(field, body, label, placeholder, min = 3) {
+    const text = bodyToText(body);
+    return `<label class="sr-only" for="re-${field}">${esc(label)}</label>
+      <textarea id="re-${field}" data-f="${field}" rows="${textRows(text, min)}" placeholder="${esc(placeholder)}">${esc(text)}</textarea>`;
+  }
+  // The week's saved games (data/games.json), winner first.
+  function edGames() {
+    const f = recapEd.games;
+    if (!f || f.season !== SEASON) return [];
+    const owner = (k) => (f.teams[k] || [])[1] || k;
+    return f.games.filter((g) => g[0] === recapEd.week && g[3] !== 'median').map(([, a, sa, b, sb, link]) => {
+      const [w, l] = sa >= sb ? [[a, sa], [b, sb]] : [[b, sb], [a, sa]];
+      return { score: [[owner(w[0]), w[1]], [owner(l[0]), l[1]]], league: a.split(':')[0], cross: !String(link).includes('/matchups') };
+    });
+  }
+  function edGamePicker(t) {
+    const games = edGames();
+    if (!games.length) {
+      return `<div class="re-pick"><p class="gif-note">Week ${recapEd.week}'s games aren't saved yet. They're saved once the week is final, early Tuesday.</p>
+        <div class="gif-foot"><span></span><button type="button" class="btn-quiet" data-ed="pick-close">Close</button></div></div>`;
+    }
+    const groups = [...LEAGUES.map((l) => [l.name, games.filter((g) => !g.cross && g.league === l.slug)]), ['Cross-league', games.filter((g) => g.cross)]];
+    return `<div class="re-pick" role="group" aria-label="Pick a game">
+      ${groups.filter(([, list]) => list.length).map(([name, list]) => `<p class="re-pick-head">${esc(name)}</p><div class="re-pick-list">
+        ${list.map((g) => `<button type="button" class="re-game" data-ed="game" data-t="${t}" data-g="${games.indexOf(g)}">
+          <span><b>${esc(g.score[0][0])}</b> ${g.score[0][1].toFixed(2)}</span><span class="re-game-vs">beat</span>
+          <span>${esc(g.score[1][0])} ${g.score[1][1].toFixed(2)}</span><small>by ${(g.score[0][1] - g.score[1][1]).toFixed(2)}</small></button>`).join('')}
+      </div>`).join('')}
+      <div class="gif-foot"><span></span><button type="button" class="btn-quiet" data-ed="pick-close">Close</button></div>
+    </div>`;
+  }
+  function edGifGrid(g) {
+    if (g.error) return `<p class="gif-note error">${esc(g.error)}</p>`;
+    if (g.loading && !g.items.length) return '<p class="gif-note">Loading GIFs…</p>';
+    if (!g.items.length) return '<p class="gif-note">No GIFs found. Try other words.</p>';
+    return g.items.map((it, i) => `<button type="button" class="gif-pick" data-ed="gif-pick" data-i="${i}" title="${esc(it.title)}" aria-label="${esc(it.title)}">
+      <img src="${esc(it.thumb)}" alt="" loading="lazy"></button>`).join('');
+  }
+  function edBlockHtml(t, b, placeholder) {
+    const ed = recapEd;
+    const busy = Boolean(ed.busy);
+    const extras = [];
+    if (b.media) extras.push(`<div class="re-attached">${recapMedia(b.media)}<button type="button" class="btn-quiet danger" data-ed="media-x" data-t="${t}">Remove the ${b.media.kind === 'gif' ? 'GIF' : 'picture'}</button></div>`);
+    if (b.update) {
+      extras.push(`<div class="re-update"><div class="re-row"><p class="rc-hm-tag">Update</p><button type="button" class="btn-quiet danger" data-ed="update-x" data-t="${t}">Remove the update</button></div>
+        ${edText(`${t}:update`, b.update, 'Update', 'An update posted after the recap went up…', 2)}</div>`);
+    }
+    if (b.score) extras.push(`<div class="re-attached re-scorecard">${recapScore(b.score, ed.owners, ed.week)}<button type="button" class="btn-quiet danger" data-ed="score-x" data-t="${t}">Remove the scorecard</button></div>`);
+    const gif = ed.gif && ed.gif.t === t ? `
+      <div class="gif-picker">
+        <label class="sr-only" for="re-gif-q">Search GIFs</label>
+        <input id="re-gif-q" type="search" placeholder="Search GIFs" value="${esc(ed.gif.q)}" autocomplete="off" enterkeyhint="search">
+        <div class="gif-grid" aria-live="polite">${edGifGrid(ed.gif)}</div>
+        <div class="gif-foot"><small>Powered by GIPHY</small><button type="button" class="btn-quiet" data-ed="gif-close">Close</button></div>
+      </div>` : '';
+    return `
+      ${edText(`${t}:body`, b.body, 'Text', placeholder)}
+      <div class="re-tools">
+        <button type="button" class="re-fmt" data-ed="fmt" data-wrap="*" data-t="${t}" title="Italic (select words first)" aria-label="Italic"><i>I</i></button>
+        <button type="button" class="re-fmt" data-ed="fmt" data-wrap="~~" data-t="${t}" title="Strikethrough (select words first)" aria-label="Strikethrough"><s>S</s></button>
+        <label class="btn-quiet post-add${b.media || busy ? ' off' : ''}" title="Add a picture">${PHOTO_ICON}<span>Picture</span>
+          <input type="file" accept="image/*" data-photo="${t}" aria-label="Add a picture"${b.media || busy ? ' disabled' : ''}></label>
+        ${GIPHY_KEY ? `<button type="button" class="btn-quiet post-add" data-ed="gif" data-t="${t}"${b.media || busy ? ' disabled' : ''}><b class="gif-badge">GIF</b></button>` : ''}
+        <button type="button" class="btn-quiet" data-ed="pick" data-t="${t}" aria-expanded="${ed.pick === t}">${b.score ? 'Change scorecard' : '+ Scorecard'}</button>
+        ${b.update ? '' : `<button type="button" class="btn-quiet" data-ed="update" data-t="${t}">+ Update</button>`}
+      </div>
+      ${gif}${ed.pick === t ? edGamePicker(t) : ''}
+      ${extras.join('')}`;
+  }
+  function edSectionHtml(s, i, count) {
+    const funfact = s.kind === 'funfact';
+    const hm = (s.hm || []).map((h, j) => `
+      <div class="re-hm">
+        <div class="re-row"><p class="rc-hm-tag">${funfact ? `Fun fact #${j + 2}` : `Honorable mention ${j + 1}`}</p>
+          <button type="button" class="btn-quiet danger" data-ed="hm-x" data-t="s${i}h${j}">Remove</button></div>
+        ${edBlockHtml(`s${i}h${j}`, h, funfact ? 'Another fun fact…' : 'An honorable mention…')}
+      </div>`).join('');
+    return `
+      <section class="panel re-sec" data-s="${i}" style="--k:var(--${RECAP_KIND_COLORS[s.kind] || 'dna'})">
+        <div class="re-row re-sec-head">
+          <svg class="rc-icon" viewBox="0 0 24 24" aria-hidden="true">${RECAP_ICONS[s.kind] || ''}</svg>
+          <label class="select"><span class="sr-only">Kind of section</span><select data-kind-of="${i}">
+            ${RECAP_KINDS.map(([k, name]) => `<option value="${k}"${k === s.kind ? ' selected' : ''}>${esc(name)}</option>`).join('')}</select></label>
+          <span class="re-move">
+            <button type="button" class="re-fmt" data-ed="up" data-i="${i}" aria-label="Move up"${i === 0 ? ' disabled' : ''}>↑</button>
+            <button type="button" class="re-fmt" data-ed="down" data-i="${i}" aria-label="Move down"${i === count - 1 ? ' disabled' : ''}>↓</button>
+            <button type="button" class="btn-quiet danger" data-ed="del" data-i="${i}">Delete</button>
+          </span>
+        </div>
+        <label class="re-label"><span>Title</span><input id="re-s${i}:label" data-f="s${i}:label" value="${esc(s.label || '')}" maxlength="120"></label>
+        ${edBlockHtml(`s${i}`, s, 'What happened…')}
+        ${hm}
+        <button type="button" class="btn-quiet re-add-hm" data-ed="hm-add" data-i="${i}">+ ${funfact ? 'Another fun fact' : 'Honorable mention'}</button>
+      </section>`;
+  }
+
+  function drawRecapEditor() {
+    const ed = recapEd;
+    const el = edBody();
+    if (!el || !ed || !ed.ready) return;
+    const active = document.activeElement && document.activeElement.id;
+    const caret = active && document.activeElement.selectionStart;
+    const status = (w) => (w === ed.week ? '' : ed.weeks.get(w) === 'draft' ? ' · draft' : ed.weeks.get(w) === 'changes' ? ' · published, with changes'
+      : ed.weeks.has(w) || ed.fileWeeks.has(w) ? ' · published' : '');
+    const weekOptions = Array.from({ length: 17 }, (_, i) => i + 1).map((w) =>
+      `<option value="${w}"${w === ed.week ? ' selected' : ''}>Week ${w}${status(w)}</option>`).join('');
+    const preview = ed.view === 'preview';
+    el.innerHTML = `
+      <div class="recap re">
+        <div class="matchups-bar">
+          <div class="rc-title"><p class="eyebrow">${SEASON} · Recap editor</p><h2>Week ${ed.week} Recap</h2></div>
+          <label class="select"><span class="sr-only">Choose week</span><select id="re-week">${weekOptions}</select></label>
+        </div>
+        <div class="re-row re-top">
+          <div class="re-tabs" role="tablist" aria-label="Editor view">
+            <button type="button" role="tab" aria-selected="${!preview}" data-ed="view" data-v="edit">Write</button>
+            <button type="button" role="tab" aria-selected="${preview}" data-ed="view" data-v="preview">Preview</button>
+          </div>
+          <a class="btn-quiet" href="#/blog/recaps${ed.published ? `?week=${ed.week}` : ''}">Back to recaps</a>
+        </div>
+        ${preview ? `<p class="re-note">This is how readers will see it once it's published.</p>${recapPage({ ...ed.data, week: ed.week }, ed.owners)}` : `
+        <p class="re-note">A blank line starts a new paragraph, and lines starting with “- ” become bullet points. Select words and tap <i>I</i> for italics or <s>S</s> to strike them out.</p>
+        <section class="panel re-sec re-intro">
+          <p class="re-sec-title">Intro</p>
+          ${edText('intro', ed.data.intro, 'Intro', 'How the week went…', 4)}
+          <div class="re-tools">
+            <button type="button" class="re-fmt" data-ed="fmt" data-wrap="*" data-t="intro" title="Italic (select words first)" aria-label="Italic"><i>I</i></button>
+            <button type="button" class="re-fmt" data-ed="fmt" data-wrap="~~" data-t="intro" title="Strikethrough (select words first)" aria-label="Strikethrough"><s>S</s></button>
+          </div>
+        </section>
+        ${ed.data.sections.map((s, i) => edSectionHtml(s, i, ed.data.sections.length)).join('')}
+        <div class="panel re-add">
+          <label class="select"><span class="sr-only">Kind of section to add</span><select id="re-add-kind">
+            ${RECAP_KINDS.map(([k, name]) => `<option value="${k}">${esc(name)}</option>`).join('')}</select></label>
+          <button type="button" class="btn-quiet" data-ed="add">+ Add section</button>
+        </div>`}
+        ${edFoot()}
+      </div>`;
+    if (active) {
+      const back = document.getElementById(active);
+      if (back) {
+        back.focus({ preventScroll: true });
+        if (caret != null && back.setSelectionRange && back.type !== 'search') try { back.setSelectionRange(caret, caret); } catch { /* not a text box */ }
+      }
+    }
+  }
+
+  // Saves the draft a moment after the last change.
+  function edChanged(redraw) {
+    const ed = recapEd;
+    ed.pending = true;
+    ed.msg = '';
+    clearTimeout(ed.timer);
+    ed.timer = setTimeout(() => edSave(), 1200);
+    if (redraw) drawRecapEditor(); else edRedrawFoot();
+  }
+  async function edSave() {
+    const ed = recapEd;
+    if (!ed || !ed.ready) return true;
+    clearTimeout(ed.timer);
+    if (ed.saving) await ed.saving;
+    if (!ed.pending) return !ed.error;
+    ed.pending = false;
+    ed.saving = ACCOUNT.write('save_recap', { p_week: ed.week, p_draft: ed.data }).then((t) => {
+      ed.savedAt = t;
+      ed.hasDraft = true;
+      ed.weeks.set(ed.week, ed.onSite ? 'changes' : 'draft');
+      if (ed.error) { ed.msg = ''; ed.error = false; }
+    }).catch((err) => {
+      ed.pending = true;
+      ed.msg = `Couldn’t save: ${err.message}`;
+      ed.error = true;
+    }).finally(() => {
+      ed.saving = null;
+      if (recapEd === ed) edRedrawFoot();
+    });
+    edRedrawFoot();
+    await ed.saving;
+    return !ed.pending;
+  }
+
+  async function edGifSearch(q) {
+    const ed = recapEd;
+    ed.gif = { ...ed.gif, q, loading: true, error: '' };
+    try {
+      const items = await searchGifs(q);
+      if (!ed.gif || ed.gif.q !== q) return;
+      ed.gif = { ...ed.gif, items, loading: false };
+    } catch (err) {
+      if (!ed.gif || ed.gif.q !== q) return;
+      ed.gif = { ...ed.gif, items: [], loading: false, error: err.message };
+    }
+    const grid = edBody() && edBody().querySelector('.re .gif-grid');
+    if (grid) { grid.innerHTML = edGifGrid(ed.gif); grid.scrollTop = 0; }
+  }
+
+  async function edAct(btn) {
+    const ed = recapEd;
+    const act = btn.dataset.ed;
+    const t = btn.dataset.t;
+    const i = Number(btn.dataset.i);
+    const secs = ed.data.sections;
+    const block = edBlock(t);
+    switch (act) {
+      case 'view': ed.view = btn.dataset.v; ed.gif = null; ed.pick = null; drawRecapEditor(); window.scrollTo({ top: 0 }); return;
+      case 'fmt': {
+        const box = document.getElementById(`re-${t === 'intro' ? 'intro' : ed.field && ed.field.startsWith(`${t}:`) && !ed.field.endsWith(':label') ? ed.field : `${t}:body`}`);
+        if (!box) return;
+        const [a, z] = [box.selectionStart, box.selectionEnd];
+        const mark = btn.dataset.wrap;
+        const picked = box.value.slice(a, z);
+        box.value = box.value.slice(0, a) + mark + (picked || (mark === '*' ? 'italic words' : 'struck words')) + mark + box.value.slice(z);
+        box.focus();
+        box.setSelectionRange(a + mark.length, a + mark.length + (picked || (mark === '*' ? 'italic words' : 'struck words')).length);
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+      case 'up': case 'down': {
+        const j = act === 'up' ? i - 1 : i + 1;
+        if (j < 0 || j >= secs.length) return;
+        [secs[i], secs[j]] = [secs[j], secs[i]];
+        ed.gif = null; ed.pick = null;
+        edChanged(true);
+        const moved = edBody().querySelector(`.re-sec[data-s="${j}"]`);
+        if (moved) moved.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      case 'del':
+        if (!confirm(`Delete the “${secs[i].label || RECAP_KIND_NAMES[secs[i].kind]}” section?`)) return;
+        secs.splice(i, 1); ed.gif = null; ed.pick = null; edChanged(true); return;
+      case 'add': {
+        const kind = document.getElementById('re-add-kind').value;
+        secs.push({ kind, label: RECAP_KIND_NAMES[kind], body: [], hm: [] });
+        edChanged(true);
+        const box = document.getElementById(`re-s${secs.length - 1}:body`);
+        if (box) { box.focus(); box.scrollIntoView({ block: 'center' }); }
+        return;
+      }
+      case 'hm-add': {
+        (secs[i].hm = secs[i].hm || []).push({ body: [] });
+        edChanged(true);
+        const box = document.getElementById(`re-s${i}h${secs[i].hm.length - 1}:body`);
+        if (box) box.focus();
+        return;
+      }
+      case 'hm-x': {
+        const [, s, h] = /^s(\d+)h(\d+)$/.exec(t);
+        secs[s].hm.splice(Number(h), 1); ed.gif = null; ed.pick = null; edChanged(true); return;
+      }
+      case 'update': block.update = []; edChanged(true); { const box = document.getElementById(`re-${t}:update`); if (box) box.focus(); } return;
+      case 'update-x': delete block.update; edChanged(true); return;
+      case 'media-x': delete block.media; edChanged(true); return;
+      case 'score-x': delete block.score; edChanged(true); return;
+      case 'gif':
+        ed.pick = null; ed.gif = { t, q: '', items: [], loading: true, error: '' };
+        drawRecapEditor();
+        { const q = document.getElementById('re-gif-q'); if (q) q.focus(); }
+        edGifSearch('');
+        return;
+      case 'gif-close': ed.gif = null; drawRecapEditor(); return;
+      case 'gif-pick': {
+        const it = ed.gif && ed.gif.items[i];
+        const target = edBlock(ed.gif && ed.gif.t);
+        if (!it || !target) return;
+        target.media = { kind: 'gif', src: it.url, w: it.w, h: it.h };
+        ed.gif = null;
+        edChanged(true);
+        return;
+      }
+      case 'pick': ed.gif = null; ed.pick = ed.pick === t ? null : t; drawRecapEditor(); return;
+      case 'pick-close': ed.pick = null; drawRecapEditor(); return;
+      case 'game': {
+        const g = edGames()[Number(btn.dataset.g)];
+        if (!g || !block) return;
+        block.score = g.score;
+        ed.pick = null;
+        edChanged(true);
+        return;
+      }
+      case 'publish': {
+        const first = !ed.published;
+        if (first && !confirm(`Publish the Week ${ed.week} recap? Everyone will see it, and members with recap notifications on get one.`)) return;
+        ed.busy = 'Publishing…'; edRedrawFoot();
+        try {
+          if (!(await edSave())) throw new Error(ed.msg || 'Couldn’t save the draft.');
+          const isNew = await ACCOUNT.write('publish_recap', { p_week: ed.week });
+          ed.published = cloneRecap(ed.data);
+          ed.onSite = true;
+          ed.hasDraft = false;
+          ed.savedAt = null;
+          ed.weeks.set(ed.week, 'published');
+          ed.msg = 'Published.';
+          ed.error = false;
+          if (isNew) {
+            try { await ACCOUNT.push({ action: 'recap' }); ed.msg = 'Published, and the notification is on its way.'; }
+            catch (err) { ed.msg = 'Published, but the notification didn’t go out.'; console.error(err); }
+          }
+        } catch (err) {
+          ed.msg = err.message; ed.error = true;
+        }
+        ed.busy = '';
+        drawRecapEditor();
+        return;
+      }
+      case 'discard': {
+        const published = Boolean(ed.published);
+        if (!confirm(published ? 'Throw away your changes and go back to the published recap?' : `Delete the Week ${ed.week} draft?`)) return;
+        clearTimeout(ed.timer);
+        ed.busy = published ? 'Discarding…' : 'Deleting…'; edRedrawFoot();
+        try {
+          if (ed.saving) await ed.saving;
+          await ACCOUNT.write('save_recap', { p_week: ed.week, p_draft: null });
+          ed.data = published ? cloneRecap(ed.published) : newRecap();
+          ed.pending = false; ed.hasDraft = false; ed.savedAt = null;
+          if (published) ed.weeks.set(ed.week, 'published'); else ed.weeks.delete(ed.week);
+          ed.msg = published ? 'Changes discarded.' : 'Draft deleted.'; ed.error = false;
+        } catch (err) {
+          ed.msg = err.message; ed.error = true;
+        }
+        ed.busy = ''; ed.gif = null; ed.pick = null;
+        drawRecapEditor();
+        return;
+      }
+      case 'unpublish': {
+        if (!confirm(`Take the Week ${ed.week} recap down? ${ed.fromFile ? 'Readers will see the version from before the editor again.' : 'Readers won’t see it until you publish it again.'} It stays here as a draft.`)) return;
+        ed.busy = 'Unpublishing…'; edRedrawFoot();
+        try {
+          if (!(await edSave())) throw new Error(ed.msg || 'Couldn’t save the draft.');
+          await ACCOUNT.write('unpublish_recap', { p_week: ed.week });
+          ed.onSite = false;
+          ed.published = ed.fromFile;
+          ed.hasDraft = true;
+          ed.weeks.set(ed.week, 'draft');
+          ed.msg = 'Unpublished. It’s a draft again.'; ed.error = false;
+        } catch (err) {
+          ed.msg = err.message; ed.error = true;
+        }
+        ed.busy = '';
+        drawRecapEditor();
+        return;
+      }
+      default:
+    }
+  }
+
+  async function edPhoto(input) {
+    const ed = recapEd;
+    const file = input.files && input.files[0];
+    const t = input.dataset.photo;
+    input.value = '';
+    if (!file || !edBlock(t)) return;
+    ed.busy = 'Uploading the picture…'; ed.gif = null; drawRecapEditor();
+    try {
+      const { blob, w, h } = await preparePostImage(file);
+      const path = await ACCOUNT.uploadPostMedia(blob);
+      const block = recapEd === ed && edBlock(t);
+      if (block) block.media = { kind: 'image', src: path, w, h };
+      ed.busy = '';
+      edChanged(true);
+    } catch (err) {
+      ed.busy = ''; ed.msg = err.message; ed.error = true;
+      drawRecapEditor();
+    }
+  }
+
+  // Once per page: the handlers read recapEd as it is when they run.
+  function bindRecapEditor() {
+    const el = edBody();
+    if (!el || el.dataset.reBound) return;
+    el.dataset.reBound = '1';
+    const current = () => (recapEd && recapEd.ready ? recapEd : null);
+    el.addEventListener('input', (e) => {
+      const ed = current();
+      if (!ed) return;
+      const box = e.target;
+      if (box.id === 're-gif-q') {
+        clearTimeout(gifTimer);
+        gifTimer = setTimeout(() => { if (ed.gif) edGifSearch(box.value); }, 400);
+        return;
+      }
+      const f = box.dataset.f;
+      if (!f) return;
+      if (box.tagName === 'TEXTAREA') {
+        box.style.height = 'auto';
+        box.style.height = `${box.scrollHeight + 2}px`;
+      }
+      if (f === 'intro') ed.data.intro = textToBody(box.value);
+      else {
+        const [t, part] = f.split(':');
+        const block = edBlock(t);
+        if (!block) return;
+        if (part === 'label') block.label = box.value;
+        else block[part] = textToBody(box.value);
+      }
+      edChanged(false);
+    });
+    el.addEventListener('focusin', (e) => {
+      const ed = current();
+      if (ed && e.target.dataset && e.target.dataset.f) ed.field = e.target.dataset.f;
+    });
+    el.addEventListener('change', async (e) => {
+      const ed = current();
+      if (!ed) return;
+      const box = e.target;
+      if (box.id === 're-week') {
+        const to = Number(box.value);
+        box.disabled = true;
+        await edSave();
+        location.hash = `#/blog/recaps?edit=${to}`;
+        return;
+      }
+      if (box.dataset.photo) { edPhoto(box); return; }
+      if (box.dataset.kindOf) {
+        const s = ed.data.sections[Number(box.dataset.kindOf)];
+        if (!s.label || s.label === RECAP_KIND_NAMES[s.kind]) s.label = RECAP_KIND_NAMES[box.value];
+        s.kind = box.value;
+        edChanged(true);
+      }
+    });
+    el.addEventListener('click', (e) => {
+      const ed = current();
+      const btn = e.target.closest('[data-ed]');
+      if (!ed || !btn || btn.disabled) return;
+      if (ed.busy && !['view', 'gif-close', 'pick-close'].includes(btn.dataset.ed)) return;
+      e.preventDefault();
+      edAct(btn);
+    });
+  }
+  // Leaving the editor (or switching weeks) saves what's left; closing the tab with unsaved changes asks first.
+  window.addEventListener('hashchange', () => {
+    const ed = recapEd;
+    if (!ed) return;
+    const { parts, params } = parseHash();
+    if (parts[0] === 'blog' && parts[1] === 'recaps' && Number(params.get('edit')) === ed.week) return;
+    if (ed.ready && (ed.pending || ed.saving)) edSave();
+    recapEd = null;
+  });
+  window.addEventListener('beforeunload', (e) => {
+    if (recapEd && recapEd.ready && (recapEd.pending || recapEd.saving)) { e.preventDefault(); e.returnValue = ''; }
+  });
+  // Signing in or out (or the account loading) changes whether the editor and its buttons show.
+  if (ACCOUNT && !ARCHIVE) {
+    ACCOUNT.onChange(() => {
+      const { parts, params } = parseHash();
+      if (parts[0] !== 'blog' || parts[1] !== 'recaps' || !edBody()) return;
+      if (params.has('edit') ? !recapEd : recapEditorShown !== null && recapEditorShown !== isRecapEditor()) renderRecaps(params);
+    });
   }
 
   // ---------- league shell ----------

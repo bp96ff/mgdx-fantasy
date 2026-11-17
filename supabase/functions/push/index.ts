@@ -11,8 +11,8 @@
 //   reminders  → a week's "picks lock in an hour" reminder when its lock is under an hour away, once a week.
 //                Anyone (the database's predictions-reminder timer calls it when it's due; see schema.sql); it
 //                does nothing until then.
-//   recap      → "Week N recap is up", for the newest week in the live site's data/recaps.json, once a week.
-//                Anyone (the "Recap notification" GitHub workflow calls it after a recap is published).
+//   recap      → "Week N recap is up", for the newest recap published on the site (the recaps table), once a
+//                week. Anyone (the site calls it when a recap editor publishes a week for the first time).
 //   weekly     → Tuesday's notes for the week that just finished, from the live site's data/weekly-notes.json:
 //                each member's final result (with any playoff-race news), and any all-time top-10 records.
 //                Anyone (the database's weekly-notes timer calls it hourly on Tuesdays); the database only lets
@@ -136,11 +136,11 @@ Deno.serve(async (req) => {
       }
 
       case 'recap': {
-        // The week comes from the live site, so a recap only goes out once it's actually up.
-        const live = await fetch(`${SITE}data/recaps.json?t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
-        if (!live.ok) return reply({ error: `Couldn't read the recaps (${live.status})` }, 502);
-        const weeks = ((await live.json()).weeks ?? []) as { week: number }[];
-        const week = Math.max(0, ...weeks.map((w) => w.week));
+        // The week comes from the database, so a recap only goes out once it's actually published.
+        const { data: newest, error: e1 } = await db.from('recaps').select('week').not('published_at', 'is', null)
+          .order('season', { ascending: false }).order('week', { ascending: false }).limit(1);
+        if (e1) throw e1;
+        const week = newest?.[0]?.week as number | undefined;
         if (!week) return reply({ sent: 0, due: false });
         const { data, error } = await db.rpc('push_recap_recipients', { p_week: week });
         if (error) throw error;

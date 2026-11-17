@@ -1,4 +1,5 @@
 # Turns the weekly recap Google Doc (exported as plain text) into data/recaps.json for the Blog's Recaps tab.
+# Retired: recaps from Week 10 of 2026 on are written in the site's recap editor. This made Weeks 1-9.
 #   python tools/build-recaps.py recaps.txt
 # Each week runs from its opening paragraphs through the "Week N Recap" sections. Sections the site already
 # covers elsewhere (high and low scores, shoutouts, blowouts, Top 10, matchups of the week) are left out.
