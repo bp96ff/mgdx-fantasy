@@ -4272,7 +4272,8 @@
     const p = fetch(`${DATA}power-rankings.json`, { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => (d && d.season === SEASON ? d : null))
-      .catch(() => null);
+      .catch(() => null)
+      .then((d) => { if (!d) lockedCache = null; return d; }); // a failed load isn't kept, so the next visit tries again
     lockedCache = { t: Date.now(), p };
     return p;
   }
