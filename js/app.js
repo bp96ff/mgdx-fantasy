@@ -3940,6 +3940,41 @@
 
   // entries: [{ team, league, results }] already in rank order.
   // opts.showLeague tints each row with its league color (all-league table on Home).
+  // Playoff clinches for this season's standings, by league: Z clinched a first-round bye, X clinched a playoff
+  // spot, E eliminated. Every team plays 2 games a week through Week 14; the table ranks by win %, then PF.
+  // PF can't be known ahead, so a team only clinches when no one else can catch it even with a tie in wins,
+  // and is only out when enough teams are already out of reach in wins alone.
+  const BYE_SEEDS = 2; // seeds 1 and 2 skip the Wildcard round (since 2025)
+  const CLINCH_KEY = { Z: 'Clinched a first-round bye', X: 'Clinched a playoff spot', E: 'Eliminated from playoff contention' };
+  function clinchMarks(entries, playoffTeams) {
+    const marks = new Map();
+    if (ARCHIVE) return marks;
+    const byLeague = new Map();
+    for (const e of entries) (byLeague.get(e.league.slug) || byLeague.set(e.league.slug, []).get(e.league.slug)).push(e);
+    for (const list of byLeague.values()) {
+      const spots = playoffTeams || list[0].league.playoffTeams;
+      if (!spots || list.length <= spots) continue;
+      const teams = list.map((e) => {
+        const { wins = 0, losses = 0, ties = 0 } = e.team;
+        const pts = wins + ties / 2;
+        return { e, pts, max: pts + Math.max(0, LAST_REGULAR_WEEK * 2 - wins - losses - ties) };
+      });
+      for (const me of teams) {
+        const others = teams.filter((o) => o !== me);
+        const canCatch = others.filter((o) => o.max >= me.pts).length;
+        const ahead = others.filter((o) => o.pts > me.max).length;
+        const mark = canCatch < BYE_SEEDS ? 'Z' : canCatch < spots ? 'X' : ahead >= spots ? 'E' : '';
+        if (mark) marks.set(me.e.team, mark);
+      }
+    }
+    return marks;
+  }
+  const clinchTag = (mark) => (mark ? `<b class="clinch clinch-${mark.toLowerCase()}" title="${CLINCH_KEY[mark]}" aria-label="${CLINCH_KEY[mark]}">${mark}</b>` : '');
+  function clinchKey() {
+    if (ARCHIVE) return '';
+    return `<p class="clinch-key">${Object.entries(CLINCH_KEY).map(([m, label]) => `<span>${clinchTag(m)}${label}</span>`).join('')}</p>`;
+  }
+
   function standingsTable(entries, opts) {
     // opts.sort: { key: 'rank'|'pct'|'pf'|'pa', dir: 'desc'|'asc' } makes Rank/Overall/PF/PA headers clickable.
     const { overall, currentWeek, playoffTeams = 0, showLeague = false, sort = null } = opts;
@@ -3954,6 +3989,7 @@
     // Last 3 completed weeks: in-league + cross-league = 6 games (bye weeks are 2 cross-league games).
     const firstRecentWeek = currentWeek - 3;
     const split = (w, l, t) => `${w}-${l}${t ? `-${t}` : ''}`;
+    const marks = overall ? clinchMarks(entries, showLeague ? 0 : playoffTeams) : new Map();
     const rows = entries.map(({ team: t, league, results, rank }, i) => {
       // Every decided game in order: in-league first, then that week's cross-league game(s).
       const games = (results || []).filter((r) => r.result)
@@ -3974,7 +4010,7 @@
       const rowCls = showLeague ? 'lg-row' : i < playoffTeams ? 'in' : 'out';
       return `
         <tr class="${rowCls}" ${showLeague ? `style="--lc:var(--${league.theme})"` : ''}>
-          <td class="c-rank"><span class="rank">${rank || i + 1}</span></td>
+          <td class="c-rank"><span class="rank">${rank || i + 1}</span>${clinchTag(marks.get(t))}</td>
           <td class="c-team">
             <a class="team-cell" href="#/${league.slug}/rosters?team=${t.id}">
               ${teamLogo(t, league)}
@@ -4005,6 +4041,7 @@
             <tbody>${rows}</tbody>
           </table>
         </div>
+        ${overall ? clinchKey() : ''}
       </div>
       <p class="fineprint">${overall
         ? 'Ranked by overall record (in-league + cross-league win %), then points for. Last 6 covers the last 3 completed weeks, in-league and cross-league. PF includes bye-week scores and PA includes cross-league opponents, so neither will match ESPN.'

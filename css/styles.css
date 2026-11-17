@@ -1775,3 +1775,14 @@ button.react-chip:hover { border-color: var(--accent); }
   .re-pick-list { grid-template-columns: 1fr; }
   .re-foot { bottom: 6px; padding: 10px 12px; }
 }
+
+/* Standings: playoff clinches (Z bye, X in, E out) */
+.clinch {
+  display: inline-grid; place-items: center; flex: none; width: 16px; height: 16px; margin-right: 6px; border-radius: 4px;
+  font: 800 10px/1 var(--font); letter-spacing: 0; color: #06121f; background: var(--win);
+}
+.c-rank .clinch { display: grid; margin: 5px auto 0; }
+.clinch-z { background: var(--dna); }
+.clinch-e { background: var(--surface-3); color: var(--muted); }
+.clinch-key { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.clinch-key span { display: inline-flex; align-items: center; }
