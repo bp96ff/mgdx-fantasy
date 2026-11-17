@@ -7,18 +7,12 @@
 //   node tools/run-power-rankings.js --force   recalculate the current week anyway
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 require('./fetch-retry');
+const { loadSite } = require('./load-site');
 
-const ROOT = path.join(__dirname, '..');
+// The site's data code, which reads its own saved files (like data/cross-schedule.json) from disk.
+const { ESPN, PROJECTIONS, SEASON_DATA, MGDX, ROOT } = loadSite(['js/espn.js', 'js/sheet.js', 'js/season.js', 'tools/projections.js']);
 const OUTPUT = path.join(ROOT, 'data', 'power-rankings.json');
-
-// The site's data files expect a browser `window`; here it is just the global object.
-globalThis.window = globalThis;
-for (const file of ['js/config.js', 'js/espn.js', 'js/sheet.js', 'js/season.js', 'tools/projections.js']) {
-  vm.runInThisContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), { filename: file });
-}
-const { ESPN, PROJECTIONS, SEASON_DATA, MGDX } = globalThis;
 
 function readExisting() {
   try {
