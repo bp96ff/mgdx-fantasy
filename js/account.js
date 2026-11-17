@@ -55,20 +55,35 @@
 
   // Email links (confirm sign-up, reset password) carry ?token_hash=&type=, set by the email templates in
   // Supabase (see supabase/README.md). Unlike ?code=, these work in any browser, such as a mail app's.
+  // The link is only used when the person taps Confirm (state.link): email services that check links by
+  // opening them (Outlook's, for one) would otherwise use up the one-time link before the person gets there.
+  const LINK_STORE = 'mgdx-email-link';
+  let pendingLink = null;
   function emailLink() {
     const url = new URL(location.href);
     const tokenHash = url.searchParams.get('token_hash');
     const type = url.searchParams.get('type');
-    if (!tokenHash || !type) return;
-    history.replaceState(null, '', `${url.pathname}#/account`);
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-    client.auth.verifyOtp({ token_hash: tokenHash, type }).then(({ error }) => {
-      if (error) {
-        set({ error: type === 'recovery'
-          ? 'That reset link has expired or was already used. Ask for a new one below.'
-          : 'That link has expired or was already used. If you confirmed your email already, sign in below.' });
-      } else if (type === 'recovery') set({ recovery: true });
-    });
+    if (tokenHash && type) {
+      pendingLink = { tokenHash, type };
+      try { sessionStorage.setItem(LINK_STORE, JSON.stringify(pendingLink)); } catch { /* storage off */ }
+      history.replaceState(null, '', `${url.pathname}#/account`);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    } else {
+      try { pendingLink = JSON.parse(sessionStorage.getItem(LINK_STORE) || 'null'); } catch { pendingLink = null; }
+    }
+    if (pendingLink) set({ link: pendingLink.type });
+  }
+  async function useEmailLink() {
+    const link = pendingLink;
+    pendingLink = null;
+    try { sessionStorage.removeItem(LINK_STORE); } catch { /* storage off */ }
+    if (!link) return set({ link: null });
+    const { error } = await client.auth.verifyOtp({ token_hash: link.tokenHash, type: link.type });
+    if (!error) return set({ link: null, recovery: link.type === 'recovery' });
+    console.warn('Email link not accepted', error);
+    set({ link: null, error: link.type === 'recovery'
+      ? 'That reset link has expired or was already used. Enter your email below and choose Forgot your password for a new one.'
+      : 'That link has expired or was already used. Try signing in below: your email may already be confirmed. If it isn’t, choose Resend the confirmation email.' });
   }
 
   function start() {
@@ -163,7 +178,15 @@
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     clearError() { state = { ...state, error: null }; },
     google: async () => check(await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back() } })),
-    signIn: async (email, password) => check(await client.auth.signInWithPassword({ email, password })),
+    async signIn(email, password) {
+      const { error } = await client.auth.signInWithPassword({ email, password });
+      if (error && (error.code === 'email_not_confirmed' || /not confirmed/i.test(error.message))) {
+        throw new Error('This email isn’t confirmed yet. Use the link in the confirmation email, or choose Resend the confirmation email below.');
+      }
+      if (error) throw error;
+    },
+    useEmailLink,
+    resendConfirmation: async (email) => check(await client.auth.resend({ type: 'signup', email, options: { emailRedirectTo: back() } })),
     // Returns true when Supabase wants the email confirmed before the first sign-in.
     async signUp(email, password) {
       const { data, error } = await client.auth.signUp({ email, password, options: { emailRedirectTo: back() } });

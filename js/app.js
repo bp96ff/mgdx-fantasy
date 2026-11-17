@@ -1503,7 +1503,7 @@
     if (!el) return;
     const s = ACCOUNT ? ACCOUNT.state : { ready: true };
     // Only redraw when something shown changes, so a background token refresh doesn't wipe a half-typed form.
-    const view = JSON.stringify([ACCOUNT && ACCOUNT.enabled, s.ready, s.user && s.user.id, s.me, s.recovery, s.error, accountMode]);
+    const view = JSON.stringify([ACCOUNT && ACCOUNT.enabled, s.ready, s.user && s.user.id, s.me, s.recovery, s.link, s.error, accountMode]);
     if (view === accountView) return;
     accountView = view;
     const msg = s.error ? `<p class="acct-msg error" role="alert">${esc(s.error)}</p>` : '<p class="acct-msg" role="status"></p>';
@@ -1516,7 +1516,15 @@
     }
     if (!s.ready) { el.innerHTML = loading('Checking your account'); return; }
 
-    if (s.recovery) {
+    if (s.link) {
+      // From an email link: nothing happens until the person taps, so a mail service checking the link can't use it up.
+      const reset = s.link === 'recovery';
+      el.innerHTML = `<div class="panel acct-card">
+        <h2>${reset ? 'Reset your password' : 'Confirm your email'}</h2>
+        <p class="acct-lede">${reset ? 'Tap Continue to choose a new password.' : 'One more tap and your account is ready.'}</p>
+        <button class="btn" type="button" data-act="use-link">${reset ? 'Continue' : 'Confirm my email'}</button>
+        ${msg}</div>`;
+    } else if (s.recovery) {
       el.innerHTML = `<div class="panel acct-card">
         <h2>Choose a new password</h2>
         <form class="acct-form" data-act="new-password">
@@ -1538,7 +1546,7 @@
         ${msg}
         <p class="acct-links">
           ${up ? '<button type="button" data-act="mode">Already have an account? Sign in</button>'
-            : '<button type="button" data-act="mode">New here? Create an account</button><button type="button" data-act="forgot">Forgot your password?</button>'}
+            : '<button type="button" data-act="mode">New here? Create an account</button><button type="button" data-act="forgot">Forgot your password?</button><button type="button" data-act="resend">Resend the confirmation email</button>'}
         </p></div>`;
     } else if (!s.me) {
       el.innerHTML = `<div class="panel acct-card">
@@ -1792,6 +1800,13 @@
             await sub.unsubscribe().catch(() => {});
           }
           await ACCOUNT.signOut();
+        }
+        else if (act === 'use-link') { b.disabled = true; await ACCOUNT.useEmailLink(); }
+        else if (act === 'resend') {
+          const email = document.querySelector('#account-body input[name=email]').value.trim();
+          if (!email) return accountMessage('Enter your email above, then choose Resend the confirmation email again.', true);
+          await ACCOUNT.resendConfirmation(email);
+          accountMessage(`If ${email} has an account waiting to be confirmed, a new confirmation link is on its way.`);
         }
         else if (act === 'forgot') {
           const email = document.querySelector('#account-body input[name=email]').value.trim();

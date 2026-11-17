@@ -56,6 +56,9 @@ So email-and-password sign-ups need your own sender:
    inside `href="..."`) with:
    - **Confirm signup:** `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`
    - **Reset password:** `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery`
+   The site only uses the link when the person taps **Confirm my email** (or **Continue**) on the page it
+   opens, because some email services (Outlook's, for one) open every link to check it, which would otherwise
+   use up the one-time link first. The sign-in form also has **Resend the confirmation email**.
 5. Under **Authentication → Rate Limits**, raise emails per hour to about 30.
 
 Until this is done, Google sign-in still works.
