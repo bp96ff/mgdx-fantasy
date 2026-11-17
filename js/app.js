@@ -5823,6 +5823,33 @@
     if (box) box.querySelectorAll('details.bench').forEach((x) => { if (x.open !== d.open) x.open = d.open; });
   }, true);
 
+  // On phones, two-team lineups show side by side or one team at a time, from the switch under the week picker on
+  // Matchups and Cross-League; each viewer's choice is remembered on their device and applies to every matchup.
+  // The root's lu-side class turns the side-by-side styles on (css/styles.css).
+  const LINEUP_VIEW_KEY = 'mgdx-lineup-view';
+  const lineupView = () => { try { return localStorage.getItem(LINEUP_VIEW_KEY) === 'stacked' ? 'stacked' : 'side'; } catch { return 'side'; } };
+  document.documentElement.classList.toggle('lu-side', lineupView() === 'side');
+  const lineupViewSwitch = () => {
+    const v = lineupView();
+    return `<div class="lu-view">
+      <div class="lu-view-label" id="lu-view-label">Matchup View</div>
+      <div class="lu-view-btns" role="group" aria-labelledby="lu-view-label">
+        <button type="button" data-lu-view="side" aria-pressed="${v === 'side'}">Side by side</button>
+        <button type="button" data-lu-view="stacked" aria-pressed="${v === 'stacked'}">One team at a time</button>
+      </div>
+    </div>`;
+  };
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-lu-view]');
+    if (!btn) return;
+    const v = btn.dataset.luView;
+    try { localStorage.setItem(LINEUP_VIEW_KEY, v); } catch { /* private mode: just this page */ }
+    const keep = btn.getBoundingClientRect().top;
+    document.documentElement.classList.toggle('lu-side', v === 'side');
+    document.querySelectorAll('[data-lu-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.luView === v)));
+    window.scrollBy(0, btn.getBoundingClientRect().top - keep); // keep the switch under the finger
+  });
+
   function lineupToggle(g, openIds, inner, cls = '') {
     const open = openIds.has(g.id);
     return `
@@ -5982,6 +6009,7 @@
     body().innerHTML = `
       <div class="matchups-bar">
         <p class="muted">${data.upcoming ? 'Upcoming matchups — lineups appear once the week begins.' : data.isCurrent ? 'Live scores and projections. Refreshes every minute.' : 'Final scores.'}</p>
+        ${lineupViewSwitch()}
         <label class="select">
           <span class="sr-only">Choose week</span>
           <select id="week-select">${weekOptions(league, week)}${ARCHIVE ? playoffWeekOptions([15, 16], week) : ''}</select>
@@ -6403,6 +6431,7 @@
       body().innerHTML = `
         <div class="matchups-bar">
           <p class="muted">${upcoming ? 'Upcoming cross-league matchups.' : ARCHIVE ? `Final scores as the league recorded them${ARCHIVE.medianByes ? `; in ${SEASON}, a team on bye played the week's median` : ''}.` : decided ? 'Final scores.' : 'Live scores and projections. Refreshes every minute.'} Records include in-league and cross-league games.</p>
+          ${lineupViewSwitch()}
           <label class="select">
             <span class="sr-only">Choose week</span>
             <select id="week-select">${options}</select>
