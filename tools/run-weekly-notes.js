@@ -50,6 +50,9 @@ function teamWeeks(file, through = Infinity) {
   }
   return [...by.values()];
 }
+// A week's games in streak order: a result that continues the running streak counts first (a 1-1 week extends
+// a streak before ending it); otherwise the in-league game first.
+const streakOrder = (games, running) => games.slice().sort((x, y) => (y.result === running) - (x.result === running) || y.inLeague - x.inLeague);
 function seasonRuns(weeks, through = Infinity) {
   const runs = [];
   const byTeam = new Map();
@@ -58,7 +61,7 @@ function seasonRuns(weeks, through = Infinity) {
     list.sort((x, y) => x.week - y.week);
     let run = null;
     for (const w of list) {
-      for (const g of w.games.slice().sort((x, y) => y.inLeague - x.inLeague)) {
+      for (const g of streakOrder(w.games, run && run.result)) {
         if (run && run.result === g.result) { run.n++; run.end = w.week; continue; }
         if (run) runs.push(run);
         run = g.result === 'T' ? null : { key, result: g.result, n: 1, end: w.week };

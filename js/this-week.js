@@ -77,23 +77,29 @@
   const sideKey = (s) => `${s.league.slug}:${s.team.id}`;
 
   // Season so far, by team: { key: [wins, losses, ties, points for, streak] }. A positive streak is wins in a
-  // row, a negative one losses. Each week's in-league game counts before its cross-league game.
+  // row, a negative one losses. In a 1-1 week the result that continues the streak counts first, so the week
+  // extends it by one before ending it; otherwise the in-league game counts first. A tie ends a streak.
   function nextStanding(prev, sides, games, val) {
     const next = {};
     for (const s of sides) {
       const [w, l, t, pf, streak] = prev[sideKey(s)] || [0, 0, 0, 0, 0];
       next[sideKey(s)] = [w, l, t, Math.round((pf + val(s)) * 100) / 100, streak];
     }
-    const record = (s, won, tied) => {
-      const row = next[sideKey(s)];
-      row[tied ? 2 : won ? 0 : 1]++;
-      row[4] = tied ? 0 : won ? Math.max(row[4], 0) + 1 : Math.min(row[4], 0) - 1;
-    };
+    const week = new Map(); // key -> this week's results, in game order
+    const add = (s, won, tied) => (week.get(sideKey(s)) || week.set(sideKey(s), []).get(sideKey(s))).push({ won, tied });
     for (const g of games) {
       if (!(val(g.a) > 0 && val(g.b) > 0)) continue;
       const tied = val(g.a) === val(g.b);
-      record(g.a, val(g.a) > val(g.b), tied);
-      record(g.b, val(g.b) > val(g.a), tied);
+      add(g.a, val(g.a) > val(g.b), tied);
+      add(g.b, val(g.b) > val(g.a), tied);
+    }
+    for (const [key, list] of week) {
+      const row = next[key];
+      const goesOn = (r) => !r.tied && (row[4] > 0 ? r.won : row[4] < 0 ? !r.won : false);
+      for (const r of list.slice().sort((x, y) => goesOn(y) - goesOn(x))) {
+        row[r.tied ? 2 : r.won ? 0 : 1]++;
+        row[4] = r.tied ? 0 : r.won ? Math.max(row[4], 0) + 1 : Math.min(row[4], 0) - 1;
+      }
     }
     return next;
   }

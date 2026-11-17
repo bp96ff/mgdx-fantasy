@@ -2545,7 +2545,7 @@
       .map((w) => ({ ...w, link: w.games.find((g) => g.result === result).link }));
     const resultNote = (w, result) => `${result === 'L' ? 'Lost to' : 'Beat'} ${w.games.filter((g) => g.result === result).map(oppName).join(' and ')}`;
 
-    // Streaks within a season, in-league game before cross-league each week. A tie ends a streak.
+    // Streaks within a season, a week's games in streakOrder().
     const streaks = { W: [], L: [] };
     const latest = Math.max(...sides.filter((x) => x.year === SEASON).map((x) => x.week), 0);
     for (const s of seasons) {
@@ -2555,10 +2555,14 @@
         list.sort((a, b) => a.week - b.week || b.inLeague - a.inLeague);
         let run = null;
         const close = () => { if (run && run.n >= 2) streaks[run.result].push(run); run = null; };
-        for (const x of list) {
-          if (run && run.result === x.result) { run.n++; run.end = x.week; continue; }
-          close();
-          if (x.result !== 'T') run = { t: x.t, year: s.year, result: x.result, n: 1, start: x.week, end: x.week };
+        for (let k = 0; k < list.length;) {
+          const week = [];
+          while (k < list.length && list[k].week === (week[0] || list[k]).week) week.push(list[k++]);
+          for (const x of streakOrder(week, run && run.result)) {
+            if (run && run.result === x.result) { run.n++; run.end = x.week; continue; }
+            close();
+            if (x.result !== 'T') run = { t: x.t, year: s.year, result: x.result, n: 1, start: x.week, end: x.week };
+          }
         }
         if (run && s.year === SEASON && run.end === latest) run.active = true;
         close();
@@ -2632,7 +2636,7 @@
     body().innerHTML = `
       <p class="pw-status">All-time records from ${first} on. Tap a list to open it.</p>
       <div class="rec-list">${sections.map(table).join('')}</div>
-      <p class="fineprint">Single-week scores, game lists and streaks use ESPN's scores and include the ${SEASON} season's finished weeks; single-week scores also count past seasons' playoff games. Season records, PF and PA are from finished seasons, as League History shows them; PA counts every opponent, in-league and cross-league. Streaks run within one season, counting each week's in-league game before its cross-league game; a tie ends a streak. Luck is a finished season's actual wins minus expected wins, as each season's Luck Index has it: expected wins are the team's all-play win rate (its score each week against every other team's) times its games played, in-league and cross-league. ${history.seasons[2023] ? 'In 2023, a team on bye played the week’s median, and those games count, except in blowouts and closest games, which are head-to-head games only.' : ''}</p>`;
+      <p class="fineprint">Single-week scores, game lists and streaks use ESPN's scores and include the ${SEASON} season's finished weeks; single-week scores also count past seasons' playoff games. Season records, PF and PA are from finished seasons, as League History shows them; PA counts every opponent, in-league and cross-league. Streaks run within one season. In a 1-1 week, the result that continues a streak counts first, so the week adds one to the streak before ending it; a tie ends a streak. Luck is a finished season's actual wins minus expected wins, as each season's Luck Index has it: expected wins are the team's all-play win rate (its score each week against every other team's) times its games played, in-league and cross-league. ${history.seasons[2023] ? 'In 2023, a team on bye played the week’s median, and those games count, except in blowouts and closest games, which are head-to-head games only.' : ''}</p>`;
   }
 
   function placeholderPanel(art, kicker, title) {
@@ -3991,10 +3995,15 @@
     const split = (w, l, t) => `${w}-${l}${t ? `-${t}` : ''}`;
     const marks = overall ? clinchMarks(entries, showLeague ? 0 : playoffTeams) : new Map();
     const rows = entries.map(({ team: t, league, results, rank }, i) => {
-      // Every decided game in order: in-league first, then that week's cross-league game(s).
-      const games = (results || []).filter((r) => r.result)
-        .concat(t.crossGames || [])
-        .sort((a, b) => a.week - b.week || !!a.cross - !!b.cross);
+      // Every decided game in order, each week's in streakOrder() (a 1-1 week extends the running streak first).
+      const byWeek = new Map();
+      for (const g of (results || []).filter((r) => r.result).concat(t.crossGames || [])) {
+        (byWeek.get(g.week) || byWeek.set(g.week, []).get(g.week)).push(g);
+      }
+      const games = [];
+      for (const wk of [...byWeek.keys()].sort((a, b) => a - b)) {
+        games.push(...streakOrder(byWeek.get(wk), games.length ? games[games.length - 1].result : null, (g) => !g.cross));
+      }
       const recent = games.filter((g) => g.week >= firstRecentWeek && g.week < currentWeek);
       const dots = recent.map((r) => {
         const vs = r.opp ? ` vs ${r.opp.name}${r.cross ? ` (${r.oppLeague.displayName})` : ''}` : '';
@@ -4843,7 +4852,11 @@
     }
     return [...by.values()];
   }
-  // Streaks within one season, through a given week: in-league game before cross-league each week; a tie ends one.
+  // A week's games in streak order: a result that continues the running streak counts first, so a 1-1 week
+  // extends a streak by one before ending it; otherwise the in-league game first. A tie ends a streak.
+  const streakOrder = (games, running, inLeague = (g) => g.inLeague) => games.slice()
+    .sort((x, y) => (y.result === running) - (x.result === running) || !!inLeague(y) - !!inLeague(x));
+  // Streaks within one season, through a given week.
   function seasonRuns(weeks, through) {
     const runs = [];
     const byTeam = new Map();
@@ -4852,7 +4865,7 @@
       list.sort((x, y) => x.week - y.week);
       let run = null;
       for (const w of list) {
-        for (const g of w.games.slice().sort((x, y) => y.inLeague - x.inLeague)) {
+        for (const g of streakOrder(w.games, run && run.result)) {
           if (run && run.result === g.result) { run.n++; run.end = w.week; continue; }
           if (run) runs.push(run);
           run = g.result === 'T' ? null : { key, result: g.result, n: 1, end: w.week };
