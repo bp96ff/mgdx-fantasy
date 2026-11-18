@@ -2863,9 +2863,10 @@
     lucky: '<circle cx="8.6" cy="8.6" r="3.9"/><circle cx="15.4" cy="8.6" r="3.9"/><circle cx="8.6" cy="15.4" r="3.9"/><circle cx="15.4" cy="15.4" r="3.9"/><path d="M14 14c2.5 2.5 3.5 5 3.5 8" class="ink stem"/>',
     dawg: '<ellipse cx="12" cy="16.3" rx="5" ry="4.2"/><ellipse cx="5.4" cy="10.4" rx="2.1" ry="2.7"/><ellipse cx="9.4" cy="6.4" rx="2.1" ry="2.8"/><ellipse cx="14.6" cy="6.4" rx="2.1" ry="2.8"/><ellipse cx="18.6" cy="10.4" rx="2.1" ry="2.7"/>',
     challenger: '<path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2l-6.1 3.4 1.4-6.8-5.1-4.7 6.9-.8z"/>',
+    bubble: '<circle cx="10" cy="13.5" r="7.5"/><circle cx="18.6" cy="5.6" r="3.1"/><path d="M6.4 12.2a4 4 0 0 1 2.6-3.1" class="ink"/>',
     funfact: '<path d="M9 2.5h6M10 2.5v6.2L4.6 18.4A2 2 0 0 0 6.3 21.5h11.4a2 2 0 0 0 1.7-3.1L14 8.7V2.5" class="ink line"/><path d="M7.2 14h9.6l2.6 4.4a2 2 0 0 1-1.7 3.1H6.3a2 2 0 0 1-1.7-3.1z"/>',
   };
-  const RECAP_HM = { game: 'Honorable mention', upset: 'Honorable mention', badbeat: 'Honorable mention', lucky: 'Honorable mention', dawg: 'Honorable mention', funfact: 'Fun fact', challenger: 'Honorable mention' };
+  const RECAP_HM = { game: 'Honorable mention', upset: 'Honorable mention', badbeat: 'Honorable mention', lucky: 'Honorable mention', dawg: 'Honorable mention', funfact: 'Fun fact', challenger: 'Honorable mention', bubble: 'Honorable mention' };
 
   // Doc formatting: *italic* and ~~struck~~
   const recapText = (s) => esc(s).replace(/~~(.+?)~~/g, '<s>$1</s>').replace(/\*(.+?)\*/g, '<em>$1</em>');
@@ -2880,6 +2881,8 @@
     if (!o) return null;
     const cross = opp && (o.team.crossGames || []).find((g) => g.week === week && g.opp
       && String(g.opp.id) === String(opp.team.id) && g.oppLeague && g.oppLeague.slug === opp.league.slug);
+    const ahead = !cross && opp && (o.team.crossSchedule || []).find((x) => x[0] === week && x[1] === `${opp.league.slug}:${opp.team.id}`);
+    if (ahead) return `#/cross-league?week=${week}${ahead[2] ? `&game=${ahead[2]}` : ''}`;
     if (cross) {
       const slot = (o.team.crossSchedule || []).find((x) => x[0] === week && x[1] === `${opp.league.slug}:${opp.team.id}`);
       return `#/cross-league?week=${week}${slot && slot[2] ? `&game=${slot[2]}` : ''}`;
@@ -2908,6 +2911,31 @@
     </${tag}>`;
   }
 
+  // A matchup card for a game that wasn't final when it was added: both teams' projected points and win chances,
+  // as of the moment it was picked. m: { week, teams: [[owner, proj], [owner, proj]], prob (first team's) }.
+  function recapMatchup(m, owners) {
+    if (!m || !Array.isArray(m.teams) || m.teams.length !== 2) return '';
+    const [[aName, aProj], [bName, bProj]] = m.teams;
+    const link = recapGameLink(owners.get(aName), owners.get(bName), m.week);
+    const pct = (p) => `${Math.round(p * 100)}%`;
+    const side = (name, proj, p) => {
+      const o = owners.get(name);
+      return `<div class="rc-side ${p > 0.5 ? 'fav' : ''}" ${o ? `style="--c:var(--${o.league.theme})"` : ''}>
+        ${o ? teamLogo(o.team, o.league, 'avatar rc-av') : ''}
+        <div class="rc-who">
+          <span class="rc-name">${o ? '<i class="dot"></i>' : ''}${esc(name)}</span>
+          ${o ? `<small>${esc(o.team.name)}</small>` : ''}
+        </div>
+        <span class="rc-proj"><b>${pct(p)}</b><small>Proj ${Number(proj).toFixed(1)}</small></span>
+      </div>`;
+    };
+    const tag = link ? 'a' : 'div';
+    return `<${tag} class="rc-score rc-ahead" ${link ? `href="${link}"` : ''} aria-label="Week ${m.week}: ${esc(aName)} vs. ${esc(bName)}, ${pct(m.prob)} to ${pct(1 - m.prob)} to win${link ? ', view matchup' : ''}">
+      ${side(aName, aProj, m.prob)}${side(bName, bProj, 1 - m.prob)}
+      <p class="rc-margin">Week ${m.week} · Win chances${link ? '<span class="rc-view">View matchup ›</span>' : ''}</p>
+    </${tag}>`;
+  }
+
   // A section's (or honorable mention's) picture or GIF. Pictures are files in the editor's post-media folder.
   function recapMedia(m) {
     if (!m || !m.src || !m.w || !m.h) return '';
@@ -2927,6 +2955,7 @@
         ${recapMedia(h.media)}
         ${hasText(h.update) ? `<div class="rc-update"><p class="rc-hm-tag">Update</p>${recapBody(h.update)}</div>` : ''}
         ${h.score ? recapScore(h.score, owners, week) : ''}
+        ${h.matchup ? recapMatchup(h.matchup, owners) : ''}
       </div>`).join('');
     return `
       <article class="rc-card rc-${esc(s.kind)}" data-kind="${esc(key)}">
@@ -2938,6 +2967,7 @@
         ${recapMedia(s.media)}
         ${hasText(s.update) ? `<div class="rc-update"><p class="rc-hm-tag">Update</p>${recapBody(s.update)}</div>` : ''}
         ${s.score ? recapScore(s.score, owners, week) : ''}
+        ${s.matchup ? recapMatchup(s.matchup, owners) : ''}
         ${hm}
       </article>`;
   }
@@ -3032,9 +3062,9 @@
   // sends the "recap is up" notification).
   const RECAP_KINDS = [['game', 'Game of the Week'], ['upset', 'Upset of the Week'], ['badbeat', 'Bad beat of the week'],
     ['lucky', 'Lucky team of the week'], ['dawg', 'Dawg of the week'], ['funfact', 'Fun fact of the week'],
-    ['challenger', 'A New Challenger Approaches']];
+    ['challenger', 'A New Challenger Approaches'], ['bubble', 'Bubble Spotlight']];
   const RECAP_KIND_NAMES = Object.fromEntries(RECAP_KINDS);
-  const RECAP_KIND_COLORS = { game: 'dna', upset: 'rr', badbeat: 'loss', lucky: 'win', dawg: 'mm', funfact: 'dna', challenger: 'rr' };
+  const RECAP_KIND_COLORS = { game: 'dna', upset: 'rr', badbeat: 'loss', lucky: 'win', dawg: 'mm', funfact: 'dna', challenger: 'rr', bubble: 'bubble' };
   const newRecap = () => ({ intro: [], sections: ['game', 'upset', 'badbeat', 'lucky', 'dawg', 'funfact']
     .map((kind) => ({ kind, label: RECAP_KIND_NAMES[kind], body: [], hm: [] })) });
   const cloneRecap = (r) => {
@@ -3095,7 +3125,7 @@
       fileWeeks: new Set(((file && file.weeks) || []).map((w) => w.week)),
       games, owners: ownersFrom(standings),
       savedAt: row && row.draft ? row.updated_at : null,
-      pending: false, saving: null, timer: 0, msg: '', error: false, view: 'edit', gif: null, pick: null, busy: '', field: null,
+      pending: false, saving: null, timer: 0, msg: '', error: false, view: 'edit', gif: null, pick: null, pickWeek: week, ahead: new Map(), busy: '', field: null,
     };
     drawRecapEditor();
     bindRecapEditor();
@@ -3134,30 +3164,88 @@
     return `<label class="sr-only" for="re-${field}">${esc(label)}</label>
       <textarea id="re-${field}" data-f="${field}" rows="${textRows(text, min)}" placeholder="${esc(placeholder)}">${esc(text)}</textarea>`;
   }
-  // The week's saved games (data/games.json), winner first.
-  function edGames() {
+  // A week's saved games (data/games.json), winner first.
+  function edGames(week = recapEd.pickWeek) {
     const f = recapEd.games;
     if (!f || f.season !== SEASON) return [];
     const owner = (k) => (f.teams[k] || [])[1] || k;
-    return f.games.filter((g) => g[0] === recapEd.week && g[3] !== 'median').map(([, a, sa, b, sb, link]) => {
+    return f.games.filter((g) => g[0] === week && g[3] !== 'median').map(([, a, sa, b, sb, link]) => {
       const [w, l] = sa >= sb ? [[a, sa], [b, sb]] : [[b, sb], [a, sa]];
       return { score: [[owner(w[0]), w[1]], [owner(l[0]), l[1]]], league: a.split(':')[0], cross: !String(link).includes('/matchups') };
     });
   }
-  function edGamePicker(t) {
-    const games = edGames();
-    if (!games.length) {
-      return `<div class="re-pick"><p class="gif-note">Week ${recapEd.week}'s games aren't saved yet. They're saved once the week is final, early Tuesday.</p>
-        <div class="gif-foot"><span></span><button type="button" class="btn-quiet" data-ed="pick-close">Close</button></div></div>`;
+  // A week that isn't final yet: every in-league and cross-league game from ESPN, with projections and win chances.
+  async function edLoadAhead(week) {
+    const ed = recapEd;
+    if (ed.ahead.has(week)) return;
+    ed.ahead.set(week, { loading: true, games: [] });
+    let entry;
+    try {
+      const leagues = await loadAllLeagues();
+      const [sheet, weekData] = await Promise.all([
+        SHEET.weeks.includes(week) ? SHEET.getWeek(week) : null,
+        Promise.all(leagues.map((l) => ESPN.getMatchups(l, week))),
+      ]);
+      const sides = new Map();
+      const byeTeams = [];
+      const games = [];
+      const add = (a, b, league, cross) => {
+        if (!a || !b || !a.team || !b.team) return;
+        games.push({ league, cross, teams: [[a.team.owner, a.proj], [b.team.owner, b.proj]], prob: ESPN.winProb(a, b, false, null) });
+      };
+      leagues.forEach((l, i) => {
+        for (const g of weekData[i].games) {
+          for (const s of [g.home, g.away]) if (s) sides.set(`${l.slug}:${s.team.id}`, s);
+          if (g.bye) byeTeams.push({ league: l, team: g.home.team });
+          else add(g.home, g.away, l.slug, false);
+        }
+      });
+      for (const sec of sheet ? resolveWeek(sheet, leagues, byeTeams) : []) {
+        for (const [a, b] of sec.games) {
+          if (a.missing || b.missing) continue;
+          add(sides.get(`${a.league.slug}:${a.team.id}`), sides.get(`${b.league.slug}:${b.team.id}`), a.league.slug, true);
+        }
+      }
+      entry = { games };
+    } catch (err) {
+      entry = { games: [], error: `Couldn't load Week ${week}'s games from ESPN. ${err.message || ''}`.trim() };
     }
-    const groups = [...LEAGUES.map((l) => [l.name, games.filter((g) => !g.cross && g.league === l.slug)]), ['Cross-league', games.filter((g) => g.cross)]];
-    return `<div class="re-pick" role="group" aria-label="Pick a game">
-      ${groups.filter(([, list]) => list.length).map(([name, list]) => `<p class="re-pick-head">${esc(name)}</p><div class="re-pick-list">
-        ${list.map((g) => `<button type="button" class="re-game" data-ed="game" data-t="${t}" data-g="${games.indexOf(g)}">
+    if (recapEd !== ed) return;
+    ed.ahead.set(week, entry);
+    if (ed.pick && ed.pickWeek === week) drawRecapEditor();
+  }
+  function edGamePicker(t) {
+    const ed = recapEd;
+    const week = ed.pickWeek;
+    const games = edGames(week);
+    const ahead = games.length ? null : ed.ahead.get(week);
+    if (!games.length && !ahead) edLoadAhead(week);
+    const last = Math.max(14, ed.week);
+    const weekPick = `<label class="select re-pick-week"><span class="sr-only">Games from week</span><select data-pick-week>
+      ${Array.from({ length: last }, (_, i) => i + 1).filter((w) => w === ed.week || (w > ed.week && !edGames(w).length)).map((w) =>
+        `<option value="${w}"${w === week ? ' selected' : ''}>Week ${w}${w === ed.week ? ' · this recap' : ''}</option>`).join('')}</select></label>`;
+    const foot = '<div class="gif-foot"><span></span><button type="button" class="btn-quiet" data-ed="pick-close">Close</button></div>';
+    const list = games.length ? games : (ahead && ahead.games) || [];
+    const note = games.length ? '<p class="gif-note">Final scores.</p>'
+      : !ahead || ahead.loading ? `<p class="gif-note">Loading Week ${week}'s games…</p>`
+      : ahead.error ? `<p class="gif-note error">${esc(ahead.error)}</p>`
+      : list.length ? `<p class="gif-note">Not final yet: the card shows each team's projected points and win chances as of now.</p>`
+      : `<p class="gif-note">No games found for Week ${week}.</p>`;
+    const groups = [...LEAGUES.map((l) => [l.name, list.filter((g) => !g.cross && g.league === l.slug)]), ['Cross-league', list.filter((g) => g.cross)]];
+    const pct = (p) => `${Math.round(p * 100)}%`;
+    const button = (g) => (g.score
+      ? `<button type="button" class="re-game" data-ed="game" data-t="${t}" data-g="${list.indexOf(g)}">
           <span><b>${esc(g.score[0][0])}</b> ${g.score[0][1].toFixed(2)}</span><span class="re-game-vs">beat</span>
-          <span>${esc(g.score[1][0])} ${g.score[1][1].toFixed(2)}</span><small>by ${(g.score[0][1] - g.score[1][1]).toFixed(2)}</small></button>`).join('')}
+          <span>${esc(g.score[1][0])} ${g.score[1][1].toFixed(2)}</span><small>by ${(g.score[0][1] - g.score[1][1]).toFixed(2)}</small></button>`
+      : `<button type="button" class="re-game" data-ed="ahead" data-t="${t}" data-g="${list.indexOf(g)}">
+          <span><b>${esc(g.teams[0][0])}</b> ${pct(g.prob)}</span><span class="re-game-vs">vs.</span>
+          <span><b>${esc(g.teams[1][0])}</b> ${pct(1 - g.prob)}</span><small>proj ${g.teams[0][1].toFixed(1)}–${g.teams[1][1].toFixed(1)}</small></button>`);
+    return `<div class="re-pick" role="group" aria-label="Pick a game">
+      <div class="re-row re-pick-top">${weekPick}${note}</div>
+      ${groups.filter(([, gs]) => gs.length).map(([name, gs]) => `<p class="re-pick-head">${esc(name)}</p><div class="re-pick-list">
+        ${gs.map(button).join('')}
       </div>`).join('')}
-      <div class="gif-foot"><span></span><button type="button" class="btn-quiet" data-ed="pick-close">Close</button></div>
+      ${foot}
     </div>`;
   }
   function edGifGrid(g) {
@@ -3177,6 +3265,7 @@
         ${edText(`${t}:update`, b.update, 'Update', 'An update posted after the recap went up…', 2)}</div>`);
     }
     if (b.score) extras.push(`<div class="re-attached re-scorecard">${recapScore(b.score, ed.owners, ed.week)}<button type="button" class="btn-quiet danger" data-ed="score-x" data-t="${t}">Remove the scorecard</button></div>`);
+    if (b.matchup) extras.push(`<div class="re-attached re-scorecard">${recapMatchup(b.matchup, ed.owners)}<button type="button" class="btn-quiet danger" data-ed="score-x" data-t="${t}">Remove the matchup card</button></div>`);
     const gif = ed.gif && ed.gif.t === t ? `
       <div class="gif-picker">
         <label class="sr-only" for="re-gif-q">Search GIFs</label>
@@ -3192,7 +3281,7 @@
         <label class="btn-quiet post-add${b.media || busy ? ' off' : ''}" title="Add a picture">${PHOTO_ICON}<span>Picture</span>
           <input type="file" accept="image/*" data-photo="${t}" aria-label="Add a picture"${b.media || busy ? ' disabled' : ''}></label>
         ${GIPHY_KEY ? `<button type="button" class="btn-quiet post-add" data-ed="gif" data-t="${t}"${b.media || busy ? ' disabled' : ''}><b class="gif-badge">GIF</b></button>` : ''}
-        <button type="button" class="btn-quiet" data-ed="pick" data-t="${t}" aria-expanded="${ed.pick === t}">${b.score ? 'Change scorecard' : '+ Scorecard'}</button>
+        <button type="button" class="btn-quiet" data-ed="pick" data-t="${t}" aria-expanded="${ed.pick === t}">${b.score || b.matchup ? 'Change game card' : '+ Game card'}</button>
         ${b.update ? '' : `<button type="button" class="btn-quiet" data-ed="update" data-t="${t}">+ Update</button>`}
       </div>
       ${gif}${ed.pick === t ? edGamePicker(t) : ''}
@@ -3381,7 +3470,7 @@
       case 'update': block.update = []; edChanged(true); { const box = document.getElementById(`re-${t}:update`); if (box) box.focus(); } return;
       case 'update-x': delete block.update; edChanged(true); return;
       case 'media-x': delete block.media; edChanged(true); return;
-      case 'score-x': delete block.score; edChanged(true); return;
+      case 'score-x': delete block.score; delete block.matchup; edChanged(true); return;
       case 'gif':
         ed.pick = null; ed.gif = { t, q: '', items: [], loading: true, error: '' };
         drawRecapEditor();
@@ -3398,12 +3487,23 @@
         edChanged(true);
         return;
       }
-      case 'pick': ed.gif = null; ed.pick = ed.pick === t ? null : t; drawRecapEditor(); return;
+      case 'pick': ed.gif = null; ed.pick = ed.pick === t ? null : t; ed.pickWeek = ed.week; drawRecapEditor(); return;
       case 'pick-close': ed.pick = null; drawRecapEditor(); return;
       case 'game': {
         const g = edGames()[Number(btn.dataset.g)];
         if (!g || !block) return;
         block.score = g.score;
+        delete block.matchup;
+        ed.pick = null;
+        edChanged(true);
+        return;
+      }
+      case 'ahead': {
+        const g = ((ed.ahead.get(ed.pickWeek) || {}).games || [])[Number(btn.dataset.g)];
+        if (!g || !block) return;
+        const r = (n) => Math.round(n * 100) / 100;
+        block.matchup = { week: ed.pickWeek, teams: g.teams.map(([n, p]) => [n, r(p)]), prob: r(g.prob) };
+        delete block.score;
         ed.pick = null;
         edChanged(true);
         return;
@@ -3541,6 +3641,7 @@
         return;
       }
       if (box.dataset.photo) { edPhoto(box); return; }
+      if (box.hasAttribute('data-pick-week')) { ed.pickWeek = Number(box.value); drawRecapEditor(); return; }
       if (box.dataset.kindOf) {
         const s = ed.data.sections[Number(box.dataset.kindOf)];
         if (!s.label || s.label === RECAP_KIND_NAMES[s.kind]) s.label = RECAP_KIND_NAMES[box.value];

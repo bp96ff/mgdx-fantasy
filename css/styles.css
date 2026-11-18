@@ -21,6 +21,7 @@
   --mm: #ec6a4f;  --mm-soft: #e2968a;
   --gg: #66b85a;  --gg-soft: #8fa874;
   --rr: #f6bd2f;  --rr-soft: #fbeab8;
+  --bubble: #8fd8ff; /* Bubble Spotlight */
 
   --accent: var(--dna);
   --accent-soft: #cfe9fa;
@@ -222,7 +223,7 @@ main.wrap { flex: 1; padding-top: 18px; padding-bottom: 36px; outline: none; }
 /* Game of the Week: a scoreboard */
 .rc-game { --k: var(--dna); }
 .rc-score {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: 14px; border-radius: 12px; overflow: hidden;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px; margin-top: 14px; border-radius: 12px; overflow: hidden;
   border: 1px solid var(--line); background: var(--line);
 }
 .rc-side {
@@ -245,6 +246,22 @@ a.rc-score:hover .rc-margin { color: var(--text); }
 .rc-margin {
   grid-column: 1 / -1; margin: 0 !important; padding: 5px; text-align: center; background: var(--surface-2);
   font: 700 11px/1.4 var(--font) !important; letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+}
+
+/* A matchup card for a game that wasn't final yet: win chances, with projected points under them */
+.rc-proj { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.rc-proj small { font: 700 11px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.rc-side.fav .rc-name { color: var(--text); }
+.rc-side.fav b { color: var(--accent); }
+
+/* Bubble Spotlight: light blue, with bubbles rising in the corner */
+.rc-bubble { --k: var(--bubble); }
+.rc-bubble::after {
+  content: ''; position: absolute; right: 14px; top: 10px; width: 120px; height: 70px; opacity: .2; pointer-events: none;
+  background:
+    radial-gradient(circle at 80% 30%, transparent 13px, var(--bubble) 14px 16px, transparent 17px),
+    radial-gradient(circle at 45% 70%, transparent 8px, var(--bubble) 9px 11px, transparent 12px),
+    radial-gradient(circle at 20% 25%, transparent 4px, var(--bubble) 5px 6.5px, transparent 7.5px);
 }
 
 /* Upset: hazard stripes along the top */
@@ -305,7 +322,7 @@ a.rc-score:hover .rc-margin { color: var(--text); }
   .rc-upset { padding-top: 24px; }
   .rc-head h3 { font-size: 20px; }
   .rc-challenger .rc-head h3 { font-size: 21px; }
-  .rc-score { grid-template-columns: 1fr; }
+  .rc-score { grid-template-columns: minmax(0, 1fr); }
   .rc-side b { font-size: 26px; }
 }
 
@@ -1746,6 +1763,9 @@ button.react-chip:hover { border-color: var(--accent); }
 .re-add-hm { align-self: flex-start; }
 .re-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; overflow: visible; }
 .re-pick { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); max-height: 380px; overflow-y: auto; overscroll-behavior: contain; }
+.re-pick-top { flex-wrap: wrap; gap: 6px 12px; margin-bottom: 4px; }
+.re-pick-top .gif-note { margin: 0; flex: 1 1 200px; }
+.re-pick-week select { padding-block: 6px; }
 .re-pick-head { margin: 6px 0; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .re-pick-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 6px; }
 .re-game {
