@@ -742,6 +742,9 @@ revoke execute on function public.recap_drafts(), public.save_recap(int, jsonb),
 grant execute on function public.recap_drafts(), public.save_recap(int, jsonb), public.publish_recap(int),
   public.unpublish_recap(int) to authenticated;
 grant execute on function public.list_recaps(int) to anon, authenticated;
+-- The push function reads the newest published week straight from the table. New tables here don't get
+-- grants for the server role automatically, so give it read access.
+grant select on public.recaps to service_role;
 
 -- Which notifications a member wants (all on until they turn one off).
 alter table public.profiles add column if not exists push_mentions boolean not null default true;
