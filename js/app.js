@@ -2984,7 +2984,7 @@
   function recapPage(recap, owners) {
     const keys = recapKeys(recap.sections);
     const media = recapMedia(recap.introMedia);
-    return `${hasText(recap.intro) || media ? `<div class="rc-lede">${recapBody(recap.intro || [])}${media}</div>` : ''}
+    return `${hasText(recap.intro) || media ? `<div class="rc-lede">${media}${recapBody(recap.intro || [])}</div>` : ''}
       ${recap.sections.map((s, i) => recapSection(s, owners, recap.week, keys[i])).join('')}`;
   }
 
@@ -3361,6 +3361,7 @@
         <p class="re-note">A blank line starts a new paragraph, and lines starting with “- ” become bullet points. Select words and tap <i>I</i> for italics or <s>S</s> to strike them out.</p>
         <section class="panel re-sec re-intro">
           <p class="re-sec-title">Intro</p>
+          ${ed.data.introMedia ? edMediaAttached('intro', ed.data.introMedia) : ''}
           ${edText('intro', ed.data.intro, 'Intro', 'How the week went…', 4)}
           <div class="re-tools">
             <button type="button" class="re-fmt" data-ed="fmt" data-wrap="*" data-t="intro" title="Italic (select words first)" aria-label="Italic"><i>I</i></button>
@@ -3368,7 +3369,6 @@
             ${edMediaTools('intro', ed.data.introMedia)}
           </div>
           ${ed.gif && ed.gif.t === 'intro' ? edGifPicker() : ''}
-          ${ed.data.introMedia ? edMediaAttached('intro', ed.data.introMedia) : ''}
         </section>
         ${ed.data.sections.map((s, i) => edSectionHtml(s, i, ed.data.sections.length)).join('')}
         <div class="panel re-add">

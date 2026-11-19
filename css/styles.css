@@ -191,7 +191,7 @@ main.wrap { flex: 1; padding-top: 18px; padding-bottom: 36px; outline: none; }
   background: linear-gradient(135deg, color-mix(in srgb, var(--leather) 14%, var(--surface)), var(--surface) 55%);
   border: 1px solid var(--line); border-left: 4px solid var(--leather);
 }
-.rc-lede p:first-child::first-letter {
+.rc-lede p:first-of-type::first-letter {
   font: 800 1.75em/1 var(--display); color: var(--leather); margin-right: 1px;
 }
 
@@ -1724,6 +1724,8 @@ button.react-chip:hover { border-color: var(--accent); }
 .recap { --media-h: 380px; }
 .rc-media { margin-top: 14px; }
 .rc-media img { width: auto; max-width: 100%; }
+.rc-lede > .rc-media:first-child { margin: 0 0 14px; } /* the intro's picture or GIF sits above its text */
+.re-intro .re-attached { margin-bottom: 10px; }
 .re-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 12px; }
 .re-entry span { color: var(--muted); font-size: 13px; }
 .re-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
