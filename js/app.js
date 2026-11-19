@@ -2983,7 +2983,8 @@
   }
   function recapPage(recap, owners) {
     const keys = recapKeys(recap.sections);
-    return `${hasText(recap.intro) ? `<div class="rc-lede">${recapBody(recap.intro)}</div>` : ''}
+    const media = recapMedia(recap.introMedia);
+    return `${hasText(recap.intro) || media ? `<div class="rc-lede">${recapBody(recap.intro || [])}${media}</div>` : ''}
       ${recap.sections.map((s, i) => recapSection(s, owners, recap.week, keys[i])).join('')}`;
   }
 
@@ -3005,7 +3006,7 @@
       recapsOnSite() ? ACCOUNT.read('list_recaps', { p_season: SEASON }).catch(() => null) : Promise.resolve([])]);
     if (!file && !rows) return null;
     const weeks = new Map(((file && file.weeks) || []).map((w) => [w.week, w]));
-    for (const r of rows || []) if (r.content) weeks.set(r.week, { week: r.week, intro: r.content.intro || [], sections: r.content.sections || [] });
+    for (const r of rows || []) if (r.content) weeks.set(r.week, { week: r.week, intro: r.content.intro || [], introMedia: r.content.introMedia || null, sections: r.content.sections || [] });
     return [...weeks.values()].sort((a, b) => a.week - b.week);
   }
 
@@ -3068,7 +3069,7 @@
   const newRecap = () => ({ intro: [], sections: ['game', 'upset', 'badbeat', 'lucky', 'dawg', 'funfact']
     .map((kind) => ({ kind, label: RECAP_KIND_NAMES[kind], body: [], hm: [] })) });
   const cloneRecap = (r) => {
-    const c = JSON.parse(JSON.stringify({ intro: r.intro || [], sections: r.sections || [] }));
+    const c = JSON.parse(JSON.stringify({ intro: r.intro || [], ...(r.introMedia ? { introMedia: r.introMedia } : {}), sections: r.sections || [] }));
     for (const s of c.sections) s.hm = (s.hm || []).map(({ kind, label, ...h }) => h); // the old file repeats these
     return c;
   };
@@ -3083,8 +3084,16 @@
 
   let recapEd = null;
   const edBody = () => document.getElementById('league-body');
-  // A block is a section ("s2") or one of its honorable mentions ("s2h0").
+  // A block is the intro ("intro"), a section ("s2") or one of its honorable mentions ("s2h0"). The intro's
+  // text is a plain list, so its picture or GIF is saved beside it, as the recap's introMedia.
   function edBlock(t) {
+    if (t === 'intro') {
+      const d = recapEd.data;
+      return {
+        get media() { return d.introMedia || null; },
+        set media(m) { if (m) d.introMedia = m; else delete d.introMedia; },
+      };
+    }
     const m = /^s(\d+)(?:h(\d+))?$/.exec(t || '');
     const sec = m && recapEd.data.sections[Number(m[1])];
     if (!sec) return null;
@@ -3255,32 +3264,42 @@
     return g.items.map((it, i) => `<button type="button" class="gif-pick" data-ed="gif-pick" data-i="${i}" title="${esc(it.title)}" aria-label="${esc(it.title)}">
       <img src="${esc(it.thumb)}" alt="" loading="lazy"></button>`).join('');
   }
+  // The Picture and GIF buttons, the GIF search, and an attached picture or GIF, for a block (t).
+  function edMediaTools(t, media) {
+    const off = Boolean(media || recapEd.busy);
+    return `<label class="btn-quiet post-add${off ? ' off' : ''}" title="Add a picture">${PHOTO_ICON}<span>Picture</span>
+          <input type="file" accept="image/*" data-photo="${t}" aria-label="Add a picture"${off ? ' disabled' : ''}></label>
+        ${GIPHY_KEY ? `<button type="button" class="btn-quiet post-add" data-ed="gif" data-t="${t}"${off ? ' disabled' : ''}><b class="gif-badge">GIF</b></button>` : ''}`;
+  }
+  function edGifPicker() {
+    const g = recapEd.gif;
+    return `
+      <div class="gif-picker">
+        <label class="sr-only" for="re-gif-q">Search GIFs</label>
+        <input id="re-gif-q" type="search" placeholder="Search GIFs" value="${esc(g.q)}" autocomplete="off" enterkeyhint="search">
+        <div class="gif-grid" aria-live="polite">${edGifGrid(g)}</div>
+        <div class="gif-foot"><small>Powered by GIPHY</small><button type="button" class="btn-quiet" data-ed="gif-close">Close</button></div>
+      </div>`;
+  }
+  const edMediaAttached = (t, media) => `<div class="re-attached">${recapMedia(media)}<button type="button" class="btn-quiet danger" data-ed="media-x" data-t="${t}">Remove the ${media.kind === 'gif' ? 'GIF' : 'picture'}</button></div>`;
+
   function edBlockHtml(t, b, placeholder) {
     const ed = recapEd;
-    const busy = Boolean(ed.busy);
     const extras = [];
-    if (b.media) extras.push(`<div class="re-attached">${recapMedia(b.media)}<button type="button" class="btn-quiet danger" data-ed="media-x" data-t="${t}">Remove the ${b.media.kind === 'gif' ? 'GIF' : 'picture'}</button></div>`);
+    if (b.media) extras.push(edMediaAttached(t, b.media));
     if (b.update) {
       extras.push(`<div class="re-update"><div class="re-row"><p class="rc-hm-tag">Update</p><button type="button" class="btn-quiet danger" data-ed="update-x" data-t="${t}">Remove the update</button></div>
         ${edText(`${t}:update`, b.update, 'Update', 'An update posted after the recap went up…', 2)}</div>`);
     }
     if (b.score) extras.push(`<div class="re-attached re-scorecard">${recapScore(b.score, ed.owners, ed.week)}<button type="button" class="btn-quiet danger" data-ed="score-x" data-t="${t}">Remove the scorecard</button></div>`);
     if (b.matchup) extras.push(`<div class="re-attached re-scorecard">${recapMatchup(b.matchup, ed.owners)}<button type="button" class="btn-quiet danger" data-ed="score-x" data-t="${t}">Remove the matchup card</button></div>`);
-    const gif = ed.gif && ed.gif.t === t ? `
-      <div class="gif-picker">
-        <label class="sr-only" for="re-gif-q">Search GIFs</label>
-        <input id="re-gif-q" type="search" placeholder="Search GIFs" value="${esc(ed.gif.q)}" autocomplete="off" enterkeyhint="search">
-        <div class="gif-grid" aria-live="polite">${edGifGrid(ed.gif)}</div>
-        <div class="gif-foot"><small>Powered by GIPHY</small><button type="button" class="btn-quiet" data-ed="gif-close">Close</button></div>
-      </div>` : '';
+    const gif = ed.gif && ed.gif.t === t ? edGifPicker() : '';
     return `
       ${edText(`${t}:body`, b.body, 'Text', placeholder)}
       <div class="re-tools">
         <button type="button" class="re-fmt" data-ed="fmt" data-wrap="*" data-t="${t}" title="Italic (select words first)" aria-label="Italic"><i>I</i></button>
         <button type="button" class="re-fmt" data-ed="fmt" data-wrap="~~" data-t="${t}" title="Strikethrough (select words first)" aria-label="Strikethrough"><s>S</s></button>
-        <label class="btn-quiet post-add${b.media || busy ? ' off' : ''}" title="Add a picture">${PHOTO_ICON}<span>Picture</span>
-          <input type="file" accept="image/*" data-photo="${t}" aria-label="Add a picture"${b.media || busy ? ' disabled' : ''}></label>
-        ${GIPHY_KEY ? `<button type="button" class="btn-quiet post-add" data-ed="gif" data-t="${t}"${b.media || busy ? ' disabled' : ''}><b class="gif-badge">GIF</b></button>` : ''}
+        ${edMediaTools(t, b.media)}
         <button type="button" class="btn-quiet" data-ed="pick" data-t="${t}" aria-expanded="${ed.pick === t}">${b.score || b.matchup ? 'Change game card' : '+ Game card'}</button>
         ${b.update ? '' : `<button type="button" class="btn-quiet" data-ed="update" data-t="${t}">+ Update</button>`}
       </div>
@@ -3346,7 +3365,10 @@
           <div class="re-tools">
             <button type="button" class="re-fmt" data-ed="fmt" data-wrap="*" data-t="intro" title="Italic (select words first)" aria-label="Italic"><i>I</i></button>
             <button type="button" class="re-fmt" data-ed="fmt" data-wrap="~~" data-t="intro" title="Strikethrough (select words first)" aria-label="Strikethrough"><s>S</s></button>
+            ${edMediaTools('intro', ed.data.introMedia)}
           </div>
+          ${ed.gif && ed.gif.t === 'intro' ? edGifPicker() : ''}
+          ${ed.data.introMedia ? edMediaAttached('intro', ed.data.introMedia) : ''}
         </section>
         ${ed.data.sections.map((s, i) => edSectionHtml(s, i, ed.data.sections.length)).join('')}
         <div class="panel re-add">
@@ -3469,7 +3491,7 @@
       }
       case 'update': block.update = []; edChanged(true); { const box = document.getElementById(`re-${t}:update`); if (box) box.focus(); } return;
       case 'update-x': delete block.update; edChanged(true); return;
-      case 'media-x': delete block.media; edChanged(true); return;
+      case 'media-x': if (t === 'intro') block.media = null; else delete block.media; edChanged(true); return;
       case 'score-x': delete block.score; delete block.matchup; edChanged(true); return;
       case 'gif':
         ed.pick = null; ed.gif = { t, q: '', items: [], loading: true, error: '' };
