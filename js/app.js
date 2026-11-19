@@ -3051,10 +3051,14 @@
     body().querySelector('#week-select').addEventListener('change', (e) => {
       location.hash = `#/blog/recaps?week=${e.target.value}`;
     });
-    // Each section gets its own reactions, e.g. recap:2026:w9:badbeat.
-    attachReactions(body(), [...body().querySelectorAll('.recap .rc-card[data-kind]')].map((el) => ({
-      el, target: `recap:${SEASON}:w${recap.week}:${el.dataset.kind}`,
-    })));
+    // The intro and each section get their own reactions, e.g. recap:2026:w9:intro, recap:2026:w9:badbeat.
+    const lede = body().querySelector('.recap .rc-lede');
+    attachReactions(body(), [
+      ...(lede ? [{ el: lede, target: `recap:${SEASON}:w${recap.week}:intro` }] : []),
+      ...[...body().querySelectorAll('.recap .rc-card[data-kind]')].map((el) => ({
+        el, target: `recap:${SEASON}:w${recap.week}:${el.dataset.kind}`,
+      })),
+    ]);
   }
 
   // ---------- recap editor (recap editors only: managers.recap_editor in supabase/schema.sql) ----------

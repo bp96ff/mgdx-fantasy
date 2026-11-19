@@ -1377,6 +1377,7 @@ button.react-chip:hover { border-color: var(--accent); }
 .matchup > .react { margin: 12px 0 0; justify-content: center; }
 .tw-card > .react { margin-top: 10px; }
 .rc-card > .react { margin-top: 16px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--k) 25%, var(--line)); }
+.rc-lede > .react { margin-top: 16px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--leather) 25%, var(--line)); font-size: 16px; }
 
 /* ===== Main Blog: posts ===== */
 .feed-body { max-width: 720px; margin: 0 auto; --media-h: 300px; }
