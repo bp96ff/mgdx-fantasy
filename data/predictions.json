@@ -42,6 +42,48 @@
     "research-rodents.6": 100.69,
     "research-rodents.5": 120.9
    }
+  },
+  "12": {
+   "locksAt": "2026-11-26T01:00:00.000Z",
+   "savedAt": "2026-11-25T23:33:36.692Z",
+   "proj": {
+    "lab-rats.1": 148.24,
+    "lab-rats.12": 131.3,
+    "lab-rats.7": 113.03,
+    "lab-rats.5": 117.34,
+    "lab-rats.4": 130.43,
+    "lab-rats.3": 119.73,
+    "lab-rats.6": 127.65,
+    "lab-rats.2": 139.23,
+    "lab-rats.11": 110.63,
+    "molecular-mice.3": 138.1,
+    "molecular-mice.10": 124.67,
+    "molecular-mice.4": 122.08,
+    "molecular-mice.8": 132.44,
+    "molecular-mice.2": 127.15,
+    "molecular-mice.7": 135.93,
+    "molecular-mice.1": 128.75,
+    "molecular-mice.5": 118.94,
+    "molecular-mice.9": 105.8,
+    "genomic-gerbils.8": 142,
+    "genomic-gerbils.1": 133.39,
+    "genomic-gerbils.6": 117.26,
+    "genomic-gerbils.9": 141.75,
+    "genomic-gerbils.2": 121.33,
+    "genomic-gerbils.3": 127.51,
+    "genomic-gerbils.7": 120.02,
+    "genomic-gerbils.5": 129.21,
+    "genomic-gerbils.4": 105.91,
+    "research-rodents.8": 143.5,
+    "research-rodents.1": 139.95,
+    "research-rodents.4": 118.75,
+    "research-rodents.3": 133.92,
+    "research-rodents.7": 119.3,
+    "research-rodents.6": 121.09,
+    "research-rodents.2": 125.63,
+    "research-rodents.9": 117.01,
+    "research-rodents.5": 117.11
+   }
   }
  }
 }
